@@ -43,6 +43,35 @@ The backend starts on:
 http://localhost:8000
 ```
 
+### CORS
+
+CORS is enabled for local frontends on ports `3000`, `5173`, and `8080`
+(both `localhost` and `127.0.0.1`). To use another frontend origin, set
+`CORS_ORIGINS` in `backend/.env` as a comma-separated list:
+
+```text
+CORS_ORIGINS=http://localhost:4200,https://frontend.example.com
+```
+
+Origins must include the scheme and port, but not a trailing path. The server
+allows credentials, methods, and headers, so do not configure `*` as an origin.
+
+### Authentication
+
+The authentication endpoints use JSON, except for `/token`, which remains
+available for the OAuth2 form used by Swagger:
+
+- `POST /register` with `name`, `surname`, `email`, and `password`;
+- `POST /login` with `email` and `password`;
+- `POST /logout` to invalidate the browser cookie;
+- `GET /users/me` to verify the current session.
+
+After a successful login, the server sets an HttpOnly `session` cookie
+containing the signed token. The frontend must send cookies on cross-origin
+requests, for example with `fetch(..., { credentials: "include" })`.
+The cookie is not readable from JavaScript. `SESSION_COOKIE_SECURE` must be
+set to `true` when the backend is served over HTTPS.
+
 The Swagger UI (interactive docs, where every endpoint can be tried) is available at:
 
 ```text

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 
@@ -14,7 +14,7 @@ password_hash = PasswordHash.recommended()  # argon2
 
 # reads the "Authorization: Bearer <token>" header, answers 401 if it's missing.
 # tokenUrl is the login route, used by the "Authorize" button of /docs
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -30,8 +30,18 @@ def create_token(username: str, role: str) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
+def get_current_user(
+    session_token: str | None = Cookie(default=None, alias="session"),
+    authorization_token: str | None = Depends(oauth2_scheme),
+) -> UserPublic:
     # the token is signed, so its content can be trusted without a db query
+    token = session_token or authorization_token
+    if not token:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  # also checks exp
         return UserPublic(username=payload["sub"], role=payload["role"])
