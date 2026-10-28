@@ -1,0 +1,21 @@
+# Test + coverage config for the backend. Run from the backend folder with:
+#
+#     python -m pytest
+#
+# Needs pytest-cov:  python -m pip install pytest-cov
+
+[tool.pytest.ini_options]
+testpaths = ["backend_test"]  # unitTest/ + integrationTest/
+pythonpath = ["."]            # makes `from app...` work in the tests
+addopts = "--cov --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["app"]  # measure only the app code, not the tests
+branch = true     # also check that both sides of every if are tested
+
+[tool.coverage.report]
+show_missing = true  # list the uncovered line numbers
+skip_empty = true
+
+[tool.coverage.html]
+directory = "htmlcov"  # open htmlcov/index.html in a browser
