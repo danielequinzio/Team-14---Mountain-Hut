@@ -61,7 +61,8 @@ allows credentials, methods, and headers, so do not configure `*` as an origin.
 The authentication endpoints use JSON, except for `/token`, which remains
 available for the OAuth2 form used by Swagger:
 
-- `POST /register` with `name`, `surname`, `email`, and `password`;
+- `POST /register` with `name`, `surname`, `email`, `mobile_number`, and
+  `password`; `notes` and `emergency_contact` are optional;
 - `POST /login` with `email` and `password`;
 - `POST /logout` to invalidate the browser cookie;
 - `GET /users/me` to verify the current session.

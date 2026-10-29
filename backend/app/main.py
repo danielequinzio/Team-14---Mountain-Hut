@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     drop_unused_salt_column()
     drop_username_unique_constraint()
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
+    add_user_profile_columns()
 
     # add some sample data the first time the db is created
     with Session(engine) as session:
@@ -96,6 +97,9 @@ def drop_username_unique_constraint():
                 name VARCHAR NOT NULL,
                 surname VARCHAR NOT NULL,
                 email VARCHAR NOT NULL,
+                mobile_number VARCHAR,
+                notes VARCHAR,
+                emergency_contact VARCHAR,
                 password_hash VARCHAR NOT NULL,
                 role VARCHAR NOT NULL
             )
@@ -103,8 +107,11 @@ def drop_username_unique_constraint():
         )
         connection.exec_driver_sql(
             """
-            INSERT INTO user_new (id, username, name, surname, email, password_hash, role)
-            SELECT id, username, name, surname, email, password_hash, role
+            INSERT INTO user_new (
+                id, username, name, surname, email, mobile_number, notes,
+                emergency_contact, password_hash, role
+            )
+            SELECT id, username, name, surname, email, NULL, NULL, NULL, password_hash, role
             FROM user
             """
         )
@@ -112,6 +119,25 @@ def drop_username_unique_constraint():
         connection.exec_driver_sql("ALTER TABLE user_new RENAME TO user")
         connection.exec_driver_sql("CREATE UNIQUE INDEX user_email ON user (email)")
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+
+
+def add_user_profile_columns():
+    inspector = inspect(engine)
+    if not inspector.has_table("user"):
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("user")}
+    missing_columns = {
+        "mobile_number": "VARCHAR",
+        "notes": "VARCHAR",
+        "emergency_contact": "VARCHAR",
+    }
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns.items():
+            if column_name not in existing_columns:
+                connection.exec_driver_sql(
+                    f'ALTER TABLE "user" ADD COLUMN {column_name} {column_type}'
+                )
 
 
 def seeding(session: Session):
@@ -124,6 +150,7 @@ def seeding(session: Session):
         users = {}
         for username, name, surname, email, password, role in USERS:
             users[username] = User(username=username, name=name, surname=surname, email=email,
+                                   mobile_number="not provided",
                                    password_hash=hash_password(password), role=role)
         tables = {number: Table(number=number, capacity=capacity, location=location)
                   for number, capacity, location in TABLES}

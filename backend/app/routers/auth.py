@@ -20,6 +20,9 @@ class RegisterRequest(SQLModel):
     name: str = Field(min_length=1)
     surname: str = Field(min_length=1)
     email: EmailStr
+    mobile_number: str = Field(min_length=1)
+    notes: str | None = None
+    emergency_contact: str | None = None
     password: str = Field(min_length=8)
 
 
@@ -74,6 +77,9 @@ def register(data: RegisterRequest, session: SessionDep):
         name=name,
         surname=surname,
         email=email,
+        mobile_number=data.mobile_number.strip(),
+        notes=data.notes.strip() if data.notes else None,
+        emergency_contact=data.emergency_contact.strip() if data.emergency_contact else None,
         password_hash=hash_password(data.password),
         role=Roles.HIKER,
     )

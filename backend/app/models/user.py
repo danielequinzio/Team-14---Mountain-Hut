@@ -15,6 +15,9 @@ class User(SQLModel, table=True):
     name: str
     surname: str
     email: str = Field(unique=True)
+    mobile_number: str
+    notes: str | None = None
+    emergency_contact: str | None = None
     password_hash: str  # Argon2id hash; it includes its own salt and parameters
     role: Roles = Roles.HIKER
 
