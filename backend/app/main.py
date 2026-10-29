@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     drop_unused_salt_column()
     drop_username_unique_constraint()
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
+    add_slot_table_occupied_seats()
     add_user_profile_columns()
 
     # add some sample data the first time the db is created
@@ -144,6 +145,30 @@ def add_user_profile_columns():
                 )
 
 
+def add_slot_table_occupied_seats():
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
 def seeding(session: Session):
     # only when SEED_DATA is on, and only the first time the db is created
     if not DATA_SEED:
@@ -172,8 +197,30 @@ def seeding(session: Session):
         session.add_all(slots)
         session.flush()
 
-        slot_tables = {(i, number): SlotTable(slot_id=slot.id, table_id=table.id)
-                       for i, slot in enumerate(slots) for number, table in tables.items()}
+        occupied_seats = {(i, number): 0
+                          for i in range(len(slots)) for number in tables}
+        for _, i, party_size, assignments in BOOKINGS:
+            assigned_seats = sum(seats for _, seats in assignments)
+            if assigned_seats != party_size:
+                raise ValueError(
+                    f"Seed booking for slot {i} assigns {assigned_seats} seats "
+                    f"for a party of {party_size}"
+                )
+            for number, seats in assignments:
+                occupied_seats[i, number] += seats
+
+        slot_tables = {
+            (i, number): SlotTable(
+                slot_id=slot.id,
+                table_id=table.id,
+                occupied_seats=occupied_seats[i, number],
+            )
+            for i, slot in enumerate(slots)
+            for number, table in tables.items()
+            if occupied_seats[i, number] <= table.capacity
+        }
+        if len(slot_tables) != len(slots) * len(tables):
+            raise ValueError("Seed booking exceeds a table capacity")
         session.add_all(slot_tables.values())
         session.flush()
 
