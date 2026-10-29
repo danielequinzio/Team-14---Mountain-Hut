@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import EmailStr
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, SQLModel, select
 
 from app.auth import create_token, get_current_user, hash_password, verify_password
@@ -77,7 +78,16 @@ def register(data: RegisterRequest, session: SessionDep):
         role=Roles.HIKER,
     )
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if session.exec(select(User).where(User.email == email)).first():
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Email already registered",
+            )
+        raise
     session.refresh(user)
     return user
 
