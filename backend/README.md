@@ -114,7 +114,7 @@ python -m pytest -k not_found
 ```
 
 ### E2E
-To run the e2e tests make sure the `server is online` and run this command with newman (pay attention to be in the `backend/backend_test` folder):
+To run the e2e tests make sure the `server is online` and run this command with newman (pay attention to be in the `backend/backend_test/e2e` folder):
 ```bash
-newman run OQM_E2E.postman_collection.json
+newman run TestFileE2E
 ```

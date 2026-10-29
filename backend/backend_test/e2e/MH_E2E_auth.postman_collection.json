@@ -1,0 +1,337 @@
+{
+  "info": {
+    "name": "Mountain Hut - E2E auth",
+    "description": "End-to-end scenario for Mountain Hut authentication, run against the real running server.\n\nRun the backend first (e.g. `fastapi dev app/main.py`), then run the collection in order with the Collection Runner or:\n\n    newman run MH_E2E_auth.postman_collection.json\n\nEvery run registers a new hiker with a unique email, so it can be repeated without resetting the db.\nChange `baseUrl` in the collection variables if the server is not on localhost:8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "username", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Register, login and verify the token",
+      "description": "Story: as a hiker, I create an account, log in and the server recognizes me from my token.",
+      "item": [
+        {
+          "name": "1. Hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"email\", `hiker.${Date.now()}@mail.example`);",
+                  "pm.collectionVariables.set(\"password\", \"password\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const user = pm.response.json();",
+                  "",
+                  "pm.test(\"Response never exposes the password\", () => {",
+                  "    pm.expect(user).to.not.have.any.keys(\"password\", \"password_hash\", \"salt\");",
+                  "});",
+                  "",
+                  "console.log(`Registered ${pm.collectionVariables.get(\"email\")}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "2. Registering the same email again is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409 (email already registered)\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "3. Login with the wrong password fails",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"wrong\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "4. Hiker logs in and gets a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const me = pm.response.json();",
+                  "",
+                  "pm.test(\"Body is the logged-in Hiker\", () => {",
+                  "    pm.expect(me.username).to.be.a(\"string\").that.is.not.empty;",
+                  "    pm.expect(me.role).to.eql(\"Hiker\");",
+                  "});",
+                  "",
+                  "// the token is not in the body: the server puts it in the \"session\" cookie",
+                  "const token = pm.cookies.get(\"session\");",
+                  "",
+                  "pm.test(\"Session cookie holds a JWT (header.payload.signature)\", () => {",
+                  "    pm.expect(token).to.be.a(\"string\").that.is.not.empty;",
+                  "    pm.expect(token.split(\".\")).to.have.lengthOf(3);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is HttpOnly\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Set-Cookie\")).to.match(/HttpOnly/i);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"token\", token);",
+                  "pm.collectionVariables.set(\"username\", me.username);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "5. Server recognizes the hiker from the session cookie",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const me = pm.response.json();",
+                  "",
+                  "pm.test(\"It is the same hiker who logged in\", () => {",
+                  "    pm.expect(me.username).to.eql(pm.collectionVariables.get(\"username\"));",
+                  "    pm.expect(me.role).to.eql(\"Hiker\");",
+                  "});",
+                  "",
+                  "pm.test(\"Response never exposes the password\", () => {",
+                  "    pm.expect(me).to.not.have.any.keys(\"password\", \"password_hash\", \"salt\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "6. Hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is gone\", () => {",
+                  "    pm.expect(pm.cookies.has(\"session\")).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            }
+          }
+        },
+        {
+          "name": "7. Without the cookie the server no longer knows the hiker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "8. The token alone, as a Bearer header, is still valid",
+          "description": "The JWT is stateless: logout only drops the cookie, the token itself stays valid until it expires.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"token\")) {",
+                  "    throw new Error(\"No token: run step 4 first.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The token belongs to the hiker who logged in\", () => {",
+                  "    const me = pm.response.json();",
+                  "    pm.expect(me.username).to.eql(pm.collectionVariables.get(\"username\"));",
+                  "    pm.expect(me.role).to.eql(\"Hiker\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "9. A tampered token is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}tampered" }],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 #
 #     python -m pytest
 #
-# Needs pytest-cov:  python -m pip install pytest-cov
+# pytest and pytest-cov are in requirements.txt (python -m pip install -r requirements.txt)
 
 [tool.pytest.ini_options]
 testpaths = ["backend_test"]  # unitTest/ + integrationTest/
