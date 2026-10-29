@@ -28,11 +28,15 @@ async def lifespan(app: FastAPI):
 
 
 USERS = [
-    # username, name, surname, email, password, role
-    ("warden", "Luca", "Bonetti", "luca.bonetti@rifugio.example", "warden", Roles.WARDEN),
-    ("giulia.ferrero", "Giulia", "Ferrero", "giulia.ferrero@rifugio.example", "employee", Roles.EMPLOYEE),
-    ("anna.rossi", "Anna", "Rossi", "anna.rossi@mail.example", "hiker", Roles.HIKER),
-    ("paolo.bianchi", "Paolo", "Bianchi", "paolo.bianchi@mail.example", "hiker", Roles.HIKER),
+    # username, name, surname, email, password, role, mobile number, notes, emergency contact
+    ("luca.bonetti", "Luca", "Bonetti", "luca.bonetti@rifugio.example", "warden", Roles.WARDEN,
+     "+39 333 123 4567", "Available for on-call emergencies.", "+39 333 765 4321 - Marco Bonetti"),
+    ("giulia.ferrero", "Giulia", "Ferrero", "giulia.ferrero@rifugio.example", "employee", Roles.EMPLOYEE,
+     "+39 333 234 5678", None, None),
+    ("anna.rossi", "Anna", "Rossi", "anna.rossi@mail.example", "hiker", Roles.HIKER,
+     "+39 333 345 6789", "Vegetarian meals preferred.", "+39 333 876 5432 - Elena Rossi"),
+    ("paolo.bianchi", "Paolo", "Bianchi", "paolo.bianchi@mail.example", "hiker", Roles.HIKER,
+     "+39 333 456 7890", "Arrives after 18:00.", None),
 ]
 
 TABLES = [
@@ -148,9 +152,10 @@ def seeding(session: Session):
         return
     with transaction(session):
         users = {}
-        for username, name, surname, email, password, role in USERS:
+        for username, name, surname, email, password, role, mobile_number, notes, emergency_contact in USERS:
             users[username] = User(username=username, name=name, surname=surname, email=email,
-                                   mobile_number="not provided",
+                                   mobile_number=mobile_number, notes=notes,
+                                   emergency_contact=emergency_contact,
                                    password_hash=hash_password(password), role=role)
         tables = {number: Table(number=number, capacity=capacity, location=location)
                   for number, capacity, location in TABLES}
@@ -162,7 +167,7 @@ def seeding(session: Session):
         tomorrow = date.today() + timedelta(days=1)
         slots = [Slot(start_time=datetime.combine(tomorrow, start, hut_tz),
                       end_time=datetime.combine(tomorrow, end, hut_tz),
-                      created_by=users["warden"].id)
+                      created_by=users["luca.bonetti"].id)
                  for start, end in SLOTS]
         session.add_all(slots)
         session.flush()
