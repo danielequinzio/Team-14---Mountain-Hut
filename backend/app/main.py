@@ -169,6 +169,54 @@ def add_slot_table_occupied_seats(): # pragma: no cover
         )
 
 
+def add_slot_table_occupied_seats(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
+def add_slot_table_occupied_seats(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
 def seeding(session: Session): # pragma: no cover
     # only when SEED_DATA is on, and only the first time the db is created
     if not DATA_SEED:
