@@ -29,3 +29,16 @@ def transaction(session: Session):
     except Exception:
         session.rollback()
         raise
+
+
+@contextmanager
+def booking_transaction(session: Session):
+    """Serialize SQLite booking writes before availability is read."""
+    if session.get_bind().dialect.name == "sqlite":
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+    try:
+        yield
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
