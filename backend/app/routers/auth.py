@@ -2,33 +2,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import EmailStr
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Field, SQLModel, select
+from sqlmodel import select
 
-from app.auth import create_token, get_current_user, hash_password, verify_password
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import Roles, User, UserPublic
+from app.models import LoginRequest, RegisterRequest, Roles, User, UserPublic
+from app.services.auth import create_token, get_current_user, hash_password, verify_password
 
 router = APIRouter(tags=["auth"])
 
 SESSION_COOKIE_NAME = "session"
-
-
-class RegisterRequest(SQLModel):
-    name: str = Field(min_length=1)
-    surname: str = Field(min_length=1)
-    email: EmailStr
-    mobile_number: str = Field(min_length=1)
-    notes: str | None = None
-    emergency_contact: str | None = None
-    password: str = Field(min_length=8)
-
-
-class LoginRequest(SQLModel):
-    email: EmailStr
-    password: str
 
 
 def set_session_cookie(response: Response, username: str, role: str) -> str:

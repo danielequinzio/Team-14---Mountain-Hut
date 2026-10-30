@@ -15,10 +15,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel
 
-from app.auth import get_current_user
 from app.database import engine
 from app.main import app
 from app.models import Roles, UserPublic
+from app.services.auth import get_current_user
 
 
 @pytest.fixture(autouse=True)

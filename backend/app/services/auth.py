@@ -12,7 +12,7 @@ ALGORITHM = "HS256"
 
 password_hash = PasswordHash.recommended()  # argon2
 
-# reads the "Authorization: Bearer <token>" header, answers 401 if it's missing.
+# reads the "Authorization: ******" header, answers 401 if it's missing.
 # tokenUrl is the login route, used by the "Authorize" button of /docs
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
@@ -20,8 +20,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
+
 def verify_password(password: str, hashed: str) -> bool:
     return password_hash.verify(password, hashed)
+
 
 def create_token(username: str, role: str) -> str:
     # sub = who the token belongs to, exp = when it stops being accepted
@@ -52,10 +54,12 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+
 def require_role(*roles: str):
     # builds a dependency that lets in only logged-in users with one of the roles
     def checker(user: UserPublic = Depends(get_current_user)) -> UserPublic:
         if user.role not in roles:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not enough permissions")
         return user
+
     return checker

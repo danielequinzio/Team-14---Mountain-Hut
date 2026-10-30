@@ -8,10 +8,10 @@ from sqlalchemy import inspect
 from sqlmodel import Session, SQLModel, select
 
 from app.database import engine, transaction
-from app.auth import hash_password
 from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
 from app.routers import auth, slot
 from app.config import CORS_ORIGINS, DATA_SEED
+from app.services.auth import hash_password
 
 
 @asynccontextmanager
