@@ -9,7 +9,7 @@ from sqlmodel import Session, SQLModel, select
 
 from app.database import engine, transaction
 from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
-from app.routers import auth, slot
+from app.routers import auth, booking, slot
 from app.config import CORS_ORIGINS, DATA_SEED
 from app.services.auth import hash_password
 
@@ -245,6 +245,7 @@ app.add_middleware(
 
 app.include_router(slot.router)
 app.include_router(auth.router)
+app.include_router(booking.router)
 """
 app.include_router(tickets.router)
 app.include_router(services.router)

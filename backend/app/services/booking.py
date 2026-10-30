@@ -1,9 +1,15 @@
+from datetime import date, datetime, time, timedelta
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
+
+from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
-from app.models import Booking, BookingTable, SlotTable, Table
+from app.models import Booking, BookingTable, Slot, SlotTable, Table, User
 
 from itertools import combinations
+
+HUT_TIMEZONE = ZoneInfo("Europe/Rome")
 
 
 @dataclass(frozen=True)
@@ -12,6 +18,64 @@ class TableAvailability:
     slot_table: SlotTable
     capacity: int
     free_seats: int
+
+
+def _slot_datetime(data_date: date, data_time: time) -> datetime:
+    return datetime.combine(data_date, data_time, HUT_TIMEZONE)
+
+
+def slot_start(slot: Slot) -> datetime:
+    if slot.start_time.tzinfo is None:
+        return slot.start_time.replace(tzinfo=HUT_TIMEZONE)
+    return slot.start_time.astimezone(HUT_TIMEZONE)
+
+
+def get_user(session: Session, username: str) -> User:
+    user = session.exec(select(User).where(User.username == username)).first()
+    if user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    return user
+
+
+def find_slot(session: Session, data_date: date, data_time: time) -> Slot:
+    requested = _slot_datetime(data_date, data_time)
+    slots = session.exec(select(Slot)).all()
+    slot = next(
+        (candidate for candidate in slots if slot_start(candidate) == requested),
+        None,
+    )
+    if slot is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Slot not available")
+    if datetime.now(HUT_TIMEZONE) > slot_start(slot) - timedelta(hours=2):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Bookings are closed less than two hours before the slot",
+        )
+    return slot
+
+
+def booking_response(session: Session, booking: Booking) -> dict:
+    assignments = session.exec(
+        select(BookingTable, Table.number)
+        .join(Table, Table.id == BookingTable.slot_table_id)
+        .where(BookingTable.booking_id == booking.id)
+    ).all()
+    slot = session.get(Slot, booking.slot_id)
+    if slot is None:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Booking slot not found",
+        )
+    return {
+        "id": booking.id,
+        "date": slot_start(slot).date(),
+        "time": slot_start(slot).time(),
+        "party_size": booking.party_size,
+        "tables": [
+            {"number": number, "seats": seats.seats_booked}
+            for seats, number in assignments
+        ],
+    }
 
 
 def allocate(free: dict[int, int], party_size: int) -> list[tuple[int, int]] | None:
@@ -94,15 +158,6 @@ def get_free_seats(session: Session, slot_id: int) -> dict[int, int]:
         for table in _get_table_availability(session, slot_id)
     }
 
-
-def allocate_for_slot(
-    session: Session, slot_id: int, party_size: int
-) -> list[tuple[int, int]] | None:
-    """Find an assignment for a party using the current slot occupancy."""
-    availability = _get_table_availability(session, slot_id)
-    return _allocate_from_availability(availability, party_size)
-
-
 def assign_tables(session: Session, booking: Booking) -> list[BookingTable] | None:
     """Persist the table assignment for an existing booking.
 
@@ -142,3 +197,25 @@ def assign_tables(session: Session, booking: Booking) -> list[BookingTable] | No
     session.add_all(rows)
     session.flush()
     return rows
+
+
+# Not needed for now, but could be useful for a booking cancellation story:
+# def release_tables(session: Session, booking: Booking) -> None:
+#     """Release the seats currently assigned to a booking."""
+#     rows = session.exec(
+#         select(BookingTable).where(BookingTable.booking_id == booking.id)
+#     ).all()
+#     if not rows:
+#         return
+#     slot_tables = {
+#         row.id: row
+#         for row in session.exec(
+#             select(SlotTable).where(
+#                 SlotTable.id.in_([assignment.slot_table_id for assignment in rows])
+#             )
+#         ).all()
+#     }
+#     for row in rows:
+#         slot_tables[row.slot_table_id].occupied_seats -= row.seats_booked
+#         session.delete(row)
+#     session.flush()
