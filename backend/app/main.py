@@ -293,6 +293,7 @@ app.add_middleware(
 
 app.include_router(slot.router)
 app.include_router(auth.router)
+app.include_router(booking.router)
 """
 app.include_router(tickets.router)
 app.include_router(services.router)
