@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 
 from sqlmodel import CheckConstraint, Field, SQLModel, UniqueConstraint
 
@@ -22,3 +22,27 @@ class SlotTable(SQLModel, table=True):
     slot_id: int = Field(foreign_key="slot.id")
     table_id: int = Field(foreign_key="table.id")
     occupied_seats: int = Field(default=0)
+
+class SlotTableInfo(SQLModel):
+    # one table offered in the slot, with how many of its seats are still free
+    id: int  # slot_table id: the one a booking refers to
+    table_id: int
+    seats_booked: int
+    seats_free: int
+
+
+class SlotAvailability(SQLModel):
+    # summary returned when hikers choose a slot to book
+    id: int
+    date: date
+    time: time
+    available_seats: int
+
+
+class SlotDetail(SQLModel):
+    # a slot with all its tables, returned by GET /slot/{id}
+    id: int
+    start_time: datetime
+    end_time: datetime
+    created_by: int
+    tables: list[SlotTableInfo]
