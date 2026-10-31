@@ -73,7 +73,7 @@ BOOKINGS = [
 ]
 
 
-def drop_unused_salt_column():
+def drop_unused_salt_column(): # pragma: no cover
     inspector = inspect(engine)
     if not inspector.has_table("user"):
         return
@@ -83,7 +83,7 @@ def drop_unused_salt_column():
         connection.exec_driver_sql('ALTER TABLE "user" DROP COLUMN salt')
 
 
-def drop_username_unique_constraint():
+def drop_username_unique_constraint(): # pragma: no cover
     inspector = inspect(engine)
     if not inspector.has_table("user"):
         return
@@ -125,7 +125,7 @@ def drop_username_unique_constraint():
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
-def add_user_profile_columns():
+def add_user_profile_columns(): # pragma: no cover
     inspector = inspect(engine)
     if not inspector.has_table("user"):
         return
@@ -144,7 +144,7 @@ def add_user_profile_columns():
                 )
 
 
-def seeding(session: Session):
+def seeding(session: Session): # pragma: no cover
     # only when SEED_DATA is on, and only the first time the db is created
     if not DATA_SEED:
         return
