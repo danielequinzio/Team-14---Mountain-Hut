@@ -3,6 +3,8 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from app.database import SessionDep
+from app.models import Slot
+from app.services.auth import require_role
 from app.models import BookingTable, Slot, SlotDetail, SlotTable, SlotTableInfo, Table
 
 router = APIRouter(prefix="/slot", tags=["slot"])
