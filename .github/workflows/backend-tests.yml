@@ -1,0 +1,108 @@
+# Runs the backend tests on every pull request, whatever the target branch.
+# A failing test marks the PR red.
+#   - pytest: unit + integration tests, with coverage
+#   - e2e:    starts the API and runs the Postman collections with newman
+name: Backend tests
+
+on:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      # settings (test folder, coverage options) come from backend/pyproject.toml.
+      # pytest exits with 5 when there are no tests: not all the branches have them yet
+      - name: Run tests
+        run: |
+          status=0
+          python -m pytest || status=$?
+          if [ "$status" -eq 5 ]; then
+            echo "::warning::No pytest tests found"
+            exit 0
+          fi
+          exit "$status"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: backend/htmlcov/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # a fresh db for this run, without the sample data: the collections create what they need
+      DATABASE_URL: sqlite:///e2e.db
+      SEED_DATA: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # fastapi[standard] in the requirements adds the `fastapi run` command (server)
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install newman
+        run: npm install -g newman
+
+      - name: Start API
+        run: |
+          fastapi run app/main.py --port 8000 > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/slot > /dev/null && exit 0
+            sleep 1
+          done
+          echo "API did not start"; cat server.log; exit 1
+
+      # newman takes one collection at a time
+      - name: Run E2E tests
+        run: |
+          shopt -s nullglob
+          collections=(backend_test/e2e/*.postman_collection.json)
+          if [ "${#collections[@]}" -eq 0 ]; then
+            echo "::warning::No Postman collections found"
+            exit 0
+          fi
+          for collection in "${collections[@]}"; do
+            newman run "$collection" --env-var baseUrl=http://localhost:8000
+          done
+
+      - name: Server log
+        if: failure()
+        run: cat server.log
