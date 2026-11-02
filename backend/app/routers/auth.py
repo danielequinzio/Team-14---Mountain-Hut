@@ -34,8 +34,10 @@ def login_token(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: SessionDep,
 ):
-    # username and password arrive as form data (OAuth2 standard), not JSON
-    user = session.exec(select(User).where(User.username == form.username)).first()
+    # username and password arrive as form data (OAuth2 standard), not JSON.
+    # the OAuth2 form has no email field, so the email is sent as "username"
+    email = form.username.lower()
+    user = session.exec(select(User).where(User.email == email)).first()
     # same answer for unknown user and wrong password: it doesn't reveal which usernames exist
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(

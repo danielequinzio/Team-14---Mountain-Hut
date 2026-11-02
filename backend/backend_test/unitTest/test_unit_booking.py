@@ -52,6 +52,14 @@ def test_allocate_uses_three_tables_when_no_pair_is_large_enough():
     assert allocate({1: 2, 2: 2, 3: 2}, 5) == [(1, 2), (2, 2), (3, 1)]
 
 
+def test_allocate_returns_none_when_no_combination_is_found(monkeypatch):
+    # The final `return None` is a defensive fallback: with real input the combination
+    # of all tables always fits, so combinations() is stubbed to reach it.
+    monkeypatch.setattr(booking_service, "combinations", lambda tables, k: iter(()))
+
+    assert allocate({1: 2, 2: 2}, 3) is None
+
+
 def test_distribute_fills_largest_tables_first():
     assert _distribute((1, 2), {1: 2, 2: 5}, 4) == [(2, 4)]
 
@@ -334,3 +342,5 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
 
     assert exc.value.status_code == 409
     assert exc.value.detail == "There are not enough seats for this party"
+
+

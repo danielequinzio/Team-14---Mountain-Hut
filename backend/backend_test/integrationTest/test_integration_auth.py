@@ -86,7 +86,7 @@ def test_login_wrong_password(client, user):
 
 
 def test_token_success(client, user):
-    response = client.post("/token", data={"username": user.username, "password": PASSWORD})
+    response = client.post("/token", data={"username": user.email, "password": PASSWORD})
 
     assert response.status_code == 200
     assert response.json()["token_type"] == "bearer"
@@ -102,7 +102,7 @@ def test_me_not_authenticated(client):
 
 
 def test_me_with_bearer_token(client, user):
-    token = client.post("/token", data={"username": user.username, "password": PASSWORD}).json()["access_token"]
+    token = client.post("/token", data={"username": user.email, "password": PASSWORD}).json()["access_token"]
     client.cookies.clear()  # only the Authorization header is checked
 
     response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
