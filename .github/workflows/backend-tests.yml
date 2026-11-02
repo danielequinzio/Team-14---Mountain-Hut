@@ -55,9 +55,9 @@ jobs:
       run:
         working-directory: backend
     env:
-      # a fresh db for this run, without the sample data: the collections create what they need
-      DATABASE_URL: sqlite:///e2e.db
-      SEED_DATA: "false"
+      # a fresh db for this run, without the sample data: the collections create what they need                                                                                                  
+        DATABASE_URL: sqlite:///e2e.db                                                                                                                                                                   
+        SEED_DATA: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
 
       - name: Start API
         run: |
-          fastapi run app/main.py --port 8000 > server.log 2>&1 &
+          SEED_DATA: "true" fastapi run app/main.py --port 8000 > server.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8000/slot > /dev/null && exit 0
             sleep 1
