@@ -129,6 +129,30 @@ def test_me_with_expired_token(client):
     assert response.json() == {"detail": "Invalid or expired token"}
 
 
+def test_me_with_old_token_holding_a_username(client):
+    old = jwt.encode({"sub": "anna.rossi", "role": "Hiker",
+                      "exp": datetime.now(timezone.utc) + timedelta(minutes=1)},
+                     SECRET_KEY, algorithm=ALGORITHM)
+
+    response = client.get("/users/me", headers={"Authorization": f"Bearer {old}"})
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def test_token_identifies_each_user_with_the_same_name(client, session):
+    other_email = "mario.rossi.2@mail.example"
+    client.post("/register", json=NEW_USER)
+    client.post("/register", json={**NEW_USER, "email": other_email})
+    second = session.exec(select(User).where(User.email == other_email)).one()
+
+    client.post("/login", json={"email": other_email, "password": PASSWORD})
+    payload = jwt.decode(client.cookies["session"], SECRET_KEY, algorithms=[ALGORITHM])
+
+    assert second.username == "mario.rossi"  # the same username as the first user
+    assert payload["sub"] == str(second.id)
+
+
 def test_register_login_me_logout_flow(client):
     assert client.post("/register", json=NEW_USER).status_code == 201
     assert client.post("/login", json={"email": NEW_USER["email"], "password": PASSWORD}).status_code == 200

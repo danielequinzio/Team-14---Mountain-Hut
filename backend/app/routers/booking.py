@@ -7,8 +7,8 @@ from app.database import SessionDep, booking_transaction
 from app.models import (
     Booking,
     BookingCreate,
+    CurrentUser,
     Roles,
-    UserPublic,
 )
 from app.services.auth import require_role
 from app.services.booking import (
@@ -25,10 +25,10 @@ router = APIRouter(prefix="/booking", tags=["booking"])
 def create_booking(
     data: BookingCreate,
     session: SessionDep,
-    user: Annotated[UserPublic, Depends(require_role(Roles.HIKER))],
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
 ):
     with booking_transaction(session):
-        db_user = get_user(session, user.username)
+        db_user = get_user(session, user.id)
         slot = find_slot(session, data.date, data.time)
         if session.exec(
             select(Booking).where(
@@ -57,9 +57,9 @@ def create_booking(
 # @router.get("")
 # def get_my_bookings(
 #     session: SessionDep,
-#     user: Annotated[UserPublic, Depends(require_role(Roles.HIKER))],
+#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
 # ):
-#     db_user = get_user(session, user.username)
+#     db_user = get_user(session, user.id)
 #     bookings = session.exec(
 #         select(Booking).where(Booking.user_id == db_user.id).order_by(Booking.slot_id)
 #     ).all()
@@ -72,10 +72,10 @@ def create_booking(
 #     booking_id: int,
 #     data: BookingUpdate,
 #     session: SessionDep,
-#     user: Annotated[UserPublic, Depends(require_role(Roles.HIKER))],
+#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
 # ):
 #     with booking_transaction(session):
-#         db_user = get_user(session, user.username)
+#         db_user = get_user(session, user.id)
 #         booking = session.exec(
 #             select(Booking).where(
 #                 Booking.id == booking_id,

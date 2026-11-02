@@ -7,7 +7,7 @@ from sqlmodel import select
 
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import LoginRequest, RegisterRequest, Roles, User, UserPublic
+from app.models import CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic
 from app.services.auth import create_token, get_current_user, hash_password, verify_password
 
 router = APIRouter(tags=["auth"])
@@ -15,8 +15,8 @@ router = APIRouter(tags=["auth"])
 SESSION_COOKIE_NAME = "session"
 
 
-def set_session_cookie(response: Response, username: str, role: str) -> str:
-    token = create_token(username, role)
+def set_session_cookie(response: Response, user: User) -> str:
+    token = create_token(user.id, user.username, user.role)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
@@ -43,7 +43,7 @@ def login_token(
             "Wrong username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = set_session_cookie(response, user.username, user.role)
+    token = set_session_cookie(response, user)
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -93,7 +93,7 @@ def login(data: LoginRequest, response: Response, session: SessionDep):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    set_session_cookie(response, user.username, user.role)
+    set_session_cookie(response, user)
     return user
 
 
@@ -109,5 +109,5 @@ def logout(
     )
 
 @router.get("/users/me", response_model=UserPublic, status_code=200)
-def read_me(user: Annotated[UserPublic, Depends(get_current_user)]):
+def read_me(user: Annotated[CurrentUser, Depends(get_current_user)]):
     return user
