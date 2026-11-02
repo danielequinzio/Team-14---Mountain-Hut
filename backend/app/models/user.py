@@ -26,3 +26,8 @@ class UserPublic(SQLModel):
     # what the api can show about a user: never the hash or the salt
     username: str
     role: Roles
+
+
+class CurrentUser(UserPublic):
+    # the logged-in user, read from the token. Only the id is unique: usernames can repeat
+    id: int

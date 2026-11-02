@@ -30,8 +30,8 @@ def slot_start(slot: Slot) -> datetime:
     return slot.start_time.astimezone(HUT_TIMEZONE)
 
 
-def get_user(session: Session, username: str) -> User:
-    user = session.exec(select(User).where(User.username == username)).first()
+def get_user(session: Session, user_id: int) -> User:
+    user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
     return user
@@ -45,7 +45,7 @@ def find_slot(session: Session, data_date: date, data_time: time) -> Slot:
         None,
     )
     if slot is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Slot not available")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Slot not available")
     if datetime.now(HUT_TIMEZONE) > slot_start(slot) - timedelta(hours=2):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -57,7 +57,8 @@ def find_slot(session: Session, data_date: date, data_time: time) -> Slot:
 def booking_response(session: Session, booking: Booking) -> dict:
     assignments = session.exec(
         select(BookingTable, Table.number)
-        .join(Table, Table.id == BookingTable.slot_table_id)
+        .join(SlotTable, SlotTable.id == BookingTable.slot_table_id)
+        .join(Table, Table.id == SlotTable.table_id)
         .where(BookingTable.booking_id == booking.id)
     ).all()
     slot = session.get(Slot, booking.slot_id)

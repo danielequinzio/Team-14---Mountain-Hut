@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi import HTTPException
 
-from app.models import Booking, BookingCreate, BookingTable, Roles, Slot, SlotTable, Table, UserPublic
+from app.models import Booking, BookingCreate, BookingTable, CurrentUser, Roles, Slot, SlotTable, Table
 from app.routers.booking import create_booking
 import app.services.booking as booking_service
 from app.services.booking import (
@@ -69,19 +69,19 @@ def test_slot_start_and_slot_datetime_normalize_to_hut_timezone():
 
 
 def test_get_user_returns_user():
-    user = UserPublic(username="anna.rossi", role=Roles.HIKER)
+    user = CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER)
     session = MagicMock()
-    session.exec.return_value.first.return_value = user
+    session.get.return_value = user
 
-    assert get_user(session, "anna.rossi") == user
+    assert get_user(session, 3) == user
 
 
 def test_get_user_raises_when_user_does_not_exist():
     session = MagicMock()
-    session.exec.return_value.first.return_value = None
+    session.get.return_value = None
 
     with pytest.raises(HTTPException) as exc:
-        get_user(session, "missing")
+        get_user(session, 99)
 
     assert exc.value.status_code == 401
 
@@ -101,7 +101,7 @@ def test_find_slot_raises_when_slot_is_missing_or_booking_is_closed():
 
     with pytest.raises(HTTPException) as missing:
         find_slot(session, date(2030, 1, 1), time(12, 0))
-    assert missing.value.status_code == 404
+    assert missing.value.status_code == 400
 
     closed = datetime.now(HUT_TIMEZONE) + timedelta(hours=1)
     session.exec.return_value.all.return_value = [
@@ -269,14 +269,14 @@ def test_assign_tables_uses_existing_booking_id(monkeypatch):
 def test_create_booking_returns_booking_response(monkeypatch):
     session = MagicMock()
     session.exec.return_value.first.return_value = None
-    user = UserPublic(username="anna.rossi", role=Roles.HIKER)
+    user = CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER)
     db_user = SimpleNamespace(id=3)
     slot = SimpleNamespace(id=9)
     response = {"id": 20}
     booking = None
 
     monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
-    monkeypatch.setattr("app.routers.booking.get_user", lambda session, username: db_user)
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: db_user)
     monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: slot)
     monkeypatch.setattr("app.routers.booking.assign_tables", lambda session, value: [MagicMock()])
 
@@ -303,14 +303,14 @@ def test_create_booking_rejects_duplicate_booking(monkeypatch):
     session = MagicMock()
     session.exec.return_value.first.return_value = MagicMock()
     monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
-    monkeypatch.setattr("app.routers.booking.get_user", lambda session, username: SimpleNamespace(id=3))
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
     monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: SimpleNamespace(id=9))
 
     with pytest.raises(HTTPException) as exc:
         create_booking(
             BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
             session,
-            UserPublic(username="anna.rossi", role=Roles.HIKER),
+            CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
         )
 
     assert exc.value.status_code == 409
@@ -321,7 +321,7 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
     session = MagicMock()
     session.exec.return_value.first.return_value = None
     monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
-    monkeypatch.setattr("app.routers.booking.get_user", lambda session, username: SimpleNamespace(id=3))
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
     monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: SimpleNamespace(id=9))
     monkeypatch.setattr("app.routers.booking.assign_tables", lambda session, booking: None)
 
@@ -329,7 +329,7 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
         create_booking(
             BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
             session,
-            UserPublic(username="anna.rossi", role=Roles.HIKER),
+            CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
         )
 
     assert exc.value.status_code == 409
