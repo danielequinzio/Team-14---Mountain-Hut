@@ -1,5 +1,7 @@
 from datetime import date, datetime, time
 
+from pydantic import field_validator
+
 from sqlmodel import CheckConstraint, Field, SQLModel, UniqueConstraint
 
 
@@ -8,6 +10,17 @@ class Slot(SQLModel, table=True):
     start_time: datetime
     end_time: datetime
     created_by: int = Field(foreign_key="user.id")  # the user who defined the slot
+
+
+class SlotCreate(SQLModel):
+    start_time: datetime
+    end_time: datetime
+
+    @field_validator("end_time")
+    def validate_interval(cls, value, info):
+        if "start_time" in info.data and value <= info.data["start_time"]:
+            raise ValueError("end_time must be after start_time")
+        return value
 
 
 class SlotTable(SQLModel, table=True):
