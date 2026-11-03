@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import select
 
 from app.database import SessionDep, booking_transaction
@@ -18,6 +18,8 @@ from app.services.booking import (
     get_user,
 )
 
+from app.services.notification import build_confirmation, send_booking_confirmation
+
 router = APIRouter(prefix="/booking", tags=["booking"])
 
 
@@ -26,6 +28,7 @@ def create_booking(
     data: BookingCreate,
     session: SessionDep,
     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
 ):
     with booking_transaction(session):
         db_user = get_user(session, user.id)
@@ -51,7 +54,12 @@ def create_booking(
                 status.HTTP_409_CONFLICT,
                 "There are not enough seats for this party",
             )
-        return booking_response(session, booking)
+        response = booking_response(session, booking)
+        confirmation = build_confirmation(db_user, slot, booking)
+
+    # fuori dal blocco: l'email parte solo dopo il commit
+    background_tasks.add_task(send_booking_confirmation, confirmation)
+    return response
 
 # Probably not needed for the frontend at the moment, because this is sent via email
 # @router.get("")
