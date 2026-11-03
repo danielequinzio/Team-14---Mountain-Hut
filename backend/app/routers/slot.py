@@ -145,15 +145,20 @@ def add_tables_to_slot(
     slot = session.get(Slot, id)
     if slot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Slot not found")
+
     table_ids = set(data.table_ids)
     if len(table_ids) != len(data.table_ids):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "A table cannot be added twice")
+
     tables = session.exec(select(Table).where(Table.id.in_(table_ids))).all()
     if len(tables) != len(table_ids):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "One or more tables not found")
+
     existing = set(session.exec(select(SlotTable.table_id).where(SlotTable.slot_id == id)).all())
     if existing.intersection(table_ids):
         raise HTTPException(status.HTTP_409_CONFLICT, "A table is already assigned to this slot")
+
+
     session.add_all([SlotTable(slot_id=id, table_id=table_id) for table_id in table_ids])
     session.commit()
     return get_slot_info(id, session)
