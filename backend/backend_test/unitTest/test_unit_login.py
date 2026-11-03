@@ -94,7 +94,7 @@ def test_login_invalid_body(client, mock_session, body):
 def test_token_success(client, mock_session, fake_user):
     mock_session.exec.return_value.first.return_value = fake_user
 
-    response = client.post("/token", data={"username": "anna.rossi", "password": PASSWORD})
+    response = client.post("/token", data={"username": "anna.rossi@mail.example", "password": PASSWORD})
 
     assert response.status_code == 200
     body = response.json()
@@ -105,7 +105,7 @@ def test_token_success(client, mock_session, fake_user):
 def test_token_wrong_credentials(client, mock_session, fake_user):
     mock_session.exec.return_value.first.return_value = fake_user
 
-    response = client.post("/token", data={"username": "anna.rossi", "password": "wrong-pass"})
+    response = client.post("/token", data={"username": "anna.rossi@mail.example", "password": "wrong-pass"})
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Wrong username or password"}

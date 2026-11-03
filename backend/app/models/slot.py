@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 
 from sqlmodel import CheckConstraint, Field, SQLModel, UniqueConstraint
 
@@ -29,6 +29,14 @@ class SlotTableInfo(SQLModel):
     table_id: int
     seats_booked: int
     seats_free: int
+
+
+class SlotAvailability(SQLModel):
+    # summary returned when hikers choose a slot to book
+    id: int
+    date: date
+    time: time
+    available_seats: int
 
 
 class SlotDetail(SQLModel):

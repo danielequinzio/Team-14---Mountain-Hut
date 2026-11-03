@@ -86,7 +86,7 @@ def test_login_wrong_password(client, user):
 
 
 def test_token_success(client, user):
-    response = client.post("/token", data={"username": user.username, "password": PASSWORD})
+    response = client.post("/token", data={"username": user.email, "password": PASSWORD})
 
     assert response.status_code == 200
     assert response.json()["token_type"] == "bearer"
@@ -102,7 +102,7 @@ def test_me_not_authenticated(client):
 
 
 def test_me_with_bearer_token(client, user):
-    token = client.post("/token", data={"username": user.username, "password": PASSWORD}).json()["access_token"]
+    token = client.post("/token", data={"username": user.email, "password": PASSWORD}).json()["access_token"]
     client.cookies.clear()  # only the Authorization header is checked
 
     response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
@@ -127,6 +127,30 @@ def test_me_with_expired_token(client):
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def test_me_with_old_token_holding_a_username(client):
+    old = jwt.encode({"sub": "anna.rossi", "role": "Hiker",
+                      "exp": datetime.now(timezone.utc) + timedelta(minutes=1)},
+                     SECRET_KEY, algorithm=ALGORITHM)
+
+    response = client.get("/users/me", headers={"Authorization": f"Bearer {old}"})
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def test_token_identifies_each_user_with_the_same_name(client, session):
+    other_email = "mario.rossi.2@mail.example"
+    client.post("/register", json=NEW_USER)
+    client.post("/register", json={**NEW_USER, "email": other_email})
+    second = session.exec(select(User).where(User.email == other_email)).one()
+
+    client.post("/login", json={"email": other_email, "password": PASSWORD})
+    payload = jwt.decode(client.cookies["session"], SECRET_KEY, algorithms=[ALGORITHM])
+
+    assert second.username == "mario.rossi"  # the same username as the first user
+    assert payload["sub"] == str(second.id)
 
 
 def test_register_login_me_logout_flow(client):

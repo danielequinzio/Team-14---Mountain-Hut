@@ -83,7 +83,7 @@ jobs:
 
       - name: Start API
         run: |
-          SEED_DATA: "true" fastapi run app/main.py --port 8000 > server.log 2>&1 &
+          fastapi run app/main.py --port 8000 > server.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8000/slot > /dev/null && exit 0
             sleep 1
