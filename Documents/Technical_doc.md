@@ -1,0 +1,617 @@
+# Mountain Hut
+
+> A software system supporting the activities of a mountain hut.
+
+## Contents
+
+- [Overview](#overview)
+- [The problem](#the-problem)
+- [Purpose](#purpose)
+- [Roles](#roles)
+- [Development](#development)
+  - [Architecture](#architecture)
+  - [Tech stack](#tech-stack)
+  - [Backend structure](#backend-structure)
+  - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table)
+- [Backend EndPoint](#backend-endpoint)
+  - [Authentication](#authentication)
+  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme)
+  - [Objects](#objects): [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
+  - [Errors](#errors)
+
+## Overview
+
+**Mountain Hut** is a web-based system that supports the day-to-day operations of an alpine mountain hut. These huts are simple hospitality facilities that offer shared sleeping spaces, communal dining, basic food and shelter. Hikers use them as day-trip destinations, overnight stops on longer routes, or bases for further hikes. They are often owned by alpine clubs or public bodies and run by a warden with a small staff.
+
+## The problem
+
+Huts work under tight constraints:
+
+- **Limited resources**: space, supplies and energy restrict what the hut can offer, and staff must split their time between serving guests and preparing for later arrivals.
+- **Changing demand**: weather and mountain conditions change visitors' plans, and meal times can bring many arrivals at once.
+- **Scattered information**: requests come in through web, phone, messages and in person. When those records are scattered, staff can miss changes, misread a party's needs, or commit to more than the hut can handle.
+
+## Purpose
+
+The system gives hikers and the hut team one shared, up-to-date source of information:
+
+- **For visitors**: more confidence when planning their stop and adapting their journey.
+- **For hut staff**: better use of limited resources and fewer misunderstandings when plans change.
+
+## Roles
+
+| Role         | Description                                                           |
+|--------------|-----------------------------------------------------------------------|
+| **User**     | Anyone accessing the public web pages.                                |
+| **Hiker**    | A registered visitor, acting alone or as the contact person for a party. |
+| **Warden**   | Manages the hut and makes operational decisions. Can also act as an employee. |
+| **Employee** | Handles the hut's daily operations.                                   |
+
+Inside the project there are some seed data including some users:
+
+|role|email|pwd|
+|----|----|----|
+|warden|luca.bonetti@rifugio.example|warden|
+|Employee|giulia.ferrero@rifugio.example|employee|
+|Hiker|anna.rossi@mail.example|hiker|
+|Hiker|paolo.bianchi@mail.example|hiker|
+
+## Development
+
+The project is developed with **Scrum** in two-week sprints.
+
+
+### Architecture
+
+```mermaid
+flowchart LR
+    C[Web Client <br/> React] -- HTTP + JSON --> A[FastAPI app<br/>backend/app/]
+    A -- SQLModel / SQLAlchemy --> D[(SQLite<br/>backend/OQM.db)]
+```
+
+- **FastAPI** exposes the REST endpoints and validates requests and responses.
+- **SQLModel** defines each table once. The same class is used as the database table and as the Pydantic model for request and response bodies.
+- **SQLite** stores the data in a single file, `backend/OQM.db`, so no database server is needed.
+
+### Tech stack
+
+| Component         | Library                      | Version             |
+| ----------------- | ---------------------------- | ------------------- |
+| Fronted Framework | React                        |                 |
+| API framework     | FastAPI                      | 0.142.2             |
+| ORM / models      | SQLModel (on SQLAlchemy 2.1) | 0.0.48              |
+| Database          | SQLite                       | bundled with Python |
+| Tests             | pytest + `unittest.mock`     | pytest 9.1.1        |
+
+The requirements of the backend can be found in the [requirements.txt](../backend/requirements.txt) in the backend folder. To install and it is suggested to check the appropriate document in that folder with all the instructions.
+
+### Backend structure
+
+The backend code is in the [`backend/app/`](../backend/app/) package:
+
+```
+app/
+├── main.py              # creates the app, startup logic (lifespan), mounts the routers
+├── config.py            # settings read from environment variables (DATABASE_URL)
+├── database.py          # engine, get_session / SessionDep dependency
+├── models/              # SQLModel tables and request bodies
+│   #all the models here
+├── routers/             # HTTP endpoints, one APIRouter per resource
+│   # all the routers
+└── services/            # logic shared by the routes
+  
+```
+
+### Database
+
+This schema defines the overall structure of the project until user-story: #4; Other user-story may change database representation.
+
+```mermaid
+erDiagram
+    USER ||--o{ SLOT : "creates"
+    USER ||--o{ BOOKING : "makes"
+    SLOT ||--o{ BOOKING : "receives"
+    SLOT ||--o{ SLOT_TABLE : "offers"
+    TABLE ||--o{ SLOT_TABLE : "is offered in"
+    BOOKING ||--o{ BOOKING_TABLE : "uses"
+    SLOT_TABLE ||--o{ BOOKING_TABLE : "is used by"
+
+    USER {
+        int id PK
+        string username
+        string name
+        string surname
+        string email UK
+        string mobile_number
+        string notes
+        string emergency_contact
+        string password_hash
+        string role
+    }
+    TABLE {
+        int id PK
+        int number UK
+        int capacity
+        string location
+    }
+    SLOT {
+        int id PK
+        datetime start_time
+        datetime end_time
+        int created_by FK
+    }
+    SLOT_TABLE {
+        int id PK
+        int slot_id FK
+        int table_id FK
+        int occupied_seats
+    }
+    BOOKING {
+        int id PK
+        int user_id FK
+        int slot_id FK
+        int party_size
+        datetime created_at
+    }
+    BOOKING_TABLE {
+        int id PK
+        int booking_id FK
+        int slot_table_id FK
+        int seats_booked
+    }
+```
+
+Columns are `NOT NULL` unless marked as nullable.
+
+#### `user`
+
+A person with an account in the system.
+
+| Column              | Type    | Constraints | Description                               |
+|---------------------|---------|-------------|-------------------------------------------|
+| `id`                | INTEGER | PK          | User identifier                           |
+| `username`          | VARCHAR |             | Username                                  |
+| `name`              | VARCHAR |             | First name                                |
+| `surname`           | VARCHAR |             | Last name                                 |
+| `email`             | VARCHAR | UNIQUE      | Email address                             |
+| `mobile_number`     | VARCHAR |             | Mobile number                             |
+| `notes`             | VARCHAR | nullable    | Free notes                                |
+| `emergency_contact` | VARCHAR | nullable    | Emergency contact                         |
+| `password_hash`     | VARCHAR |             | Password hash                             |
+| `role`              | VARCHAR |             | `Hiker`, `Warden` or `Employee`           |
+
+#### `table`
+
+A physical table of the hut.
+
+| Column     | Type    | Constraints | Description          |
+|------------|---------|-------------|----------------------|
+| `id`       | INTEGER | PK          | Table identifier     |
+| `number`   | INTEGER | UNIQUE      | Number of the table  |
+| `capacity` | INTEGER | CHECK `> 0` | Total seats          |
+| `location` | VARCHAR |             | Where the table is   |
+
+#### `slot`
+
+A time window that can be booked.
+
+| Column       | Type     | Constraints    | Description               |
+|--------------|----------|----------------|---------------------------|
+| `id`         | INTEGER  | PK             | Slot identifier           |
+| `start_time` | DATETIME |                | Start of the slot         |
+| `end_time`   | DATETIME |                | End of the slot           |
+| `created_by` | INTEGER  | FK → [`user.id`](#user) | User who defined the slot |
+
+#### `slot_table`
+
+A table available in a slot. A slot offers one or more tables.
+
+| Column           | Type    | Constraints     | Description                    |
+|------------------|---------|-----------------|--------------------------------|
+| `id`             | INTEGER | PK              | Identifier a booking refers to |
+| `slot_id`        | INTEGER | FK → [`slot.id`](#slot)  | The slot                       |
+| `table_id`       | INTEGER | FK → [`table.id`](#table) | The table offered              |
+| `occupied_seats` | INTEGER | CHECK `>= 0`    | Seats already taken            |
+
+Each table appears at most once per slot: `UNIQUE (slot_id, table_id)`.
+The `occupied_seats` is redundant on porpuse to not recaulcate it every time from the bookings table.
+#### `booking`
+
+A reservation made by a user for a slot.
+
+| Column       | Type     | Constraints    | Description               |
+|--------------|----------|----------------|---------------------------|
+| `id`         | INTEGER  | PK             | Booking identifier        |
+| `user_id`    | INTEGER  | FK → [`user.id`](#user) | User who made the booking |
+| `slot_id`    | INTEGER  | FK → [`slot.id`](#slot) | The booked slot           |
+| `party_size` | INTEGER  | CHECK `> 0`    | Number of people          |
+| `created_at` | DATETIME |                | Creation time             |
+
+#### `booking_table`
+
+The seats a booking uses on one of the tables of its slot. A booking uses one or more of them.
+
+| Column          | Type    | Constraints          | Description              |
+|-----------------|---------|----------------------|--------------------------|
+| `id`            | INTEGER | PK                   | Identifier               |
+| `booking_id`    | INTEGER | FK → [`booking.id`](#booking)    | The booking              |
+| `slot_table_id` | INTEGER | FK → [`slot_table.id`](#slot_table) | The table in the slot    |
+| `seats_booked`  | INTEGER | CHECK `> 0`          | Seats used on that table |
+
+Each slot table appears at most once per booking: `UNIQUE (booking_id, slot_table_id)`.
+
+
+
+## Backend EndPoint
+The full OpenAPI documentation can be found on the backend URL at [`/docs`](http://127.0.0.1:8000/docs), which is autogenerated by the FastAPI framework. The links to `127.0.0.1:8000` work while the backend is running locally.
+
+### Authentication
+
+A login gives the client a signed token (JWT). The code is in [`services/auth.py`](../backend/app/services/auth.py). Each request that needs a login must carry the token in one of two ways:
+
+| Way            | Sent as                         | Obtained from                                                                 |
+|----------------|---------------------------------|-------------------------------------------------------------------------------|
+| Session cookie | `session` cookie                | [`POST /login`](#post-login) or [`POST /token`](#post-token), which both set it |
+| Bearer token   | `Authorization: Bearer <token>` | The `access_token` returned by [`POST /token`](#post-token)                   |
+
+If a request carries both, only the cookie is checked. A request with an invalid cookie is refused even if its Bearer token is valid.
+
+The cookie is HTTP-only with `SameSite=Lax`, so page scripts can't read it. It is sent only over HTTPS when `SESSION_COOKIE_SECURE=true`.
+
+The token is signed with `SECRET_KEY` (HS256) and contains:
+
+| Claim      | Content                                        |
+|------------|------------------------------------------------|
+| `sub`      | The [`user`](#user) `id`, as a string          |
+| `username` | The username                                   |
+| `role`     | `Hiker`, `Warden` or `Employee`                |
+| `exp`      | Expiry, 30 minutes after the login by default (`ACCESS_TOKEN_EXPIRE_MINUTES`) |
+
+The server keeps no list of sessions and trusts the content of a signed token until it expires. This means that:
+
+- a token stays valid after [`POST /logout`](#post-logout), which only removes the cookie
+- a token keeps the role it was created with, even if the user's role changes
+- a token stays valid if its user is deleted, unless the route checks the database as [`POST /booking`](#post-booking) does
+
+Routes limited to some roles use the `require_role` dependency, which answers `403` to any other role.
+
+Passwords are stored as Argon2 hashes in `password_hash`, never in clear text.
+
+### Routes
+
+Here is a quick overview of the routes, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py) and [`routers/auth.py`](../backend/app/routers/auth.py):
+
+| Method | Route                         | Login required  | Input                                         | Success                                             | Errors                                       |
+|--------|-------------------------------|-----------------|-----------------------------------------------|-----------------------------------------------------|----------------------------------------------|
+| GET    | [`/slot`](#get-slot)          | No              | -                                             | `200` list of [`SlotAvailability`](#slotavailability-object) | -                                    |
+| GET    | [`/slot/{id}`](#get-slotid)   | No              | `id` in the path (int)                        | `200` [`SlotDetail`](#slotdetail-object)            | [`404`, `422`](#errors)                      |
+| POST   | [`/booking`](#post-booking)   | Yes, `Hiker` only | [`BookingCreate`](#bookingcreate-object) body | `201` [`BookingResponse`](#bookingresponse-object)  | [`400`, `401`, `403`, `409`, `422`](#errors) |
+| POST   | [`/register`](#post-register) | No              | [`RegisterRequest`](#registerrequest-object) body | `201` [`UserPublic`](#userpublic-object)        | [`409`, `422`](#errors)                      |
+| POST   | [`/login`](#post-login)       | No              | [`LoginRequest`](#loginrequest-object) body   | `200` [`UserPublic`](#userpublic-object) and the `session` cookie | [`401`, `422`](#errors)        |
+| POST   | [`/token`](#post-token)       | No              | Form data: `username` (the email), `password` | `200` [`TokenResponse`](#tokenresponse-object) and the `session` cookie | [`401`, `422`](#errors)  |
+| POST   | [`/logout`](#post-logout)     | No              | -                                             | `204` with no body                                  | -                                            |
+| GET    | [`/users/me`](#get-usersme)   | Yes, any role   | -                                             | `200` [`UserPublic`](#userpublic-object)            | [`401`](#errors)                             |
+
+A hiker books a table in three steps:
+
+1. Call [`GET /slot`](#get-slot) to see the slots open for booking.
+2. Log in with [`POST /login`](#post-login) or [`POST /token`](#post-token). See [Authentication](#authentication).
+3. Call [`POST /booking`](#post-booking) with the `date` and `time` of the chosen slot.
+
+#### `GET /slot`
+
+Returns the slots open for booking as a list of [`SlotAvailability`](#slotavailability-object). A slot is left out of the list when:
+
+- it has no free seats, or
+- it starts less than two hours from now.
+
+The sample data creates its slots for the day after the database is created. Once that day has passed, this route returns an empty list. To get new sample slots, delete `backend/OQM.db` and restart the backend with `SEED_DATA=true`.
+
+Try it: <http://127.0.0.1:8000/slot>
+
+#### `GET /slot/{id}`
+
+Returns one slot as a [`SlotDetail`](#slotdetail-object), with all the tables it offers. Unlike [`GET /slot`](#get-slot), it also returns slots that are full or closed. It can fail with a [`404` or a `422`](#errors).
+
+Try it: <http://127.0.0.1:8000/slot/1>
+
+#### `POST /booking`
+
+Books a slot for the logged-in hiker and assigns the party to one or more tables. The body is a [`BookingCreate`](#bookingcreate-object), and the answer is a `201` with a [`BookingResponse`](#bookingresponse-object).
+
+The slot is found from `date` and `time`, which must match the start of a slot exactly, in the hut's local time (`Europe/Rome`).
+
+The request is refused when:
+
+- the user is not a logged-in `Hiker`
+- the body is not valid
+- no slot starts at that `date` and `time`
+- the slot starts less than two hours from now
+- the hiker already has a booking for that slot
+- the slot does not have enough free seats for the party
+
+The errors are listed in [Errors](#errors), in the order they are checked.
+
+The booking, its [`booking_table`](#booking_table) rows and the `occupied_seats` counters are saved in one transaction, so a refused booking changes nothing. On SQLite the transaction takes the write lock before reading the free seats, so two parties can't get the same seats.
+
+**How tables are assigned**
+
+Parties book seats, not whole tables, so two parties can share a table that has enough free seats. The tables are chosen in this order:
+
+1. If one table can seat the whole party, use the one with the fewest free seats. On a tie, use the lowest table number.
+2. Otherwise split the party over the fewest tables possible, then leave the fewest free seats unused on them. On a tie, use the lowest table numbers. The table with the most free seats is filled first.
+
+For example, a party of 11 with tables 3 and 4 fully free (6 seats each) gets 6 seats on table 3 and 5 on table 4, as shown in [`BookingResponse`](#bookingresponse-object).
+
+**How to try it**
+
+Use a newly registered hiker: the sample hikers already have a booking in every sample slot, so they always get a `409`. The Postman collection [`MH_E2E_booking.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_booking.postman_collection.json) runs the whole procedure.
+
+#### `POST /register`
+
+Creates a new account from a [`RegisterRequest`](#registerrequest-object) and answers `201` with a [`UserPublic`](#userpublic-object). It doesn't log the user in, so a [`POST /login`](#post-login) is needed afterwards.
+
+The server sets these values itself:
+
+- `role` is always `Hiker`. A `Warden` or `Employee` account can't be created with this route.
+- `username` is `<name>.<surname>` in lowercase, so `Mario Verdi` becomes `mario.verdi`. Two people with the same name get the same username: only `email` and `id` are unique.
+- `email` is saved in lowercase, so an address can't be registered twice with different capitals.
+- Spaces around `name`, `surname`, `mobile_number`, `notes` and `emergency_contact` are removed.
+
+If the email is already registered the answer is a [`409`](#errors).
+
+#### `POST /login`
+
+Logs a user in from a [`LoginRequest`](#loginrequest-object). The answer is a `200` with a [`UserPublic`](#userpublic-object), and the token is set as the `session` cookie. This is the route for the web client. The email is not case-sensitive.
+
+An unknown email and a wrong password get the same [`401`](#errors), so the answer doesn't reveal which emails are registered.
+
+The sample users in [Roles](#roles) can log in here.
+
+#### `POST /token`
+
+Does the same as [`POST /login`](#post-login), following the OAuth2 standard. It is the login behind the **Authorize** button of [`/docs`](http://127.0.0.1:8000/docs), and it is useful for clients that send the token as a Bearer header.
+
+It differs from [`POST /login`](#post-login) in three ways:
+
+- The body is form data (`application/x-www-form-urlencoded`), not JSON.
+- The email goes in the field called `username`, because the OAuth2 form has no email field. The real `username` of the user doesn't work here.
+- The answer is a [`TokenResponse`](#tokenresponse-object) instead of a [`UserPublic`](#userpublic-object).
+
+It also sets the `session` cookie, like [`POST /login`](#post-login).
+
+#### `POST /logout`
+
+Removes the `session` cookie and answers `204` with no body. It doesn't need a login, so it can't fail.
+
+It doesn't cancel the token: a client that kept a copy can use it as a Bearer token until it expires. See [Authentication](#authentication).
+
+#### `GET /users/me`
+
+Returns the logged-in user as a [`UserPublic`](#userpublic-object). Any role can call it, so the client can use it to check who is logged in. It answers a [`401`](#errors) if there is no valid token.
+
+The answer is read from the token, not from the database, so it may be out of date. See [Authentication](#authentication).
+
+Try it: <http://127.0.0.1:8000/users/me> (log in first)
+
+The Postman collection [`MH_E2E_auth.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_auth.postman_collection.json) runs register, login, logout and `GET /users/me` in order.
+
+### Objects
+
+The objects used by the routes, defined in [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
+
+| Object                                         | Used by                                      | Built from                                     |
+|------------------------------------------------|----------------------------------------------|------------------------------------------------|
+| [`SlotAvailability`](#slotavailability-object) | Returned by [`GET /slot`](#get-slot)         | [`slot`](#slot), [`slot_table`](#slot_table), [`table`](#table) |
+| [`SlotDetail`](#slotdetail-object)             | Returned by [`GET /slot/{id}`](#get-slotid)  | [`slot`](#slot)                                |
+| [`SlotTableInfo`](#slottableinfo-object)       | Inside [`SlotDetail`](#slotdetail-object)    | [`slot_table`](#slot_table), [`table`](#table) |
+| [`BookingCreate`](#bookingcreate-object)       | Body of [`POST /booking`](#post-booking)     | -                                              |
+| [`BookingResponse`](#bookingresponse-object)   | Returned by [`POST /booking`](#post-booking) | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table) |
+| [`RegisterRequest`](#registerrequest-object)   | Body of [`POST /register`](#post-register)   | -                                              |
+| [`LoginRequest`](#loginrequest-object)         | Body of [`POST /login`](#post-login)         | -                                              |
+| [`UserPublic`](#userpublic-object)             | Returned by [`POST /register`](#post-register), [`POST /login`](#post-login), [`GET /users/me`](#get-usersme) | [`user`](#user), or the token for [`GET /users/me`](#get-usersme) |
+| [`TokenResponse`](#tokenresponse-object)       | Returned by [`POST /token`](#post-token)     | The token                                      |
+
+The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object) and [`BookingResponse`](#bookingresponse-object) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) uses UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
+
+#### `SlotAvailability` object
+
+One slot open for booking, with its free seats across all its tables.
+
+| Field             | Type | Description                                           |
+|-------------------|------|-------------------------------------------------------|
+| `id`              | int  | Slot identifier                                       |
+| `date`            | date | Day of the slot, in the hut's local time              |
+| `time`            | time | Start of the slot, in the hut's local time            |
+| `available_seats` | int  | Free seats, summed over all the tables of the slot    |
+
+```json
+{
+  "id": 1,
+  "date": "2026-10-31",
+  "time": "12:00:00",
+  "available_seats": 35
+}
+```
+
+#### `SlotDetail` object
+
+| Field        | Type                                              | Description                                 |
+|--------------|---------------------------------------------------|---------------------------------------------|
+| `id`         | int                                               | Slot identifier                             |
+| `start_time` | datetime                                          | Start of the slot, in UTC                   |
+| `end_time`   | datetime                                          | End of the slot, in UTC                     |
+| `created_by` | int                                               | Id of the [`user`](#user) who defined the slot |
+| `tables`     | list of [`SlotTableInfo`](#slottableinfo-object)  | The tables offered in the slot              |
+
+```json
+{
+  "id": 1,
+  "start_time": "2026-10-31T11:00:00Z",
+  "end_time": "2026-10-31T12:30:00Z",
+  "created_by": 1,
+  "tables": [
+    { "id": 1, "table_id": 1, "seats_booked": 4, "seats_free": 0 },
+    { "id": 2, "table_id": 2, "seats_booked": 0, "seats_free": 4 }
+  ]
+}
+```
+
+#### `SlotTableInfo` object
+
+One table offered in the slot, with how many of its seats are still free.
+
+| Field          | Type | Description                                                  |
+|----------------|------|--------------------------------------------------------------|
+| `id`           | int  | Id of the [`slot_table`](#slot_table) row                    |
+| `table_id`     | int  | Id of the [`table`](#table) offered                          |
+| `seats_booked` | int  | Seats already taken (`occupied_seats`)                       |
+| `seats_free`   | int  | Seats still available (`capacity - occupied_seats`)          |
+
+#### `BookingCreate` object
+
+The body of [`POST /booking`](#post-booking).
+
+| Field        | Type | Description                                                                |
+|--------------|------|----------------------------------------------------------------------------|
+| `date`       | date | Day of the slot, in the hut's local time                                   |
+| `time`       | time | Start of the slot, in the hut's local time (`12:00` and `12:00:00` both work) |
+| `party_size` | int  | Number of people, greater than `0`                                         |
+
+```json
+{
+  "date": "2026-10-31",
+  "time": "13:30:00",
+  "party_size": 11
+}
+```
+
+#### `BookingResponse` object
+
+The booking just created, with the tables assigned to the party. It is built by `booking_response` in [`services/booking.py`](../backend/app/services/booking.py), not by a model, so `/docs` doesn't show its fields.
+
+| Field             | Type          | Description                                      |
+|-------------------|---------------|--------------------------------------------------|
+| `id`              | int           | Booking identifier                               |
+| `date`            | date          | Day of the slot, in the hut's local time         |
+| `time`            | time          | Start of the slot, in the hut's local time       |
+| `party_size`      | int           | Number of people                                 |
+| `tables`          | list          | The tables assigned, one item per table          |
+| `tables[].number` | int           | `number` of the [`table`](#table), not its `id`  |
+| `tables[].seats`  | int           | Seats assigned to the party on that table        |
+
+```json
+{
+  "id": 11,
+  "date": "2026-10-31",
+  "time": "13:30:00",
+  "party_size": 11,
+  "tables": [
+    { "number": 3, "seats": 6 },
+    { "number": 4, "seats": 5 }
+  ]
+}
+```
+
+#### `RegisterRequest` object
+
+The body of [`POST /register`](#post-register).
+
+| Field               | Type           | Required | Description                         |
+|---------------------|----------------|----------|-------------------------------------|
+| `name`              | string         | Yes      | First name, at least 1 character    |
+| `surname`           | string         | Yes      | Last name, at least 1 character     |
+| `email`             | string         | Yes      | A valid email address               |
+| `mobile_number`     | string         | Yes      | Mobile number, at least 1 character |
+| `password`          | string         | Yes      | Password, at least 8 characters     |
+| `notes`             | string or null | No       | Free notes                          |
+| `emergency_contact` | string or null | No       | Emergency contact                   |
+
+```json
+{
+  "name": "Mario",
+  "surname": "Verdi",
+  "email": "mario.verdi@mail.example",
+  "mobile_number": "+39 333 111 2222",
+  "password": "a-long-password",
+  "notes": "Vegetarian meals preferred.",
+  "emergency_contact": "+39 333 333 4444 - Lucia Verdi"
+}
+```
+
+#### `LoginRequest` object
+
+The body of [`POST /login`](#post-login).
+
+| Field      | Type   | Description           |
+|------------|--------|-----------------------|
+| `email`    | string | A valid email address |
+| `password` | string | The password          |
+
+```json
+{
+  "email": "anna.rossi@mail.example",
+  "password": "hiker"
+}
+```
+
+#### `UserPublic` object
+
+What the API shows about a user. It never contains the email, the id or the password hash.
+
+| Field      | Type   | Description                     |
+|------------|--------|---------------------------------|
+| `username` | string | Username                        |
+| `role`     | string | `Hiker`, `Warden` or `Employee` |
+
+```json
+{
+  "username": "anna.rossi",
+  "role": "Hiker"
+}
+```
+
+#### `TokenResponse` object
+
+The answer of [`POST /token`](#post-token). It is built directly in [`routers/auth.py`](../backend/app/routers/auth.py), not by a model, so `/docs` doesn't show its fields.
+
+| Field          | Type   | Description                                     |
+|----------------|--------|-------------------------------------------------|
+| `access_token` | string | The signed token, to send as a Bearer token     |
+| `token_type`   | string | Always `bearer`                                 |
+
+```json
+{
+  "access_token": "<token>",
+  "token_type": "bearer"
+}
+```
+
+### Errors
+
+| Code  | Route                         | Message                                                   | When                                                 |
+|-------|-------------------------------|-----------------------------------------------------------|------------------------------------------------------|
+| `404` | [`/slot/{id}`](#get-slotid)   | `Slot not found`                                          | No slot with that id                                 |
+| `422` | [`/slot/{id}`](#get-slotid)   | Automatic (FastAPI)                                       | `id` is not an integer                               |
+| `401` | [`/booking`](#post-booking)   | `Not authenticated`                                       | No cookie or token in the request                    |
+| `401` | [`/booking`](#post-booking)   | `Invalid or expired token`                                | The cookie or token is not valid                     |
+| `403` | [`/booking`](#post-booking)   | `Not enough permissions`                                  | The user is not a `Hiker`                            |
+| `422` | [`/booking`](#post-booking)   | Automatic (FastAPI)                                       | A field is missing or invalid, or `party_size` is `0` or less |
+| `401` | [`/booking`](#post-booking)   | `User not found`                                          | The token is valid but its user no longer exists     |
+| `400` | [`/booking`](#post-booking)   | `Slot not available`                                      | No slot starts at that `date` and `time`             |
+| `400` | [`/booking`](#post-booking)   | `Bookings are closed less than two hours before the slot` | The slot starts less than two hours from now         |
+| `409` | [`/booking`](#post-booking)   | `A booking already exists for this slot`                  | The hiker already has a booking for that slot        |
+| `409` | [`/booking`](#post-booking)   | `There are not enough seats for this party`               | The slot doesn't have enough free seats              |
+| `409` | [`/register`](#post-register) | `Email already registered`                                | An account already uses that email                   |
+| `422` | [`/register`](#post-register) | Automatic (FastAPI)                                       | A required field is missing, the email is not valid, or the password is shorter than 8 characters |
+| `401` | [`/login`](#post-login)       | `Wrong email or password`                                 | The email is unknown or the password is wrong        |
+| `422` | [`/login`](#post-login)       | Automatic (FastAPI)                                       | A field is missing or the email is not valid         |
+| `401` | [`/token`](#post-token)       | `Wrong username or password`                              | The email is unknown or the password is wrong        |
+| `422` | [`/token`](#post-token)       | Automatic (FastAPI)                                       | A field is missing or the body is not form data      |
+| `401` | [`/users/me`](#get-usersme)   | `Not authenticated`                                       | No cookie or token in the request                    |
+| `401` | [`/users/me`](#get-usersme)   | `Invalid or expired token`                                | The cookie or token is not valid                     |
+
+The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>" }`; for the `422`, `detail` is the list of the invalid fields. Each `401` also has the header `WWW-Authenticate: Bearer`, except `User not found` on [`/booking`](#post-booking).
+
+[Back to top](#mountain-hut)
+
