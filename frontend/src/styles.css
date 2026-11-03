@@ -1,0 +1,656 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  color: #e9eef5;
+  background: #0d1117;
+  font-synthesis: none;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(54, 109, 168, 0.16), transparent 34%),
+    #0d1117;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid #6db7ff;
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  height: 76px;
+  padding: 0 clamp(20px, 5vw, 72px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #202a35;
+  background: rgba(13, 17, 23, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+.brand,
+.profile {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 11px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #e7b96a;
+  color: #17130c;
+  font-weight: 800;
+}
+
+.brand strong,
+.profile strong {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.13em;
+}
+
+.brand span {
+  display: block;
+  margin-top: 1px;
+  color: #758294;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile {
+  gap: 10px;
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #334151;
+  border-radius: 50%;
+  color: #c5d0dc;
+  background: #151d27;
+}
+
+.profile-label {
+  display: block;
+  margin-bottom: 2px;
+  color: #68788a;
+  font-size: 10px;
+}
+
+.main-content {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 62px 0 70px;
+}
+
+.intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 38px;
+}
+
+.eyebrow {
+  color: #e7b96a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.intro h1 {
+  margin: 7px 0 7px;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.intro p {
+  max-width: 590px;
+  margin: 0;
+  color: #8593a3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.availability-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid #293644;
+  border-radius: 999px;
+  color: #9ba9b8;
+  background: #111821;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6bc98d;
+  box-shadow: 0 0 0 4px rgba(107, 201, 141, 0.1);
+}
+
+.booking-layout {
+  display: grid;
+  grid-template-columns: minmax(440px, 1fr) minmax(380px, 0.9fr);
+  gap: 18px;
+}
+
+.panel {
+  border: 1px solid #263340;
+  border-radius: 16px;
+  background: rgba(18, 25, 34, 0.92);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-panel,
+.details-panel {
+  padding: 28px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 25px;
+}
+
+.panel-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-heading.compact {
+  margin-bottom: 13px;
+}
+
+.step {
+  color: #e7b96a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.panel-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.hint {
+  color: #69788a;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.calendar {
+  max-width: 490px;
+  margin: 0 auto;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.month-title {
+  text-align: center;
+  color: #dce4ed;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.month-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2d3a47;
+  border-radius: 10px;
+  background: #141c25;
+  color: #a9b6c5;
+  cursor: pointer;
+  font-size: 23px;
+  line-height: 1;
+  transition: 150ms ease;
+}
+
+.month-button:hover {
+  border-color: #53677c;
+  background: #19232e;
+  color: #fff;
+}
+
+.weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.weekdays {
+  margin-bottom: 8px;
+  color: #59697a;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.day {
+  position: relative;
+  height: 48px;
+  margin: 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #556576;
+  cursor: default;
+  transition: 140ms ease;
+}
+
+.day.available {
+  color: #b8c4d1;
+  cursor: pointer;
+}
+
+.day.available:hover {
+  border-color: #435466;
+  background: #17212b;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.day.selected {
+  border-color: #e7b96a;
+  background: #e7b96a;
+  color: #17130c;
+  font-weight: 750;
+}
+
+.day.outside-month {
+  color: #303b47;
+}
+
+.day i,
+.legend-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 4px auto 0;
+  border-radius: 50%;
+  background: #6bc98d;
+}
+
+.day.selected i {
+  background: #17130c;
+}
+
+.calendar-legend {
+  display: flex;
+  gap: 18px;
+  margin-top: 17px;
+  color: #667687;
+  font-size: 9px;
+}
+
+.calendar-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  margin: 0;
+  width: 5px;
+  height: 5px;
+}
+
+.legend-dot.muted {
+  background: #3b4651;
+}
+
+.selected-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #293744;
+  border-radius: 11px;
+  background: #121b24;
+  margin-bottom: 14px;
+}
+
+.calendar-icon {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(231, 185, 106, 0.1);
+  color: #e7b96a;
+  font-size: 13px;
+}
+
+.selected-date span:not(.calendar-icon) {
+  display: block;
+  color: #647486;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.selected-date strong {
+  display: block;
+  margin-top: 3px;
+  color: #dce4ed;
+  font-size: 12px;
+}
+
+.slot-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.slot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 13px;
+  border: 1px solid #293744;
+  border-radius: 10px;
+  background: #121a23;
+  color: #aab7c5;
+  cursor: pointer;
+  text-align: left;
+  transition: 140ms ease;
+}
+
+.slot-card:hover {
+  border-color: #53677c;
+  background: #17212b;
+}
+
+.slot-card.selected {
+  border-color: #e7b96a;
+  background: rgba(231, 185, 106, 0.08);
+}
+
+.slot-time {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.slot-seats {
+  color: #6f8192;
+  font-size: 10px;
+}
+
+.slot-card.selected .slot-seats {
+  color: #c5a268;
+}
+
+.empty-state {
+  min-height: 238px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 30px;
+  border: 1px dashed #2b3946;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 13px;
+  border-radius: 12px;
+  background: #161f29;
+  color: #637486;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.empty-state strong {
+  color: #aebbc8;
+  font-size: 13px;
+}
+
+.empty-state p {
+  max-width: 210px;
+  margin: 7px 0 0;
+  color: #637385;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.party-section {
+  margin-top: 26px;
+  padding-top: 23px;
+  border-top: 1px solid #263340;
+}
+
+.party-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #2d3a47;
+  border-radius: 11px;
+  background: #111921;
+}
+
+.party-control button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2d3a47;
+  border-radius: 8px;
+  background: #18222d;
+  color: #b5c1ce;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.party-control button:hover:not(:disabled) {
+  border-color: #586b7e;
+  background: #202c38;
+}
+
+.party-control button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.party-number {
+  text-align: center;
+}
+
+.party-number strong {
+  display: block;
+  color: #e9eef5;
+  font-size: 18px;
+}
+
+.party-number span {
+  color: #667788;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.capacity {
+  margin: 8px 0 0;
+  color: #607284;
+  font-size: 9px;
+  text-align: center;
+}
+
+.error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid #633e3e;
+  border-radius: 9px;
+  color: #e49b9b;
+  background: #28191b;
+  font-size: 10px;
+}
+
+.booking-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid #263340;
+  border-radius: 14px;
+  background: #121922;
+}
+
+.summary span,
+.summary strong {
+  display: block;
+}
+
+.summary span {
+  margin-bottom: 4px;
+  color: #657587;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.summary strong {
+  color: #aebbc8;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.confirm-button {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 15px 12px 17px;
+  border: 0;
+  border-radius: 9px;
+  background: #e7b96a;
+  color: #17130c;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: 150ms ease;
+}
+
+.confirm-button span {
+  font-size: 17px;
+}
+
+.confirm-button:hover:not(:disabled) {
+  background: #f0c77f;
+  transform: translateY(-1px);
+}
+
+.confirm-button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+@media (max-width: 880px) {
+  .booking-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar {
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    padding: 0 18px;
+  }
+
+  .profile-label {
+    display: none;
+  }
+
+  .main-content {
+    width: min(100% - 24px, 560px);
+    padding-top: 38px;
+  }
+
+  .intro {
+    display: block;
+  }
+
+  .intro h1 {
+    font-size: 34px;
+  }
+
+  .availability-badge {
+    display: inline-flex;
+    margin-top: 18px;
+  }
+
+  .calendar-panel,
+  .details-panel {
+    padding: 20px;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .booking-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .confirm-button {
+    justify-content: center;
+  }
+}
