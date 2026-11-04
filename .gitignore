@@ -225,3 +225,5 @@ backend/MountainHut.db
 
 */.DS
 backend/.venv
+/docker/data/
+/backend/backend_test/test.http

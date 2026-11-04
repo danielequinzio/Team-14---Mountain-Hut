@@ -1,6 +1,0 @@
-services:
-  mailpit:
-    image: axllent/mailpit
-    ports:
-      - "1025:1025"   # SMTP: the backend sends here
-      - "8025:8025"   # web inbox
