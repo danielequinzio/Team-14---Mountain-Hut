@@ -6,6 +6,7 @@ This project includes mock availability data by default.
 
 ```bash
 npm install
+npm install react-router-dom
 npm run dev
 ```
 
@@ -16,11 +17,10 @@ so you can test disabled dates, time slots, seat limits, and party-size changes.
 
 ## Use the real backend
 
-In the `.env` file change:
+In the `api.js` file change:
 
-```env
+```
 VITE_USE_MOCK_DATA=false
-VITE_API_BASE_URL=http://localhost:8000
 ```
 
 ## Main behavior

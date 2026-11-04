@@ -41,7 +41,19 @@ function formatDate(dateKey) {
 }
 
 function formatSlot(slot) {
-  return `${slot.start} – ${slot.end}`;
+  return `${formatTime(slot.start)} – ${formatTime(slot.end)}`;
+}
+
+function formatTime(dateTime) {
+  if (!dateTime) return "";
+
+  // Extract the time portion from an ISO date
+  const time = dateTime.includes("T")
+    ? dateTime.split("T")[1]
+    : dateTime;
+
+  // Remove timezone information and seconds
+  return time.slice(0, 5);
 }
 
 export default function Booking() {
@@ -225,10 +237,10 @@ export default function Booking() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">R</div>
+          <div className="brand-mark">MH</div>
           <div>
-            <strong>RIVET</strong>
-            <span>Restaurant</span>
+            <strong>MH</strong>
+            <span>Mountain Huts Service</span>
           </div>
         </div>
 
@@ -250,10 +262,6 @@ export default function Booking() {
               Choose a date, select an available time, and tell us how many
               guests will be joining you.
             </p>
-          </div>
-          <div className="availability-badge">
-            <span className="badge-dot" />
-            Live availability
           </div>
         </div>
 
