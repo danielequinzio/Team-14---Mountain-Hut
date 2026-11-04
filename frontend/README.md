@@ -6,6 +6,7 @@ This project includes mock availability data by default.
 
 ```bash
 npm install
+npm install react-router-dom
 npm run dev
 ```
 
@@ -16,49 +17,11 @@ so you can test disabled dates, time slots, seat limits, and party-size changes.
 
 ## Use the real backend
 
-Create a `.env` file:
+In the `api.js` file change:
 
-```env
+```
 VITE_USE_MOCK_DATA=false
-VITE_API_BASE_URL=http://localhost:8080
 ```
-
-The frontend then calls:
-
-```http
-GET /api/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
-```
-
-Expected response:
-
-```json
-{
-  "dates": [
-    {
-      "date": "2026-11-03",
-      "slots": [
-        {
-          "start": "11:00",
-          "end": "12:00",
-          "availableSeats": 5
-        },
-        {
-          "start": "12:30",
-          "end": "13:30",
-          "availableSeats": 2
-        }
-      ]
-    },
-    {
-      "date": "2026-11-04",
-      "slots": []
-    }
-  ]
-}
-```
-
-If your backend returns a different JSON structure, only `src/api.js`
-needs to be adapted.
 
 ## Main behavior
 

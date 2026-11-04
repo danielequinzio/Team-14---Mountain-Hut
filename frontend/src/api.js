@@ -1,83 +1,210 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== "false";
+const API_BASE_URL = "http://localhost:8000";
 
-/*
-  Mock availability lets you develop the UI without a backend.
+// Change this to false when you want to use FastAPI.
+const USE_MOCK_DATA = false;
 
-  To use your real backend later, put this in .env:
-    VITE_USE_MOCK_DATA=false
-    VITE_API_BASE_URL=http://localhost:8080
-*/
+// ----------------------------------
+// MOCK DATA
+// ----------------------------------
 
-function dateKey(year, month, day) {
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+function getLocalDate(daysFromToday) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromToday);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
-function buildMockAvailability(from, to) {
-  const start = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T00:00:00`);
-  const dates = [];
+const mockAvailability = {
+  [getLocalDate(1)]: [
+    {
+      id: 1,
+      start: "11:00:00",
+      end: "12:00:00",
+      availableSeats: 5,
+    },
+    {
+      id: 2,
+      start: "12:00:00",
+      end: "13:00:00",
+      availableSeats: 8,
+    },
+    {
+      id: 3,
+      start: "19:00:00",
+      end: "20:00:00",
+      availableSeats: 4,
+    },
+  ],
 
-  for (
-    const date = new Date(start);
-    date <= end;
-    date.setDate(date.getDate() + 1)
-  ) {
-    const day = date.getDay(); // 0 Sunday, 6 Saturday
-    const key = dateKey(
-      date.getFullYear(),
-      date.getMonth() + 1,
-      date.getDate()
-    );
+  [getLocalDate(3)]: [
+    {
+      id: 4,
+      start: "10:00:00",
+      end: "11:00:00",
+      availableSeats: 2,
+    },
+    {
+      id: 5,
+      start: "13:00:00",
+      end: "14:00:00",
+      availableSeats: 10,
+    },
+  ],
 
-    // Some dates intentionally have no slots so you can test disabled dates.
-    const isClosed =
-      day === 1 ||
-      (date.getDate() % 7 === 0) ||
-      (day === 0 && date.getDate() % 2 === 0);
+  [getLocalDate(5)]: [
+    {
+      id: 6,
+      start: "11:00:00",
+      end: "12:00:00",
+      availableSeats: 6,
+    },
+    {
+      id: 7,
+      start: "17:00:00",
+      end: "18:00:00",
+      availableSeats: 3,
+    },
+  ],
 
-    if (isClosed) {
-      dates.push({ date: key, slots: [] });
-      continue;
-    }
+  [getLocalDate(8)]: [
+    {
+      id: 8,
+      start: "14:00:00",
+      end: "15:00:00",
+      availableSeats: 7,
+    },
+  ],
+};
 
-    const slots = [
-      { start: "11:00", end: "12:00", availableSeats: 5 },
-      { start: "12:30", end: "13:30", availableSeats: 8 },
-      { start: "18:00", end: "19:00", availableSeats: 4 },
-      { start: "19:30", end: "20:30", availableSeats: 2 }
-    ];
+// ----------------------------------
+// GET AVAILABILITY
+// ----------------------------------
 
-    // Make a few dates have a different capacity to demonstrate
-    // that party size follows the selected slot.
-    if (date.getDate() % 5 === 0) {
-      slots.splice(1, 1);
-      slots[2].availableSeats = 6;
-    }
-
-    dates.push({ date: key, slots });
-  }
-
-  return dates;
-}
-
-export async function getAvailability(from, to) {
+export async function getAvailability() {
+  // Use mock data
   if (USE_MOCK_DATA) {
-    // Simulate a small network delay so loading states can be tested.
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return buildMockAvailability(from, to);
+    console.log("Using MOCK availability data");
+
+    return mockAvailability;
   }
 
-  const url =
-    `${API_BASE_URL}/api/availability?from=${encodeURIComponent(from)}` +
-    `&to=${encodeURIComponent(to)}`;
-
-  const response = await fetch(url);
+  // Use real FastAPI backend
+  const response = await fetch(`${API_BASE_URL}/slot`, {
+    method: "GET",
+    credentials: "include",
+  });
 
   if (!response.ok) {
-    throw new Error(`Could not load availability (${response.status})`);
+    throw new Error("Could not fetch available slots.");
   }
 
+  const slots = await response.json();
+
+  const detailedSlots = await Promise.all(
+    slots.map(async (slot) => {
+      const detailResponse = await fetch(
+        `${API_BASE_URL}/slot/${slot.id}`,
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+
+      if (!detailResponse.ok) {
+        throw new Error(`Could not fetch slot ${slot.id}.`);
+      }
+
+      const details = await detailResponse.json();
+
+      return {
+        id: slot.id,
+        date: slot.date,
+        start: details.start_time,
+        end: details.end_time,
+        availableSeats: slot.available_seats,
+      };
+    })
+  );
+
+  const availability = {};
+
+  detailedSlots.forEach((slot) => {
+    if (!availability[slot.date]) {
+      availability[slot.date] = [];
+    }
+
+    availability[slot.date].push(slot);
+  });
+
+  return availability;
+}
+
+// ----------------------------------
+// CREATE BOOKING
+// ----------------------------------
+
+export async function createBooking({
+  date,
+  time,
+  partySize,
+}) {
+  // Simulate a successful booking
+  if (USE_MOCK_DATA) {
+    console.log("Creating MOCK booking");
+
+    const selectedSlots = mockAvailability[date] || [];
+
+    const slot = selectedSlots.find(
+      (item) => item.start === time
+    );
+
+    if (!slot) {
+      throw new Error("This time slot is no longer available.");
+    }
+
+    if (partySize > slot.availableSeats) {
+      throw new Error("Not enough seats available.");
+    }
+
+    return {
+      id: Math.floor(Math.random() * 10000),
+      date,
+      time,
+      party_size: partySize,
+      tables: [
+        {
+          number: 5,
+        },
+      ],
+      status: "confirmed",
+    };
+  }
+
+  // Send booking to FastAPI
+  const response = await fetch(`${API_BASE_URL}/booking`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      date,
+      time,
+      party_size: partySize,
+    }),
+  });
+
   const data = await response.json();
-  return data.dates ?? [];
+
+  if (!response.ok) {
+    throw new Error(
+      data?.detail || "Could not create reservation."
+    );
+  }
+
+  return data;
 }
