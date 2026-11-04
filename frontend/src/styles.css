@@ -654,3 +654,149 @@ button:focus-visible {
     justify-content: center;
   }
 }
+.summary-page {
+  width: min(720px, 90vw);
+  margin: 0 auto;
+  padding: 60px 0 80px;
+  text-align: center;
+}
+
+.summary-intro {
+  margin-bottom: 30px;
+}
+
+.summary-intro h1 {
+  margin: 8px 0;
+}
+
+.summary-intro p {
+  color: #979c94;
+}
+
+.summary-card {
+  padding: 38px 42px;
+  text-align: left;
+}
+
+.success-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 18px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: rgba(145, 164, 120, 0.14);
+  border: 1px solid rgba(145, 164, 120, 0.4);
+
+  color: #a7bd8e;
+  font-size: 25px;
+}
+
+.summary-card .card-label {
+  text-align: center;
+}
+
+.summary-card h2 {
+  margin: 8px 0 28px;
+
+  text-align: center;
+
+  font-family: "Playfair Display", Georgia, serif;
+
+  font-size: 27px;
+}
+
+.reservation-details {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding: 17px 0;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.detail-row span {
+  color: #777e76;
+  font-size: 12px;
+}
+
+.detail-row strong {
+  color: #e1dfd7;
+  font-size: 13px;
+  text-align: right;
+}
+
+.reservation-id {
+  margin-top: 17px;
+
+  color: #676e66;
+  font-size: 10px;
+  text-align: right;
+}
+
+.arrival-note {
+  margin-top: 27px;
+  padding: 17px;
+
+  display: flex;
+  gap: 13px;
+
+  border-radius: 12px;
+
+  background: #222622;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+
+  text-align: left;
+}
+
+.arrival-icon {
+  color: #c8a76a;
+  font-size: 20px;
+}
+
+.arrival-note strong {
+  display: block;
+  margin-bottom: 5px;
+
+  color: #d9d7cf;
+  font-size: 12px;
+}
+
+.arrival-note p {
+  margin: 0;
+
+  color: #747b73;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.secondary-button {
+  margin-top: 18px;
+
+  padding: 13px 18px;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
+
+  background: transparent;
+
+  color: #c0c3bc;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  border-color: rgba(200, 167, 106, 0.5);
+  color: #d5b879;
+}
