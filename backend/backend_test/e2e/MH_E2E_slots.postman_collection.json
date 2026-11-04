@@ -1,0 +1,967 @@
+{
+  "info": {
+    "name": "Mountain Hut - E2E slots",
+    "description": "End-to-end scenario for the slot and table management, run against the real running server.\n\nThe warden and tables 1 to 6 come from the seed, so start the server on a seeded db. For example, from the backend folder:\n\n    DATABASE_URL=sqlite:////tmp/mh_e2e.db SEED_DATA=true fastapi dev app/main.py\n\nThen run the collection in order with the Collection Runner or:\n\n    newman run MH_E2E_slots.postman_collection.json\n\nEvery run creates two new slots, Slot A (next Sunday, 12:00-13:30) and Slot B (the Sunday after, same hours), and 4 outdoor tables numbered after the highest existing one, so it can be repeated on the same db.\nChange `baseUrl` in the collection variables if the server is not on localhost:8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Warden defines Slot A, a Sunday lunch",
+      "description": "Story: as a warden, I create Slot A for next Sunday at 12:00-13:30 and offer tables 1 to 6 in it.",
+      "item": [
+        {
+          "name": "1. Warden logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luca.bonetti@rifugio.example\",\n  \"password\": \"warden\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2. Warden looks up the tables",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const tables = pm.response.json();",
+                  "const byNumber = {};",
+                  "tables.forEach((t) => { byNumber[t.number] = t.id; });",
+                  "",
+                  "pm.test(\"Tables 1 to 6 exist (start the server on a seeded db)\", () => {",
+                  "    [1, 2, 3, 4, 5, 6].forEach((n) => pm.expect(byNumber, `table ${n}`).to.have.property(String(n)));",
+                  "});",
+                  "",
+                  "// nothing below can work without the tables",
+                  "if (![1, 2, 3, 4, 5, 6].every((n) => byNumber[n] !== undefined)) {",
+                  "    postman.setNextRequest(null);",
+                  "    return;",
+                  "}",
+                  "",
+                  "pm.collectionVariables.set(\"hallTableIds\", JSON.stringify([1, 2, 3, 4, 5, 6].map((n) => byNumber[n])));",
+                  "",
+                  "// the outdoor tables get numbers no table has yet, so the collection can run again on the same db",
+                  "const maxNumber = Math.max(...tables.map((t) => t.number));",
+                  "[1, 2, 3, 4].forEach((i) => pm.collectionVariables.set(`outdoorNumber${i}`, maxNumber + i));",
+                  "pm.collectionVariables.set(\"outdoorIds\", \"[]\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. Warden creates Slot A (next Sunday 12:00-13:30)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// the next Sunday (a week from today if today is Sunday), and the Sunday after it",
+                  "function ymd(d) {",
+                  "    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, \"0\"), String(d.getDate()).padStart(2, \"0\")].join(\"-\");",
+                  "}",
+                  "",
+                  "// the hut is in Europe/Rome: +02:00 from the last Sunday of March to the last Sunday of October, else +01:00",
+                  "function romeOffset(d) {",
+                  "    const y = d.getFullYear();",
+                  "    const lastSunday = (month) => { const last = new Date(y, month, 0); return last.getDate() - last.getDay(); };",
+                  "    const md = (d.getMonth() + 1) * 100 + d.getDate();",
+                  "    return md >= 300 + lastSunday(3) && md < 1000 + lastSunday(10) ? \"+02:00\" : \"+01:00\";",
+                  "}",
+                  "",
+                  "const sunday = new Date();",
+                  "sunday.setDate(sunday.getDate() + ((7 - sunday.getDay()) % 7 || 7));",
+                  "const nextSunday = new Date(sunday);",
+                  "nextSunday.setDate(sunday.getDate() + 7);",
+                  "",
+                  "pm.collectionVariables.set(\"sundayDate\", ymd(sunday));",
+                  "pm.collectionVariables.set(\"sundayStart\", `${ymd(sunday)}T12:00:00${romeOffset(sunday)}`);",
+                  "pm.collectionVariables.set(\"sundayEnd\", `${ymd(sunday)}T13:30:00${romeOffset(sunday)}`);",
+                  "pm.collectionVariables.set(\"nextSundayDate\", ymd(nextSunday));",
+                  "pm.collectionVariables.set(\"nextSundayStart\", `${ymd(nextSunday)}T12:00:00${romeOffset(nextSunday)}`);",
+                  "pm.collectionVariables.set(\"nextSundayEnd\", `${ymd(nextSunday)}T13:30:00${romeOffset(nextSunday)}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (slot created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json();",
+                  "pm.collectionVariables.set(\"sundaySlotId\", slot.id);",
+                  "",
+                  "pm.test(\"The slot starts on Sunday at 12:00 and ends at 13:30 (hut time)\", () => {",
+                  "    pm.expect(new Date(slot.start_time).getTime()).to.eql(new Date(pm.collectionVariables.get(\"sundayStart\")).getTime());",
+                  "    pm.expect(new Date(slot.end_time).getTime()).to.eql(new Date(pm.collectionVariables.get(\"sundayEnd\")).getTime());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"{{sundayStart}}\",\n  \"end_time\": \"{{sundayEnd}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4. Warden adds tables 1 to 6 to Slot A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"hallTableIds\"));",
+                  "",
+                  "pm.test(\"The slot has exactly tables 1 to 6\", () => {",
+                  "    pm.expect(pm.response.json().tables.map((t) => t.table_id)).to.have.members(ids);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{sundaySlotId}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{sundaySlotId}}",
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_ids\": {{hallTableIds}}\n}"
+            }
+          }
+        },
+        {
+          "name": "5. Slot A is listed for Sunday",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slotId = Number(pm.collectionVariables.get(\"sundaySlotId\"));",
+                  "",
+                  "pm.test(\"The new slot is among Sunday's slots\", () => {",
+                  "    pm.expect(pm.response.json().map((s) => s.id)).to.include(slotId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slots?date={{sundayDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{sundayDate}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Slot A has tables 1 to 6, all free",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json();",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"hallTableIds\"));",
+                  "",
+                  "pm.test(\"It is Slot A\", () => {",
+                  "    pm.expect(slot.id).to.eql(Number(pm.collectionVariables.get(\"sundaySlotId\")));",
+                  "    pm.expect(new Date(slot.start_time).getTime()).to.eql(new Date(pm.collectionVariables.get(\"sundayStart\")).getTime());",
+                  "});",
+                  "",
+                  "pm.test(\"It offers tables 1 to 6\", () => {",
+                  "    pm.expect(slot.tables.map((t) => t.table_id)).to.have.members(ids);",
+                  "});",
+                  "",
+                  "pm.test(\"No seat is booked yet\", () => {",
+                  "    slot.tables.forEach((t) => {",
+                  "        pm.expect(t.seats_booked).to.eql(0);",
+                  "        pm.expect(t.seats_free).to.be.above(0);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{sundaySlotId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{sundaySlotId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Warden copies Slot A into Slot B and adds outdoor tables",
+      "description": "Story: as a warden, I add 4 tables outside the building. Then I create Slot B (the Sunday after Slot A, same hours), copy the tables of Slot A into it, and offer the outdoor tables in Slot B only. Slot A keeps its 6 tables.",
+      "item": [
+        {
+          "name": "1. Warden creates outdoor table 1 of 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (table created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const table = pm.response.json();",
+                  "",
+                  "pm.test(\"The table is outside, with the requested number\", () => {",
+                  "    pm.expect(table.location).to.eql(\"Outside\");",
+                  "    pm.expect(table.number).to.eql(Number(pm.collectionVariables.get(\"outdoorNumber1\")));",
+                  "    pm.expect(table.capacity).to.eql(4);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "ids.push(table.id);",
+                  "pm.collectionVariables.set(\"outdoorIds\", JSON.stringify(ids));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": {{outdoorNumber1}},\n  \"capacity\": 4,\n  \"location\": \"Outside\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2. Warden creates outdoor table 2 of 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (table created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const table = pm.response.json();",
+                  "",
+                  "pm.test(\"The table is outside, with the requested number\", () => {",
+                  "    pm.expect(table.location).to.eql(\"Outside\");",
+                  "    pm.expect(table.number).to.eql(Number(pm.collectionVariables.get(\"outdoorNumber2\")));",
+                  "    pm.expect(table.capacity).to.eql(4);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "ids.push(table.id);",
+                  "pm.collectionVariables.set(\"outdoorIds\", JSON.stringify(ids));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": {{outdoorNumber2}},\n  \"capacity\": 4,\n  \"location\": \"Outside\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3. Warden creates outdoor table 3 of 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (table created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const table = pm.response.json();",
+                  "",
+                  "pm.test(\"The table is outside, with the requested number\", () => {",
+                  "    pm.expect(table.location).to.eql(\"Outside\");",
+                  "    pm.expect(table.number).to.eql(Number(pm.collectionVariables.get(\"outdoorNumber3\")));",
+                  "    pm.expect(table.capacity).to.eql(4);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "ids.push(table.id);",
+                  "pm.collectionVariables.set(\"outdoorIds\", JSON.stringify(ids));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": {{outdoorNumber3}},\n  \"capacity\": 4,\n  \"location\": \"Outside\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4. Warden creates outdoor table 4 of 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (table created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const table = pm.response.json();",
+                  "",
+                  "pm.test(\"The table is outside, with the requested number\", () => {",
+                  "    pm.expect(table.location).to.eql(\"Outside\");",
+                  "    pm.expect(table.number).to.eql(Number(pm.collectionVariables.get(\"outdoorNumber4\")));",
+                  "    pm.expect(table.capacity).to.eql(4);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "ids.push(table.id);",
+                  "pm.collectionVariables.set(\"outdoorIds\", JSON.stringify(ids));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": {{outdoorNumber4}},\n  \"capacity\": 4,\n  \"location\": \"Outside\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5. The outdoor tables are listed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "const outdoor = pm.response.json().filter((t) => ids.includes(t.id));",
+                  "",
+                  "pm.test(\"All 4 new tables are listed, outside\", () => {",
+                  "    pm.expect(outdoor).to.have.lengthOf(4);",
+                  "    outdoor.forEach((t) => pm.expect(t.location).to.eql(\"Outside\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Warden creates Slot B, empty (the Sunday after, 12:00-13:30)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (slot created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"copySlotId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"{{nextSundayStart}}\",\n  \"end_time\": \"{{nextSundayEnd}}\"\n}"
+            },
+            "description": "Copying needs a slot that already exists, so Slot B is created first with POST /slots. It has no tables yet. Its id is saved as `copySlotId`."
+          }
+        },
+        {
+          "name": "7. Warden copies the tables of Slot A into Slot B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json();",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"hallTableIds\"));",
+                  "",
+                  "pm.test(\"The answer is Slot B, now with tables 1 to 6 of Slot A\", () => {",
+                  "    pm.expect(slot.id).to.eql(Number(pm.collectionVariables.get(\"copySlotId\")));",
+                  "    pm.expect(slot.tables.map((t) => t.table_id)).to.have.members(ids);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{sundaySlotId}}/copy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{sundaySlotId}}",
+                "copy"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_slot_id\": {{copySlotId}}\n}"
+            },
+            "description": "POST /slots/{Slot A}/copy with target_slot_id = Slot B. Slot B gets the same tables as Slot A (1 to 6), with no seats booked. Slot A is not changed."
+          }
+        },
+        {
+          "name": "8. Warden adds the 4 outdoor tables to Slot B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = [...JSON.parse(pm.collectionVariables.get(\"hallTableIds\")), ...JSON.parse(pm.collectionVariables.get(\"outdoorIds\"))];",
+                  "",
+                  "pm.test(\"Slot B now has tables 1 to 6 and the 4 outdoor ones\", () => {",
+                  "    pm.expect(pm.response.json().tables.map((t) => t.table_id)).to.have.members(ids);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{copySlotId}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{copySlotId}}",
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_ids\": {{outdoorIds}}\n}"
+            },
+            "description": "POST /slots/{Slot B}/tables with the 4 outdoor table ids. Slot B ends up with 10 tables; Slot A keeps its 6."
+          }
+        },
+        {
+          "name": "9. Slot B has 10 tables, all free",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json();",
+                  "const hall = JSON.parse(pm.collectionVariables.get(\"hallTableIds\"));",
+                  "const outdoor = JSON.parse(pm.collectionVariables.get(\"outdoorIds\"));",
+                  "",
+                  "pm.test(\"It is next Sunday at 12:00\", () => {",
+                  "    pm.expect(new Date(slot.start_time).getTime()).to.eql(new Date(pm.collectionVariables.get(\"nextSundayStart\")).getTime());",
+                  "    pm.expect(new Date(slot.end_time).getTime()).to.eql(new Date(pm.collectionVariables.get(\"nextSundayEnd\")).getTime());",
+                  "});",
+                  "",
+                  "pm.test(\"It offers the 6 hall tables and the 4 outdoor ones\", () => {",
+                  "    pm.expect(slot.tables).to.have.lengthOf(10);",
+                  "    pm.expect(slot.tables.map((t) => t.table_id)).to.have.members([...hall, ...outdoor]);",
+                  "});",
+                  "",
+                  "pm.test(\"No seat is booked yet: the outdoor tables have all 4 seats free\", () => {",
+                  "    slot.tables.forEach((t) => pm.expect(t.seats_booked).to.eql(0));",
+                  "    slot.tables.filter((t) => outdoor.includes(t.table_id)).forEach((t) => pm.expect(t.seats_free).to.eql(4));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{copySlotId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{copySlotId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Slot A is unchanged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"hallTableIds\"));",
+                  "",
+                  "pm.test(\"Slot A still has only tables 1 to 6: the outdoor tables went to Slot B only\", () => {",
+                  "    pm.expect(pm.response.json().tables.map((t) => t.table_id)).to.have.members(ids);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{sundaySlotId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{sundaySlotId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11. Copying Slot A into Slot B again is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Tables 1 to 6 are already in Slot B\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.eql(\"A table is already assigned to the target slot\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{sundaySlotId}}/copy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{sundaySlotId}}",
+                "copy"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_slot_id\": {{copySlotId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "12. Slot A and Slot B are listed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = pm.response.json().map((s) => s.id);",
+                  "",
+                  "pm.test(\"Slot A and Slot B are listed\", () => {",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"sundaySlotId\")));",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"copySlotId\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slots?from_date={{sundayDate}}&to_date={{nextSundayDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "{{sundayDate}}"
+                },
+                {
+                  "key": "to_date",
+                  "value": "{{nextSundayDate}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "13. Warden logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "hallTableIds",
+      "value": ""
+    },
+    {
+      "key": "outdoorIds",
+      "value": ""
+    },
+    {
+      "key": "outdoorNumber1",
+      "value": ""
+    },
+    {
+      "key": "outdoorNumber2",
+      "value": ""
+    },
+    {
+      "key": "outdoorNumber3",
+      "value": ""
+    },
+    {
+      "key": "outdoorNumber4",
+      "value": ""
+    },
+    {
+      "key": "sundayDate",
+      "value": ""
+    },
+    {
+      "key": "sundayStart",
+      "value": ""
+    },
+    {
+      "key": "sundayEnd",
+      "value": ""
+    },
+    {
+      "key": "nextSundayDate",
+      "value": ""
+    },
+    {
+      "key": "nextSundayStart",
+      "value": ""
+    },
+    {
+      "key": "nextSundayEnd",
+      "value": ""
+    },
+    {
+      "key": "sundaySlotId",
+      "value": ""
+    },
+    {
+      "key": "copySlotId",
+      "value": ""
+    }
+  ]
+}
