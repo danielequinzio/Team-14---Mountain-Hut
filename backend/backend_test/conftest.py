@@ -10,6 +10,7 @@ from pathlib import Path
 _TEST_DB = Path(tempfile.gettempdir()) / "mountain_hut_test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB}"
 os.environ["SEED_DATA"] = "false"
+os.environ["SMTP_HOST"] = ""
 
 import pytest
 from fastapi.testclient import TestClient
