@@ -9,7 +9,7 @@ from sqlmodel import Session, SQLModel, select
 
 from app.database import engine, transaction
 from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
-from app.routers import auth, slot, booking, tables
+from app.routers import auth, availability, slot, booking, tables
 from app.config import CORS_ORIGINS, DATA_SEED
 from app.services.auth import hash_password
 
@@ -296,6 +296,7 @@ app.include_router(slot.management_router)
 app.include_router(tables.router)
 app.include_router(auth.router)
 app.include_router(booking.router)
+app.include_router(availability.router)
 """
 app.include_router(tickets.router)
 app.include_router(services.router)
