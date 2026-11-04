@@ -16,6 +16,7 @@ from app.services.booking import (
     allocate,
     assign_tables,
     booking_response,
+    check_availability,
     find_slot,
     get_free_seats,
     get_user,
@@ -158,6 +159,59 @@ def test_get_free_seats_returns_persisted_availability(monkeypatch):
     monkeypatch.setattr("app.services.booking._get_table_availability", lambda session, slot_id: availability)
 
     assert get_free_seats(MagicMock(), 5) == {1: 2, 2: 4}
+
+
+def test_check_availability_returns_table_distribution_without_booking(monkeypatch):
+    session = MagicMock()
+    slot = SimpleNamespace(id=5)
+    monkeypatch.setattr(booking_service, "find_slot", lambda *args: slot)
+    monkeypatch.setattr(
+        booking_service,
+        "_get_table_availability",
+        lambda current_session, slot_id: [
+            SimpleNamespace(number=1, free_seats=2),
+            SimpleNamespace(number=2, free_seats=3),
+            SimpleNamespace(number=3, free_seats=1),
+        ],
+    )
+
+    result = check_availability(session, date(2030, 1, 1), time(12, 0), 6)
+
+    assert result == {
+        "available": True,
+        "tables": [
+            {"number": 2, "seats": 3},
+            {"number": 1, "seats": 2},
+            {"number": 3, "seats": 1},
+        ],
+    }
+    session.add.assert_not_called()
+    session.add_all.assert_not_called()
+    session.flush.assert_not_called()
+
+
+def test_check_availability_returns_unavailable_without_table_assignments(monkeypatch):
+    session = MagicMock()
+    monkeypatch.setattr(
+        booking_service,
+        "find_slot",
+        lambda *args: SimpleNamespace(id=5),
+    )
+    monkeypatch.setattr(
+        booking_service,
+        "_get_table_availability",
+        lambda current_session, slot_id: [
+            SimpleNamespace(number=1, free_seats=2),
+            SimpleNamespace(number=2, free_seats=3),
+        ],
+    )
+
+    result = check_availability(session, date(2030, 1, 1), time(12, 0), 6)
+
+    assert result == {"available": False, "tables": []}
+    session.add.assert_not_called()
+    session.add_all.assert_not_called()
+    session.flush.assert_not_called()
 
 
 def test_get_table_availability_clamps_negative_free_seats():
@@ -355,5 +409,4 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
     assert exc.value.status_code == 409
     assert exc.value.detail == "There are not enough seats for this party"
     background_tasks.add_task.assert_not_called()
-
 
