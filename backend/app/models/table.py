@@ -10,3 +10,17 @@ class Table(SQLModel, table=True):
     number: int = Field(unique=True)
     capacity: int
     location: str
+
+
+class TableCreate(SQLModel):
+    number: int = Field(gt=0)
+    capacity: int = Field(gt=0)
+    location: str = Field(min_length=1)
+
+
+class SlotTablesAdd(SQLModel):
+    table_ids: list[int] = Field(min_length=1)
+
+
+class CopySlotRequest(SQLModel):
+    target_slot_id: int = Field(gt=0)

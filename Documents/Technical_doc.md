@@ -15,8 +15,8 @@
   - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table)
 - [Backend EndPoint](#backend-endpoint)
   - [Authentication](#authentication)
-  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme)
-  - [Objects](#objects): [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
+  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
+  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
   - [Errors](#errors)
 
 ## Overview
@@ -279,24 +279,44 @@ Passwords are stored as Argon2 hashes in `password_hash`, never in clear text.
 
 ### Routes
 
-Here is a quick overview of the routes, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py) and [`routers/auth.py`](../backend/app/routers/auth.py):
+All the routes of the backend, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py), [`routers/auth.py`](../backend/app/routers/auth.py) and [`routers/tables.py`](../backend/app/routers/tables.py). Click a route for its details, or its errors for the list of errors it can return.
 
-| Method | Route                         | Login required  | Input                                         | Success                                             | Errors                                       |
-|--------|-------------------------------|-----------------|-----------------------------------------------|-----------------------------------------------------|----------------------------------------------|
-| GET    | [`/slot`](#get-slot)          | No              | -                                             | `200` list of [`SlotAvailability`](#slotavailability-object) | -                                    |
-| GET    | [`/slot/{id}`](#get-slotid)   | No              | `id` in the path (int)                        | `200` [`SlotDetail`](#slotdetail-object)            | [`404`, `422`](#errors)                      |
-| POST   | [`/booking`](#post-booking)   | Yes, `Hiker` only | [`BookingCreate`](#bookingcreate-object) body | `201` [`BookingResponse`](#bookingresponse-object)  | [`400`, `401`, `403`, `409`, `422`](#errors) |
-| POST   | [`/register`](#post-register) | No              | [`RegisterRequest`](#registerrequest-object) body | `201` [`UserPublic`](#userpublic-object)        | [`409`, `422`](#errors)                      |
-| POST   | [`/login`](#post-login)       | No              | [`LoginRequest`](#loginrequest-object) body   | `200` [`UserPublic`](#userpublic-object) and the `session` cookie | [`401`, `422`](#errors)        |
-| POST   | [`/token`](#post-token)       | No              | Form data: `username` (the email), `password` | `200` [`TokenResponse`](#tokenresponse-object) and the `session` cookie | [`401`, `422`](#errors)  |
-| POST   | [`/logout`](#post-logout)     | No              | -                                             | `204` with no body                                  | -                                            |
-| GET    | [`/users/me`](#get-usersme)   | Yes, any role   | -                                             | `200` [`UserPublic`](#userpublic-object)            | [`401`](#errors)                             |
+| Method | Route                                        | Login required           | Input                                                               | Success                                                       | Errors                                                                  |
+|--------|----------------------------------------------|--------------------------|---------------------------------------------------------------------|---------------------------------------------------------------|-------------------------------------------------------------------------|
+| GET    | [`/slot`](#get-slot)                         | No                       | -                                                                   | `200` list of [`SlotAvailability`](#slotavailability-object)  | None                                                                    |
+| GET    | [`/slot/{id}`](#get-slotid)                  | No                       | `id` in the path (int)                                              | `200` [`SlotDetail`](#slotdetail-object)                      | [`404`, `422`](#get-slotid-errors)                                      |
+| POST   | [`/booking`](#post-booking)                  | Yes, `Hiker` only        | [`BookingCreate`](#bookingcreate-object) body                       | `201` [`BookingResponse`](#bookingresponse-object)            | [`400`, `401`, `403`, `409`, `422`](#post-booking-errors)               |
+| POST   | [`/register`](#post-register)                | No                       | [`RegisterRequest`](#registerrequest-object) body                   | `201` [`UserPublic`](#userpublic-object)                      | [`409`, `422`](#post-register-errors)                                   |
+| POST   | [`/login`](#post-login)                      | No                       | [`LoginRequest`](#loginrequest-object) body                         | `200` [`UserPublic`](#userpublic-object) and the `session` cookie | [`401`, `422`](#post-login-errors)                                  |
+| POST   | [`/token`](#post-token)                      | No                       | Form data: `username` (the email), `password`                       | `200` [`TokenResponse`](#tokenresponse-object) and the `session` cookie | [`401`, `422`](#post-token-errors)                            |
+| POST   | [`/logout`](#post-logout)                    | No                       | -                                                                   | `204` with no body                                            | None                                                                    |
+| GET    | [`/users/me`](#get-usersme)                  | Yes, any role            | -                                                                   | `200` [`UserPublic`](#userpublic-object)                      | [`401`](#get-usersme-errors)                                            |
+| GET    | [`/tables`](#get-tables)                     | Yes, `Employee` or `Warden` | -                                                                | `200` list of [`Table`](#table-object)                        | [`401`, `403`](#get-tables-errors)                                      |
+| POST   | [`/tables`](#post-tables)                    | Yes, `Employee` or `Warden` | [`TableCreate`](#tablecreate-object) body                        | `201` [`Table`](#table-object)                                | [`401`, `403`, `409`, `422`](#post-tables-errors)                       |
+| GET    | [`/slots`](#get-slots)                       | Yes, `Employee` or `Warden` | Optional query: `date`, `from_date`, `to_date`                   | `200` list of [`Slot`](#slot-object)                          | [`400`, `401`, `403`, `422`](#get-slots-errors)                         |
+| GET    | [`/slots/{id}`](#get-slotsid)                | Yes, `Employee` or `Warden` | `id` in the path (int)                                           | `200` [`SlotDetail`](#slotdetail-object)                      | [`401`, `403`, `404`, `422`](#get-slotsid-errors)                       |
+| POST   | [`/slots`](#post-slots)                      | Yes, `Employee` or `Warden` | [`SlotCreate`](#slotcreate-object) body                          | `201` [`Slot`](#slot-object)                                  | [`401`, `403`, `422`](#post-slots-errors)                               |
+| POST   | [`/slots/{id}/tables`](#post-slotsidtables)  | Yes, `Employee` or `Warden` | `id` in the path, [`SlotTablesAdd`](#slottablesadd-object) body  | `200` [`SlotDetail`](#slotdetail-object)                      | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidtables-errors)  |
+| POST   | [`/slots/{id}/copy`](#post-slotsidcopy)      | Yes, `Employee` or `Warden` | `id` in the path, [`CopySlotRequest`](#copyslotrequest-object) body | `200` [`SlotDetail`](#slotdetail-object)                   | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidcopy-errors)    |
 
-A hiker books a table in three steps:
+The `/slot` routes are public and are used by the hikers to choose a slot. The `/slots` routes are for the hut staff and show every slot, also the full, closed or past ones.
+
+**How a hiker books a table**
 
 1. Call [`GET /slot`](#get-slot) to see the slots open for booking.
 2. Log in with [`POST /login`](#post-login) or [`POST /token`](#post-token). See [Authentication](#authentication).
 3. Call [`POST /booking`](#post-booking) with the `date` and `time` of the chosen slot.
+
+**How the staff define a slot**
+
+1. Log in as `Employee` or `Warden`.
+2. Call [`GET /tables`](#get-tables) to get the `id` of the tables. Create any missing table with [`POST /tables`](#post-tables).
+3. Create the slot with [`POST /slots`](#post-slots). The new slot has no tables yet.
+4. Give the slot its tables, either by listing them with [`POST /slots/{id}/tables`](#post-slotsidtables) or by copying them from another slot with [`POST /slots/{id}/copy`](#post-slotsidcopy).
+
+A slot with no tables has no free seats, so it doesn't appear in [`GET /slot`](#get-slot) and hikers can't book it.
+
+The Postman collection [`MH_E2E_slots.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_slots.postman_collection.json) runs the whole procedure as the warden: it creates a slot with tables 1 to 6, then creates four outdoor tables, copies the slot into a second one and adds the outdoor tables to it.
 
 #### `GET /slot`
 
@@ -311,7 +331,7 @@ Try it: <http://127.0.0.1:8000/slot>
 
 #### `GET /slot/{id}`
 
-Returns one slot as a [`SlotDetail`](#slotdetail-object), with all the tables it offers. Unlike [`GET /slot`](#get-slot), it also returns slots that are full or closed. It can fail with a [`404` or a `422`](#errors).
+Returns one slot as a [`SlotDetail`](#slotdetail-object), with all the tables it offers. Unlike [`GET /slot`](#get-slot), it also returns slots that are full or closed. It can fail with a [`404` or a `422`](#get-slotid-errors).
 
 Try it: <http://127.0.0.1:8000/slot/1>
 
@@ -330,7 +350,7 @@ The request is refused when:
 - the hiker already has a booking for that slot
 - the slot does not have enough free seats for the party
 
-The errors are listed in [Errors](#errors), in the order they are checked.
+The errors are listed in [`POST /booking` errors](#post-booking-errors), in the order they are checked.
 
 The booking, its [`booking_table`](#booking_table) rows and the `occupied_seats` counters are saved in one transaction, so a refused booking changes nothing. On SQLite the transaction takes the write lock before reading the free seats, so two parties can't get the same seats.
 
@@ -358,13 +378,13 @@ The server sets these values itself:
 - `email` is saved in lowercase, so an address can't be registered twice with different capitals.
 - Spaces around `name`, `surname`, `mobile_number`, `notes` and `emergency_contact` are removed.
 
-If the email is already registered the answer is a [`409`](#errors).
+If the email is already registered the answer is a [`409`](#post-register-errors).
 
 #### `POST /login`
 
 Logs a user in from a [`LoginRequest`](#loginrequest-object). The answer is a `200` with a [`UserPublic`](#userpublic-object), and the token is set as the `session` cookie. This is the route for the web client. The email is not case-sensitive.
 
-An unknown email and a wrong password get the same [`401`](#errors), so the answer doesn't reveal which emails are registered.
+An unknown email and a wrong password get the same [`401`](#post-login-errors), so the answer doesn't reveal which emails are registered.
 
 The sample users in [Roles](#roles) can log in here.
 
@@ -388,7 +408,7 @@ It doesn't cancel the token: a client that kept a copy can use it as a Bearer to
 
 #### `GET /users/me`
 
-Returns the logged-in user as a [`UserPublic`](#userpublic-object). Any role can call it, so the client can use it to check who is logged in. It answers a [`401`](#errors) if there is no valid token.
+Returns the logged-in user as a [`UserPublic`](#userpublic-object). Any role can call it, so the client can use it to check who is logged in. It answers a [`401`](#get-usersme-errors) if there is no valid token.
 
 The answer is read from the token, not from the database, so it may be out of date. See [Authentication](#authentication).
 
@@ -396,14 +416,100 @@ Try it: <http://127.0.0.1:8000/users/me> (log in first)
 
 The Postman collection [`MH_E2E_auth.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_auth.postman_collection.json) runs register, login, logout and `GET /users/me` in order.
 
+#### `GET /tables`
+
+Returns all the tables of the hut as a list of [`Table`](#table-object), ordered by `number`.
+
+Try it: <http://127.0.0.1:8000/tables> (log in as staff first)
+
+#### `POST /tables`
+
+Creates a table of the hut from a [`TableCreate`](#tablecreate-object) and answers `201` with the new [`Table`](#table-object). The `id` is chosen by the database.
+
+The `number` must not be used by another table, or the answer is a [`409`](#post-tables-errors). The new table is not added to any slot: use [`POST /slots/{id}/tables`](#post-slotsidtables) for that.
+
+#### `GET /slots`
+
+Returns the slots as a list of [`Slot`](#slot-object), ordered by `start_time`. Unlike [`GET /slot`](#get-slot), it also returns slots that are full, closed, in the past or without tables.
+
+The list can be filtered with these query parameters, all optional and in the `YYYY-MM-DD` format:
+
+| Parameter   | Keeps the slots that start          |
+|-------------|-------------------------------------|
+| `date`      | on that day                         |
+| `from_date` | on that day or later                |
+| `to_date`   | on that day or earlier              |
+
+The day of a slot is the day it starts in the hut's local time (`Europe/Rome`). The parameters can be combined, for example `?from_date=2026-11-01&to_date=2026-11-08` for one week. If `from_date` is after `to_date` the answer is a [`400`](#get-slots-errors), and a date that is not valid gets a [`422`](#get-slots-errors).
+
+Try it: <http://127.0.0.1:8000/slots> (log in as staff first)
+
+#### `GET /slots/{id}`
+
+Returns one slot as a [`SlotDetail`](#slotdetail-object), with all its tables. It gives the same answer as [`GET /slot/{id}`](#get-slotid) but needs a staff login. It can fail with a [`404`](#get-slotsid-errors) if there is no slot with that id.
+
+#### `POST /slots`
+
+Creates a slot from a [`SlotCreate`](#slotcreate-object) and answers `201` with the new [`Slot`](#slot-object). The server sets `created_by` to the logged-in user.
+
+Send `start_time` and `end_time` with their UTC offset, as in the example of [`SlotCreate`](#slotcreate-object), so they are read in the hut's local time. `end_time` must be after `start_time`, or the answer is a [`422`](#post-slots-errors).
+
+The server does not check:
+
+- that the slot is in the future
+- that the slot doesn't overlap another slot, or that no other slot starts at the same time. [`POST /booking`](#post-booking) finds the slot from its start, so two slots with the same start should be avoided.
+
+The new slot has no tables. Add them with [`POST /slots/{id}/tables`](#post-slotsidtables) or [`POST /slots/{id}/copy`](#post-slotsidcopy).
+
+#### `POST /slots/{id}/tables`
+
+Adds tables to the slot `id` from a [`SlotTablesAdd`](#slottablesadd-object) and answers `200` with the updated [`SlotDetail`](#slotdetail-object). Each table becomes a [`slot_table`](#slot_table) row with all its seats free (`occupied_seats = 0`).
+
+`table_ids` holds the `id` of the tables, not their `number`. [`GET /tables`](#get-tables) shows both.
+
+The request is refused when:
+
+- there is no slot with that `id`
+- `table_ids` is empty, or the body is not valid
+- the same table is listed twice
+- one of the tables doesn't exist
+- one of the tables is already in the slot
+
+The errors are listed in [`POST /slots/{id}/tables` errors](#post-slotsidtables-errors), in the order they are checked. All the checks are made before any write, so a refused request adds no table: the request has to be sent again without the wrong ids.
+
+#### `POST /slots/{id}/copy`
+
+Copies the tables of the slot `id` (the source) into the slot `target_slot_id` of a [`CopySlotRequest`](#copyslotrequest-object) (the target), and answers `200` with the [`SlotDetail`](#slotdetail-object) of the target. It is useful to define a new slot like an existing one, for example the same lunch on another day.
+
+Only the list of tables is copied:
+
+- the tables start with all their seats free in the target, even if they have bookings in the source
+- the bookings of the source are not copied
+- the source and its times don't change
+- the tables the target already has are kept, so more tables can be added before or after the copy
+
+The request is refused when:
+
+- the source or the target doesn't exist
+- the source and the target are the same slot
+- a table of the source is already in the target. Nothing is copied in this case, also not the other tables.
+
+If the source has no tables, nothing is copied and the answer is still a `200`.
+
 ### Objects
 
-The objects used by the routes, defined in [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
+The objects used by the routes, defined in [`models/table.py`](../backend/app/models/table.py), [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
 
 | Object                                         | Used by                                      | Built from                                     |
 |------------------------------------------------|----------------------------------------------|------------------------------------------------|
+| [`Table`](#table-object)                       | Returned by [`GET /tables`](#get-tables), [`POST /tables`](#post-tables) | [`table`](#table)  |
+| [`TableCreate`](#tablecreate-object)           | Body of [`POST /tables`](#post-tables)       | -                                              |
+| [`Slot`](#slot-object)                         | Returned by [`GET /slots`](#get-slots), [`POST /slots`](#post-slots) | [`slot`](#slot)        |
+| [`SlotCreate`](#slotcreate-object)             | Body of [`POST /slots`](#post-slots)         | -                                              |
+| [`SlotTablesAdd`](#slottablesadd-object)       | Body of [`POST /slots/{id}/tables`](#post-slotsidtables) | -                                  |
+| [`CopySlotRequest`](#copyslotrequest-object)   | Body of [`POST /slots/{id}/copy`](#post-slotsidcopy) | -                                      |
 | [`SlotAvailability`](#slotavailability-object) | Returned by [`GET /slot`](#get-slot)         | [`slot`](#slot), [`slot_table`](#slot_table), [`table`](#table) |
-| [`SlotDetail`](#slotdetail-object)             | Returned by [`GET /slot/{id}`](#get-slotid)  | [`slot`](#slot)                                |
+| [`SlotDetail`](#slotdetail-object)             | Returned by [`GET /slot/{id}`](#get-slotid), [`GET /slots/{id}`](#get-slotsid), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy) | [`slot`](#slot) |
 | [`SlotTableInfo`](#slottableinfo-object)       | Inside [`SlotDetail`](#slotdetail-object)    | [`slot_table`](#slot_table), [`table`](#table) |
 | [`BookingCreate`](#bookingcreate-object)       | Body of [`POST /booking`](#post-booking)     | -                                              |
 | [`BookingResponse`](#bookingresponse-object)   | Returned by [`POST /booking`](#post-booking) | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table) |
@@ -412,7 +518,111 @@ The objects used by the routes, defined in [`models/slot.py`](../backend/app/mod
 | [`UserPublic`](#userpublic-object)             | Returned by [`POST /register`](#post-register), [`POST /login`](#post-login), [`GET /users/me`](#get-usersme) | [`user`](#user), or the token for [`GET /users/me`](#get-usersme) |
 | [`TokenResponse`](#tokenresponse-object)       | Returned by [`POST /token`](#post-token)     | The token                                      |
 
-The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object) and [`BookingResponse`](#bookingresponse-object) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) uses UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
+The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object) and [`BookingResponse`](#bookingresponse-object) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) and [`Slot`](#slot-object) use UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
+
+#### `Table` object
+
+A table of the hut, as stored in [`table`](#table).
+
+| Field      | Type   | Description                                                   |
+|------------|--------|---------------------------------------------------------------|
+| `id`       | int    | Table identifier, used by [`SlotTablesAdd`](#slottablesadd-object) |
+| `number`   | int    | Number of the table, shown to hikers in [`BookingResponse`](#bookingresponse-object) |
+| `capacity` | int    | Total seats                                                   |
+| `location` | string | Where the table is                                            |
+
+```json
+{
+  "id": 11,
+  "number": 11,
+  "capacity": 4,
+  "location": "Outside"
+}
+```
+
+#### `TableCreate` object
+
+The body of [`POST /tables`](#post-tables).
+
+| Field      | Type   | Description                                  |
+|------------|--------|----------------------------------------------|
+| `number`   | int    | Number of the table, greater than `0` and not used by another table |
+| `capacity` | int    | Total seats, greater than `0`                |
+| `location` | string | Where the table is, at least 1 character     |
+
+```json
+{
+  "number": 11,
+  "capacity": 4,
+  "location": "Outside"
+}
+```
+
+#### `Slot` object
+
+A slot without its tables, as stored in [`slot`](#slot). Use [`GET /slots/{id}`](#get-slotsid) to see its tables.
+
+| Field        | Type     | Description                                    |
+|--------------|----------|------------------------------------------------|
+| `id`         | int      | Slot identifier                                |
+| `start_time` | datetime | Start of the slot                              |
+| `end_time`   | datetime | End of the slot                                |
+| `created_by` | int      | Id of the [`user`](#user) who defined the slot |
+
+```json
+{
+  "id": 4,
+  "start_time": "2026-11-08T11:00:00Z",
+  "end_time": "2026-11-08T12:30:00Z",
+  "created_by": 1
+}
+```
+
+#### `SlotCreate` object
+
+The body of [`POST /slots`](#post-slots).
+
+| Field        | Type     | Description                                         |
+|--------------|----------|-----------------------------------------------------|
+| `start_time` | datetime | Start of the slot, with its UTC offset              |
+| `end_time`   | datetime | End of the slot, with its UTC offset. Must be after `start_time` |
+
+```json
+{
+  "start_time": "2026-11-08T12:00:00+01:00",
+  "end_time": "2026-11-08T13:30:00+01:00"
+}
+```
+
+The hut's offset is `+01:00` in winter time and `+02:00` in summer time.
+
+#### `SlotTablesAdd` object
+
+The body of [`POST /slots/{id}/tables`](#post-slotsidtables).
+
+| Field       | Type        | Description                                                       |
+|-------------|-------------|-------------------------------------------------------------------|
+| `table_ids` | list of int | The `id` of the [`Table`](#table-object)s to add, at least one, each only once |
+
+```json
+{
+  "table_ids": [1, 2, 3, 4, 5, 6]
+}
+```
+
+#### `CopySlotRequest` object
+
+The body of [`POST /slots/{id}/copy`](#post-slotsidcopy).
+
+| Field            | Type | Description                                                  |
+|------------------|------|--------------------------------------------------------------|
+| `target_slot_id` | int  | Id of the slot that receives the tables, greater than `0`    |
+
+```json
+{
+  "target_slot_id": 5
+}
+```
 
 #### `SlotAvailability` object
 
@@ -589,29 +799,132 @@ The answer of [`POST /token`](#post-token). It is built directly in [`routers/au
 
 ### Errors
 
-| Code  | Route                         | Message                                                   | When                                                 |
-|-------|-------------------------------|-----------------------------------------------------------|------------------------------------------------------|
-| `404` | [`/slot/{id}`](#get-slotid)   | `Slot not found`                                          | No slot with that id                                 |
-| `422` | [`/slot/{id}`](#get-slotid)   | Automatic (FastAPI)                                       | `id` is not an integer                               |
-| `401` | [`/booking`](#post-booking)   | `Not authenticated`                                       | No cookie or token in the request                    |
-| `401` | [`/booking`](#post-booking)   | `Invalid or expired token`                                | The cookie or token is not valid                     |
-| `403` | [`/booking`](#post-booking)   | `Not enough permissions`                                  | The user is not a `Hiker`                            |
-| `422` | [`/booking`](#post-booking)   | Automatic (FastAPI)                                       | A field is missing or invalid, or `party_size` is `0` or less |
-| `401` | [`/booking`](#post-booking)   | `User not found`                                          | The token is valid but its user no longer exists     |
-| `400` | [`/booking`](#post-booking)   | `Slot not available`                                      | No slot starts at that `date` and `time`             |
-| `400` | [`/booking`](#post-booking)   | `Bookings are closed less than two hours before the slot` | The slot starts less than two hours from now         |
-| `409` | [`/booking`](#post-booking)   | `A booking already exists for this slot`                  | The hiker already has a booking for that slot        |
-| `409` | [`/booking`](#post-booking)   | `There are not enough seats for this party`               | The slot doesn't have enough free seats              |
-| `409` | [`/register`](#post-register) | `Email already registered`                                | An account already uses that email                   |
-| `422` | [`/register`](#post-register) | Automatic (FastAPI)                                       | A required field is missing, the email is not valid, or the password is shorter than 8 characters |
-| `401` | [`/login`](#post-login)       | `Wrong email or password`                                 | The email is unknown or the password is wrong        |
-| `422` | [`/login`](#post-login)       | Automatic (FastAPI)                                       | A field is missing or the email is not valid         |
-| `401` | [`/token`](#post-token)       | `Wrong username or password`                              | The email is unknown or the password is wrong        |
-| `422` | [`/token`](#post-token)       | Automatic (FastAPI)                                       | A field is missing or the body is not form data      |
-| `401` | [`/users/me`](#get-usersme)   | `Not authenticated`                                       | No cookie or token in the request                    |
-| `401` | [`/users/me`](#get-usersme)   | `Invalid or expired token`                                | The cookie or token is not valid                     |
+The errors each route can return, in the order they are checked: a request with several problems gets only the first error of its list.
 
-The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>" }`; for the `422`, `detail` is the list of the invalid fields. Each `401` also has the header `WWW-Authenticate: Bearer`, except `User not found` on [`/booking`](#post-booking).
+The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>" }`. For the `422`, `detail` is the list of the invalid fields and the message is written by FastAPI. Each `401` also has the header `WWW-Authenticate: Bearer`, except `User not found` on [`POST /booking`](#post-booking-errors).
+
+[`GET /slot`](#get-slot) and [`POST /logout`](#post-logout) never return an error.
+
+#### `GET /slot/{id}` errors
+
+| Code  | Message          | When                   |
+|-------|------------------|------------------------|
+| `422` | Automatic        | `id` is not an integer |
+| `404` | `Slot not found` | No slot with that id   |
+
+#### `POST /booking` errors
+
+| Code  | Message                                                   | When                                                          |
+|-------|-----------------------------------------------------------|---------------------------------------------------------------|
+| `401` | `Not authenticated`                                       | No cookie or token in the request                             |
+| `401` | `Invalid or expired token`                                | The cookie or token is not valid                              |
+| `403` | `Not enough permissions`                                  | The user is not a `Hiker`                                     |
+| `422` | Automatic                                                 | A field is missing or invalid, or `party_size` is `0` or less |
+| `401` | `User not found`                                          | The token is valid but its user no longer exists              |
+| `400` | `Slot not available`                                      | No slot starts at that `date` and `time`                      |
+| `400` | `Bookings are closed less than two hours before the slot` | The slot starts less than two hours from now                  |
+| `409` | `A booking already exists for this slot`                  | The hiker already has a booking for that slot                 |
+| `409` | `There are not enough seats for this party`               | The slot doesn't have enough free seats                       |
+
+#### `POST /register` errors
+
+| Code  | Message                    | When                                                                                     |
+|-------|----------------------------|------------------------------------------------------------------------------------------|
+| `422` | Automatic                  | A required field is missing, the email is not valid, or the password is shorter than 8 characters |
+| `409` | `Email already registered` | An account already uses that email                                                       |
+
+#### `POST /login` errors
+
+| Code  | Message                   | When                                          |
+|-------|---------------------------|-----------------------------------------------|
+| `422` | Automatic                 | A field is missing or the email is not valid  |
+| `401` | `Wrong email or password` | The email is unknown or the password is wrong |
+
+#### `POST /token` errors
+
+| Code  | Message                      | When                                             |
+|-------|------------------------------|--------------------------------------------------|
+| `422` | Automatic                    | A field is missing or the body is not form data  |
+| `401` | `Wrong username or password` | The email is unknown or the password is wrong    |
+
+#### `GET /users/me` errors
+
+| Code  | Message                    | When                              |
+|-------|----------------------------|-----------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request |
+| `401` | `Invalid or expired token` | The cookie or token is not valid  |
+
+#### `GET /tables` errors
+
+| Code  | Message                    | When                                        |
+|-------|----------------------------|---------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request           |
+| `401` | `Invalid or expired token` | The cookie or token is not valid            |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden` |
+
+#### `POST /tables` errors
+
+| Code  | Message                       | When                                                                         |
+|-------|-------------------------------|------------------------------------------------------------------------------|
+| `401` | `Not authenticated`           | No cookie or token in the request                                            |
+| `401` | `Invalid or expired token`    | The cookie or token is not valid                                             |
+| `403` | `Not enough permissions`      | The user is not an `Employee` or a `Warden`                                  |
+| `422` | Automatic                     | A field is missing, `number` or `capacity` is `0` or less, or `location` is empty |
+| `409` | `Table number already exists` | Another table already has that `number`                                      |
+
+#### `GET /slots` errors
+
+| Code  | Message                               | When                                        |
+|-------|---------------------------------------|---------------------------------------------|
+| `401` | `Not authenticated`                   | No cookie or token in the request           |
+| `401` | `Invalid or expired token`            | The cookie or token is not valid            |
+| `403` | `Not enough permissions`              | The user is not an `Employee` or a `Warden` |
+| `422` | Automatic                             | A date is not in the `YYYY-MM-DD` format    |
+| `400` | `from_date must not be after to_date` | `from_date` is after `to_date`              |
+
+#### `GET /slots/{id}` errors
+
+| Code  | Message                    | When                                        |
+|-------|----------------------------|---------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request           |
+| `401` | `Invalid or expired token` | The cookie or token is not valid            |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden` |
+| `422` | Automatic                  | `id` is not an integer                      |
+| `404` | `Slot not found`           | No slot with that id                        |
+
+#### `POST /slots` errors
+
+| Code  | Message                    | When                                                                     |
+|-------|----------------------------|--------------------------------------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request                                        |
+| `401` | `Invalid or expired token` | The cookie or token is not valid                                         |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden`                              |
+| `422` | Automatic                  | A field is missing or not a datetime, or `end_time` is not after `start_time` |
+
+#### `POST /slots/{id}/tables` errors
+
+| Code  | Message                                    | When                                          |
+|-------|--------------------------------------------|-----------------------------------------------|
+| `401` | `Not authenticated`                        | No cookie or token in the request             |
+| `401` | `Invalid or expired token`                 | The cookie or token is not valid              |
+| `403` | `Not enough permissions`                   | The user is not an `Employee` or a `Warden`   |
+| `422` | Automatic                                  | `id` is not an integer, or `table_ids` is missing or empty |
+| `404` | `Slot not found`                           | No slot with that id                          |
+| `400` | `A table cannot be added twice`            | The same id is in `table_ids` more than once  |
+| `404` | `One or more tables not found`             | An id in `table_ids` is not a table           |
+| `409` | `A table is already assigned to this slot` | A table is already in the slot                |
+
+#### `POST /slots/{id}/copy` errors
+
+| Code  | Message                                          | When                                                       |
+|-------|--------------------------------------------------|------------------------------------------------------------|
+| `401` | `Not authenticated`                              | No cookie or token in the request                          |
+| `401` | `Invalid or expired token`                       | The cookie or token is not valid                           |
+| `403` | `Not enough permissions`                         | The user is not an `Employee` or a `Warden`                |
+| `422` | Automatic                                        | `id` is not an integer, or `target_slot_id` is missing or `0` or less |
+| `404` | `Source or target slot not found`                | No slot with the `id` of the path or with `target_slot_id` |
+| `400` | `Source and target slots must differ`            | `target_slot_id` is the `id` of the path                   |
+| `409` | `A table is already assigned to the target slot` | A table of the source is already in the target             |
 
 [Back to top](#mountain-hut)
 
