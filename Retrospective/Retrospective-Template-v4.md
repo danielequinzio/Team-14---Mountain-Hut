@@ -43,11 +43,11 @@ TOTAL TASKS: 57
 
 |        Member         |   Mean     |    StDev    |
 |-----------------------|------------|-------------|
-| Daniele Iacono        |  1h 19m    |   ~49m      | 
+| Daniele Iacono        |  1h 19m    |    49m      | 
 | Daniele Quinzio       |  1h 06m    |    43m      |
-| Alessandro Marinari   |    ~50m    |   ~37m      |
-| Dogukan Postoglu      |  1h 17m    |   ~49m      |
-| Maximiliano Zurlo     |  1h 25m    |   ~55m      |  
+| Alessandro Marinari   |     50m    |    37m      |
+| Dogukan Postoglu      |  1h 17m    |    49m      |
+| Maximiliano Zurlo     |  1h 25m    |    55m      |  
 
 - Total task estimation error ratio: sum of total hours estimation / sum of total hours spent -1
 
