@@ -9,8 +9,16 @@ function formatDate(dateString) {
   });
 }
 
-function formatTime(time) {
-  return time ? time.slice(0, 5) : "";
+function formatTime(dateTime) {
+  if (!dateTime) return "";
+
+  // start/end arrive as full ISO datetimes ("2026-11-05T12:00:00"),
+  // so take the time portion before trimming to HH:MM
+  const time = dateTime.includes("T")
+    ? dateTime.split("T")[1]
+    : dateTime;
+
+  return time.slice(0, 5);
 }
 
 export default function ReservationSummaryPage() {
