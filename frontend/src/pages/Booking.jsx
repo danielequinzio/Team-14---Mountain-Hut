@@ -223,7 +223,7 @@ export default function Booking() {
     if (!selectedDate || !selectedSlot || booking) return;
     setBooking(true); setError("");
     try {
-      const result = await createBooking({ date: selectedDate, time: selectedSlot.start, partySize });
+      const result = await createBooking({ date: selectedDate, time: selectedSlot.time, partySize });
       navigate("/reservation-detail", { state: {
         booking: result, date: selectedDate, start: selectedSlot.start,
         end: selectedSlot.end, partySize, availableSeats: selectedSlot.availableSeats,

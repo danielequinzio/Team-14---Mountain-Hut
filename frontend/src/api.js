@@ -89,7 +89,13 @@ export async function getAvailability() {
   if (USE_MOCK_DATA) {
     console.log("Using MOCK availability data");
 
-    return mockAvailability;
+    // Mirror the real API: each slot carries a plain "HH:MM:SS" time for booking
+    return Object.fromEntries(
+      Object.entries(mockAvailability).map(([date, slots]) => [
+        date,
+        slots.map((slot) => ({ ...slot, time: slot.start })),
+      ])
+    );
   }
 
   // Use real FastAPI backend
@@ -123,6 +129,8 @@ export async function getAvailability() {
       return {
         id: slot.id,
         date: slot.date,
+        // Hut-local "HH:MM:SS" start time: POST /booking expects this, not a datetime
+        time: slot.time,
         start: details.start_time,
         end: details.end_time,
         availableSeats: slot.available_seats,
@@ -153,7 +161,7 @@ export async function createBooking({
   partySize,
 }) {
   // Simulate a successful booking
-  if (USE_MOCK_DATA) {
+  if (USE_MOCK_DATA)  {
     console.log("Creating MOCK booking");
 
     const selectedSlots = mockAvailability[date] || [];
@@ -201,9 +209,12 @@ export async function createBooking({
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data?.detail || "Could not create reservation."
-    );
+    // FastAPI validation errors (422) return detail as an array of objects
+    const message = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(", ")
+      : data?.detail;
+
+    throw new Error(message || "Could not create reservation.");
   }
 
   return data;
