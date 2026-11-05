@@ -1001,3 +1001,17 @@ A party that doesn't fit is not an error: the answer is a `200` with `available:
 
 [Back to top](#mountain-hut)
 
+
+
+## Notification Service
+The notification is provided by an external library (already prensent in the requirements.txt), the usage can be split according to the enviroments varibale passed:
+- Development usage: Uses a fake mail client that runs through docker. It allows the testing to be automated! Not really usefull for demo or prod-
+- Real Usage: Used in prod and demo, this system rely on a real stmp service, for this project it was decided to use Gmail, here are the list of thing to set up!
+
+|Env_variable| default value|description|
+|--|--|--|
+|SMTP_HOST| smtp.gmail.com | This is the endpoint of the smtp server that is used to send notification email|
+|SMTP_PORT| 587 | this is the port that also enable the TLS|
+|SMTP_USERNAME| mountainhut14@gmail.com | Username to login in the stmp service|
+|SMTP_PASSWORD| (not given here)| `not given`|
+|EMAIL_FROM| Mountain Hut <mountainhut14@gmail.com> | the sender name|
