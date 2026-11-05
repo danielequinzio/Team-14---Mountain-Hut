@@ -225,15 +225,12 @@ backend/MountainHut.db
 
 */.DS
 backend/.venv
-<<<<<<< HEAD
 
 # Frontend
 node_modules/
 frontend/dist/
-=======
 /docker/data/
 /backend/backend_test/test.http
 
 backend/.env
 
->>>>>>> origin/dev
