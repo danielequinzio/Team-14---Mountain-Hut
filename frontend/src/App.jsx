@@ -10,6 +10,7 @@ import StaffSlots from "./pages/StaffSlots";
 import RequireRole from "./auth/RequireRole";
 import StaffRedirect from "./auth/StaffRedirect";
 import { ROLES, STAFF_ROLES } from "./auth/roles";
+import DefineSlot from "./pages/DefineSlot";
 
 export default function App() {
   return (
@@ -40,6 +41,14 @@ export default function App() {
         element={
           <RequireRole roles={STAFF_ROLES}>
             <StaffSlots />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/staff/define-slot"
+        element={
+          <RequireRole roles={STAFF_ROLES}>
+            <DefineSlot />
           </RequireRole>
         }
       />
