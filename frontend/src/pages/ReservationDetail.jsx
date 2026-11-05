@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import NavBar from "../components/NavBar";
 
 function formatDate(dateString) {
   return new Date(`${dateString}T00:00:00`).toLocaleDateString("en-GB", {
@@ -31,7 +32,7 @@ export default function ReservationSummaryPage() {
       <main className="summary-page">
         <div className="summary-card">
           <h1>No reservation found</h1>
-          <button onClick={() => navigate("/booking")}>
+          <button onClick={() => navigate("/availability")}>
             Return to booking
           </button>
         </div>
@@ -45,21 +46,7 @@ export default function ReservationSummaryPage() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">MH</span>
-
-          <div>
-            <strong>Mountain Hut</strong>
-            <span>Table reservations</span>
-          </div>
-        </div>
-
-        <div className="user-chip">
-          <span className="user-avatar">H</span>
-          <span>Welcome, Hiker</span>
-        </div>
-      </header>
+      <NavBar />
 
       <main className="summary-page">
         <div className="summary-intro">
@@ -141,12 +128,20 @@ export default function ReservationSummaryPage() {
           </div>
         </section>
 
-        <button
-          className="secondary-button"
-          onClick={() => navigate("/booking")}
-        >
-          ← Return to booking
-        </button>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            className="secondary-button"
+            onClick={() => navigate("/availability")}
+          >
+            ← Return to booking
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => navigate("/")}
+          >
+            Back to home
+          </button>
+        </div>
       </main>
     </div>
   );

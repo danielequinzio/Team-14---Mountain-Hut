@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import NavBar from "../components/NavBar";
 import { createBooking, getAvailability } from "../api";
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -235,23 +236,7 @@ export default function Booking() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">MH</div>
-          <div>
-            <strong>MH</strong>
-            <span>Mountain Huts Service</span>
-          </div>
-        </div>
-
-        <div className="profile">
-          <div className="profile-avatar">H</div>
-          <div>
-            <span className="profile-label">Signed in as</span>
-            <strong>HIKER</strong>
-          </div>
-        </div>
-      </header>
+      <NavBar />
 
       <main className="main-content">
         <div className="intro">

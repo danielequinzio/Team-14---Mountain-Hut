@@ -26,7 +26,7 @@ export default function NavBar() {
 
       <nav className="au-links" aria-label="Main">
         <NavLink to="/">Home</NavLink>
-        {user?.role === ROLES.HIKER && <NavLink to="/booking">Book a table</NavLink>}
+        {user?.role === ROLES.HIKER && <NavLink to="/availability">Book a table</NavLink>}
         {isStaff(user) && <NavLink to="/staff/slots">Slots</NavLink>}
       </nav>
 

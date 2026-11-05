@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import NavBar from "../components/NavBar";
 import { createEmployeeSlot, getEmployeeSlots, getTablesForSlot, USE_MOCK_SLOT_DATA } from "../api";
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -153,23 +154,9 @@ export default function DefineSlot() {
   }
 
   return (
+    <>
+    <NavBar />
     <div className="slot-page">
-      <header className="slot-topbar">
-        <div className="slot-brand">
-          <b>MH</b>
-          <div>
-            <strong>MH</strong>
-            <small>Mountain Hut Services</small>
-          </div>
-        </div>
-        <div className="slot-user">
-          <span>E</span>
-          <div>
-            <small>Signed in as</small>
-            <strong>EMPLOYEE</strong>
-          </div>
-        </div>
-      </header>
       <main className="slot-main">
         <div className="slot-intro">
           <div>
@@ -486,5 +473,6 @@ export default function DefineSlot() {
         </div>
       )}
     </div>
+    </>
   );
 }
