@@ -14,6 +14,7 @@ from app.config import (
 )
 from app.models import Booking, Slot, User
 from app.services.booking import slot_end, slot_start
+from app.services.email_template import render_html
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,10 @@ def send_booking_confirmation(confirmation: BookingConfirmation) -> None:
 
     try:
         message = compose_email(confirmation)
+        try:
+            message.add_alternative(render_html(confirmation), subtype="html")
+        except Exception:  # the design must never stop the plain-text email from being sent
+            logger.exception("HTML version of %s not built: sending plain text only", confirmation.reference)
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
             if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
                 smtp.starttls(context=ssl.create_default_context())
