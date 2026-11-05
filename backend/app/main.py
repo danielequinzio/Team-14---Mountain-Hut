@@ -1,21 +1,26 @@
-import hashlib
-import secrets
 from contextlib import asynccontextmanager
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect
 from sqlmodel import Session, SQLModel, select
 
 from app.database import engine, transaction
 from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
-from app.routers import slot
-from app.config import DATA_SEED
+from app.routers import auth, availability, slot, booking, tables
+from app.config import CORS_ORIGINS, DATA_SEED
+from app.services.auth import hash_password
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    drop_unused_salt_column()
+    drop_username_unique_constraint()
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
+    add_slot_table_occupied_seats()
+    add_user_profile_columns()
 
     # add some sample data the first time the db is created
     with Session(engine) as session:
@@ -24,11 +29,15 @@ async def lifespan(app: FastAPI):
 
 
 USERS = [
-    # username, name, surname, email, password, role
-    ("warden", "Luca", "Bonetti", "luca.bonetti@rifugio.example", "warden", Roles.WARDEN),
-    ("giulia.ferrero", "Giulia", "Ferrero", "giulia.ferrero@rifugio.example", "employee", Roles.EMPLOYEE),
-    ("anna.rossi", "Anna", "Rossi", "anna.rossi@mail.example", "hiker", Roles.HIKER),
-    ("paolo.bianchi", "Paolo", "Bianchi", "paolo.bianchi@mail.example", "hiker", Roles.HIKER),
+    # username, name, surname, email, password, role, mobile number, notes, emergency contact
+    ("luca.bonetti", "Luca", "Bonetti", "luca.bonetti@rifugio.example", "warden", Roles.WARDEN,
+     "+39 333 123 4567", "Available for on-call emergencies.", "+39 333 765 4321 - Marco Bonetti"),
+    ("giulia.ferrero", "Giulia", "Ferrero", "giulia.ferrero@rifugio.example", "employee", Roles.EMPLOYEE,
+     "+39 333 234 5678", None, None),
+    ("anna.rossi", "Anna", "Rossi", "anna.rossi@mail.example", "hiker", Roles.HIKER,
+     "+39 333 345 6789", "Vegetarian meals preferred.", "+39 333 876 5432 - Elena Rossi"),
+    ("paolo.bianchi", "Paolo", "Bianchi", "paolo.bianchi@mail.example", "hiker", Roles.HIKER,
+     "+39 333 456 7890", "Arrives after 18:00.", None),
 ]
 
 TABLES = [
@@ -65,14 +74,150 @@ BOOKINGS = [
 ]
 
 
-def scrypt_hash(password: str) -> tuple[str, str]:
-    # as in the ERD: scrypt of the password with a random per-user salt
-    salt = secrets.token_hex(16)
-    hashed = hashlib.scrypt(password.encode(), salt=salt.encode(), n=2**14, r=8, p=1, dklen=32)
-    return hashed.hex(), salt
+def drop_unused_salt_column(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("user"):
+        return
+    if "salt" not in {column["name"] for column in inspector.get_columns("user")}:
+        return
+    with engine.begin() as connection:
+        connection.exec_driver_sql('ALTER TABLE "user" DROP COLUMN salt')
 
 
-def seeding(session: Session):
+def drop_username_unique_constraint(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("user"):
+        return
+    unique_constraints = inspector.get_unique_constraints("user")
+    if not any(constraint["column_names"] == ["username"] for constraint in unique_constraints):
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE user_new (
+                id INTEGER NOT NULL PRIMARY KEY,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                surname VARCHAR NOT NULL,
+                email VARCHAR NOT NULL,
+                mobile_number VARCHAR,
+                notes VARCHAR,
+                emergency_contact VARCHAR,
+                password_hash VARCHAR NOT NULL,
+                role VARCHAR NOT NULL
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            INSERT INTO user_new (
+                id, username, name, surname, email, mobile_number, notes,
+                emergency_contact, password_hash, role
+            )
+            SELECT id, username, name, surname, email, NULL, NULL, NULL, password_hash, role
+            FROM user
+            """
+        )
+        connection.exec_driver_sql('DROP TABLE "user"')
+        connection.exec_driver_sql("ALTER TABLE user_new RENAME TO user")
+        connection.exec_driver_sql("CREATE UNIQUE INDEX user_email ON user (email)")
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+
+
+def add_user_profile_columns(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("user"):
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("user")}
+    missing_columns = {
+        "mobile_number": "VARCHAR",
+        "notes": "VARCHAR",
+        "emergency_contact": "VARCHAR",
+    }
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns.items():
+            if column_name not in existing_columns:
+                connection.exec_driver_sql(
+                    f'ALTER TABLE "user" ADD COLUMN {column_name} {column_type}'
+                )
+
+
+def add_slot_table_occupied_seats(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
+def add_slot_table_occupied_seats(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
+def add_slot_table_occupied_seats(): # pragma: no cover
+    inspector = inspect(engine)
+    if not inspector.has_table("slot_table"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("slot_table")}
+    if "occupied_seats" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
+        )
+        connection.exec_driver_sql(
+            """
+            UPDATE slot_table
+            SET occupied_seats = COALESCE((
+                SELECT SUM(seats_booked)
+                FROM booking_table
+                WHERE booking_table.slot_table_id = slot_table.id
+            ), 0)
+            """
+        )
+
+
+def seeding(session: Session): # pragma: no cover
     # only when SEED_DATA is on, and only the first time the db is created
     if not DATA_SEED:
         return
@@ -80,10 +225,11 @@ def seeding(session: Session):
         return
     with transaction(session):
         users = {}
-        for username, name, surname, email, password, role in USERS:
-            password_hash, salt = scrypt_hash(password)
+        for username, name, surname, email, password, role, mobile_number, notes, emergency_contact in USERS:
             users[username] = User(username=username, name=name, surname=surname, email=email,
-                                   password_hash=password_hash, salt=salt, role=role)
+                                   mobile_number=mobile_number, notes=notes,
+                                   emergency_contact=emergency_contact,
+                                   password_hash=hash_password(password), role=role)
         tables = {number: Table(number=number, capacity=capacity, location=location)
                   for number, capacity, location in TABLES}
         session.add_all([*users.values(), *tables.values()])
@@ -94,13 +240,35 @@ def seeding(session: Session):
         tomorrow = date.today() + timedelta(days=1)
         slots = [Slot(start_time=datetime.combine(tomorrow, start, hut_tz),
                       end_time=datetime.combine(tomorrow, end, hut_tz),
-                      created_by=users["warden"].id)
+                      created_by=users["luca.bonetti"].id)
                  for start, end in SLOTS]
         session.add_all(slots)
         session.flush()
 
-        slot_tables = {(i, number): SlotTable(slot_id=slot.id, table_id=table.id)
-                       for i, slot in enumerate(slots) for number, table in tables.items()}
+        occupied_seats = {(i, number): 0
+                          for i in range(len(slots)) for number in tables}
+        for _, i, party_size, assignments in BOOKINGS:
+            assigned_seats = sum(seats for _, seats in assignments)
+            if assigned_seats != party_size:
+                raise ValueError(
+                    f"Seed booking for slot {i} assigns {assigned_seats} seats "
+                    f"for a party of {party_size}"
+                )
+            for number, seats in assignments:
+                occupied_seats[i, number] += seats
+
+        slot_tables = {
+            (i, number): SlotTable(
+                slot_id=slot.id,
+                table_id=table.id,
+                occupied_seats=occupied_seats[i, number],
+            )
+            for i, slot in enumerate(slots)
+            for number, table in tables.items()
+            if occupied_seats[i, number] <= table.capacity
+        }
+        if len(slot_tables) != len(slots) * len(tables):
+            raise ValueError("Seed booking exceeds a table capacity")
         session.add_all(slot_tables.values())
         session.flush()
 
@@ -115,9 +283,21 @@ def seeding(session: Session):
 
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(slot.router)
-"""
+app.include_router(slot.management_router)
+app.include_router(tables.router)
 app.include_router(auth.router)
+app.include_router(booking.router)
+app.include_router(availability.router)
+"""
 app.include_router(tickets.router)
 app.include_router(services.router)
 app.include_router(counters.router)

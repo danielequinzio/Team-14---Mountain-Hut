@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -229,3 +232,8 @@ backend/.venv
 # Frontend
 node_modules/
 frontend/dist/
+/docker/data/
+/backend/backend_test/test.http
+
+backend/.env
+
