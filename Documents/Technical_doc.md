@@ -15,8 +15,8 @@
   - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table)
 - [Backend EndPoint](#backend-endpoint)
   - [Authentication](#authentication)
-  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
-  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
+  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`GET /availability`](#get-availability), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
+  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`AvailabilityResponse`](#availabilityresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
   - [Errors](#errors)
 
 ## Overview
@@ -279,12 +279,13 @@ Passwords are stored as Argon2 hashes in `password_hash`, never in clear text.
 
 ### Routes
 
-All the routes of the backend, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py), [`routers/auth.py`](../backend/app/routers/auth.py) and [`routers/tables.py`](../backend/app/routers/tables.py). Click a route for its details, or its errors for the list of errors it can return.
+All the routes of the backend, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py), [`routers/availability.py`](../backend/app/routers/availability.py), [`routers/auth.py`](../backend/app/routers/auth.py) and [`routers/tables.py`](../backend/app/routers/tables.py). Click a route for its details, or its errors for the list of errors it can return.
 
 | Method | Route                                        | Login required           | Input                                                               | Success                                                       | Errors                                                                  |
 |--------|----------------------------------------------|--------------------------|---------------------------------------------------------------------|---------------------------------------------------------------|-------------------------------------------------------------------------|
 | GET    | [`/slot`](#get-slot)                         | No                       | -                                                                   | `200` list of [`SlotAvailability`](#slotavailability-object)  | None                                                                    |
 | GET    | [`/slot/{id}`](#get-slotid)                  | No                       | `id` in the path (int)                                              | `200` [`SlotDetail`](#slotdetail-object)                      | [`404`, `422`](#get-slotid-errors)                                      |
+| GET    | [`/availability`](#get-availability)         | No                       | Query: `date`, `time`, `party_size`                                 | `200` [`AvailabilityResponse`](#availabilityresponse-object)  | [`400`, `422`](#get-availability-errors)                                |
 | POST   | [`/booking`](#post-booking)                  | Yes, `Hiker` only        | [`BookingCreate`](#bookingcreate-object) body                       | `201` [`BookingResponse`](#bookingresponse-object)            | [`400`, `401`, `403`, `409`, `422`](#post-booking-errors)               |
 | POST   | [`/register`](#post-register)                | No                       | [`RegisterRequest`](#registerrequest-object) body                   | `201` [`UserPublic`](#userpublic-object)                      | [`409`, `422`](#post-register-errors)                                   |
 | POST   | [`/login`](#post-login)                      | No                       | [`LoginRequest`](#loginrequest-object) body                         | `200` [`UserPublic`](#userpublic-object) and the `session` cookie | [`401`, `422`](#post-login-errors)                                  |
@@ -304,8 +305,9 @@ The `/slot` routes are public and are used by the hikers to choose a slot. The `
 **How a hiker books a table**
 
 1. Call [`GET /slot`](#get-slot) to see the slots open for booking.
-2. Log in with [`POST /login`](#post-login) or [`POST /token`](#post-token). See [Authentication](#authentication).
-3. Call [`POST /booking`](#post-booking) with the `date` and `time` of the chosen slot.
+2. Optionally, call [`GET /availability`](#get-availability) to check that the party fits in the chosen slot and see which tables it would get. This doesn't need a login.
+3. Log in with [`POST /login`](#post-login) or [`POST /token`](#post-token). See [Authentication](#authentication).
+4. Call [`POST /booking`](#post-booking) with the `date` and `time` of the chosen slot.
 
 **How the staff define a slot**
 
@@ -334,6 +336,36 @@ Try it: <http://127.0.0.1:8000/slot>
 Returns one slot as a [`SlotDetail`](#slotdetail-object), with all the tables it offers. Unlike [`GET /slot`](#get-slot), it also returns slots that are full or closed. It can fail with a [`404` or a `422`](#get-slotid-errors).
 
 Try it: <http://127.0.0.1:8000/slot/1>
+
+#### `GET /availability`
+
+Tells whether a party fits in a slot, without booking it, and answers `200` with an [`AvailabilityResponse`](#availabilityresponse-object). It doesn't need a login, so a visitor can check before registering.
+
+It takes three query parameters, all required:
+
+| Parameter    | Format       | Description                                                                  |
+|--------------|--------------|------------------------------------------------------------------------------|
+| `date`       | `YYYY-MM-DD` | Day of the slot, in the hut's local time (`Europe/Rome`)                     |
+| `time`       | `HH:MM:SS`   | Start of the slot, in the hut's local time (`12:00` and `12:00:00` both work) |
+| `party_size` | int          | Number of people, greater than `0`                                           |
+
+The slot is found like in [`POST /booking`](#post-booking): `date` and `time` must match the start of a slot exactly, and the slot must start at least two hours from now. Otherwise the answer is a [`400`](#get-availability-errors).
+
+The tables are chosen with the same rules as [`POST /booking`](#post-booking) (see **How tables are assigned** there), so `tables` holds the tables the party would get if it booked now:
+
+- If the party fits, `available` is `true` and `tables` lists the seats on each table.
+- If it doesn't fit, `available` is `false` and `tables` is empty. This is still a `200`, not a `409`. A slot with no tables never fits.
+
+The check only reads the database and changes nothing:
+
+- no seats are held, so another booking made in between can take them, and the following [`POST /booking`](#post-booking) can still get a `409` or other tables
+- it doesn't know who is asking, so it doesn't check whether the hiker already has a booking for that slot
+
+The logic is in `check_availability` in [`services/booking.py`](../backend/app/services/booking.py).
+
+Try it: <http://127.0.0.1:8000/availability?date=2026-10-31&time=13:30:00&party_size=11> (use the `date` and `time` of a slot from [`GET /slot`](#get-slot))
+
+The Postman collection [`MH_E2E_availability.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_availability.postman_collection.json) checks parties of different sizes, the refused requests, and that a booking gets the tables the check promised.
 
 #### `POST /booking`
 
@@ -513,12 +545,13 @@ The objects used by the routes, defined in [`models/table.py`](../backend/app/mo
 | [`SlotTableInfo`](#slottableinfo-object)       | Inside [`SlotDetail`](#slotdetail-object)    | [`slot_table`](#slot_table), [`table`](#table) |
 | [`BookingCreate`](#bookingcreate-object)       | Body of [`POST /booking`](#post-booking)     | -                                              |
 | [`BookingResponse`](#bookingresponse-object)   | Returned by [`POST /booking`](#post-booking) | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table) |
+| [`AvailabilityResponse`](#availabilityresponse-object) | Returned by [`GET /availability`](#get-availability) | [`slot_table`](#slot_table), [`table`](#table) |
 | [`RegisterRequest`](#registerrequest-object)   | Body of [`POST /register`](#post-register)   | -                                              |
 | [`LoginRequest`](#loginrequest-object)         | Body of [`POST /login`](#post-login)         | -                                              |
 | [`UserPublic`](#userpublic-object)             | Returned by [`POST /register`](#post-register), [`POST /login`](#post-login), [`GET /users/me`](#get-usersme) | [`user`](#user), or the token for [`GET /users/me`](#get-usersme) |
 | [`TokenResponse`](#tokenresponse-object)       | Returned by [`POST /token`](#post-token)     | The token                                      |
 
-The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object) and [`BookingResponse`](#bookingresponse-object) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) and [`Slot`](#slot-object) use UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
+The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object) and the query of [`GET /availability`](#get-availability) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) and [`Slot`](#slot-object) use UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
 
 #### `Table` object
 
@@ -723,6 +756,36 @@ The booking just created, with the tables assigned to the party. It is built by 
 }
 ```
 
+#### `AvailabilityResponse` object
+
+The answer of [`GET /availability`](#get-availability): whether the party fits, and the tables it would get.
+
+| Field             | Type | Description                                                        |
+|-------------------|------|--------------------------------------------------------------------|
+| `available`       | bool | `true` if the slot has enough free seats for the party             |
+| `tables`          | list | The tables the party would get, one item per table. Empty when `available` is `false` |
+| `tables[].number` | int  | `number` of the [`table`](#table), not its `id`                    |
+| `tables[].seats`  | int  | Seats the party would get on that table                            |
+
+```json
+{
+  "available": true,
+  "tables": [
+    { "number": 3, "seats": 6 },
+    { "number": 4, "seats": 5 }
+  ]
+}
+```
+
+When the party doesn't fit:
+
+```json
+{
+  "available": false,
+  "tables": []
+}
+```
+
 #### `RegisterRequest` object
 
 The body of [`POST /register`](#post-register).
@@ -811,6 +874,16 @@ The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>
 |-------|------------------|------------------------|
 | `422` | Automatic        | `id` is not an integer |
 | `404` | `Slot not found` | No slot with that id   |
+
+#### `GET /availability` errors
+
+A party that doesn't fit is not an error: the answer is a `200` with `available: false`.
+
+| Code  | Message                                                   | When                                                                         |
+|-------|-----------------------------------------------------------|------------------------------------------------------------------------------|
+| `422` | Automatic                                                 | A parameter is missing or not valid, or `party_size` is `0` or less          |
+| `400` | `Slot not available`                                      | No slot starts at that `date` and `time`                                     |
+| `400` | `Bookings are closed less than two hours before the slot` | The slot starts less than two hours from now                                 |
 
 #### `POST /booking` errors
 
@@ -928,3 +1001,17 @@ The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>
 
 [Back to top](#mountain-hut)
 
+
+
+## Notification Service
+The notification is provided by an external library (already prensent in the requirements.txt), the usage can be split according to the enviroments varibale passed:
+- Development usage: Uses a fake mail client that runs through docker. It allows the testing to be automated! Not really usefull for demo or prod-
+- Real Usage: Used in prod and demo, this system rely on a real stmp service, for this project it was decided to use Gmail, here are the list of thing to set up!
+
+|Env_variable| default value|description|
+|--|--|--|
+|SMTP_HOST| smtp.gmail.com | This is the endpoint of the smtp server that is used to send notification email|
+|SMTP_PORT| 587 | this is the port that also enable the TLS|
+|SMTP_USERNAME| mountainhut14@gmail.com | Username to login in the stmp service|
+|SMTP_PASSWORD| (not given here)| `not given`|
+|EMAIL_FROM| Mountain Hut <mountainhut14@gmail.com> | the sender name|

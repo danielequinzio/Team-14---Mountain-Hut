@@ -1,0 +1,619 @@
+{
+  "info": {
+    "name": "Mountain Hut - E2E availability",
+    "description": "End-to-end scenario for checking table availability (GET /availability), run against the real running server.\n\nThe server needs open slots and no endpoint creates them, so start it on a freshly seeded db: the seed creates the slots for the day after the db is created, and a db from a previous day has none left. For example, from the backend folder:\n\n    DATABASE_URL=sqlite:////tmp/mh_e2e.db SEED_DATA=true fastapi dev app/main.py\n\nThen run the collection in order with the Collection Runner or:\n\n    newman run MH_E2E_availability.postman_collection.json\n\nEvery run registers a new hiker with a unique email and sizes the parties from the free seats, so it can be repeated on the same db until the slots fill up (story 02 books two seats per run).\nSlots closing less than two hours before they start are not covered here: the seeded slots are too far away, see the integration tests.\nChange `baseUrl` in the collection variables if the server is not on localhost:8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "slotId", "value": "" },
+    { "key": "slotDate", "value": "" },
+    { "key": "slotTime", "value": "" },
+    { "key": "availableSeats", "value": "" },
+    { "key": "tooManyPeople", "value": "" },
+    { "key": "groupSize", "value": "" },
+    { "key": "seatsLeft", "value": "" },
+    { "key": "expectedTables", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Anyone checks if a party fits",
+      "description": "Story: before booking, I check whether a slot has room for my party and at which tables we would sit. No login is needed, and checking never takes seats.",
+      "item": [
+        {
+          "name": "1. Visitor sees the open slots",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slots = pm.response.json();",
+                  "",
+                  "pm.test(\"At least one slot is open (a db from a previous day has none: reseed it)\", () => {",
+                  "    pm.expect(slots).to.be.an(\"array\");",
+                  "    pm.expect(slots.length).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "// nothing below can work without slots",
+                  "if (!Array.isArray(slots) || slots.length < 1) {",
+                  "    postman.setNextRequest(null);",
+                  "    return;",
+                  "}",
+                  "",
+                  "const slot = slots[slots.length - 1];",
+                  "pm.collectionVariables.set(\"slotId\", slot.id);",
+                  "pm.collectionVariables.set(\"slotDate\", slot.date);",
+                  "pm.collectionVariables.set(\"slotTime\", slot.time);",
+                  "pm.collectionVariables.set(\"availableSeats\", slot.available_seats);",
+                  "pm.collectionVariables.set(\"tooManyPeople\", slot.available_seats + 1);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot"]
+            }
+          }
+        },
+        {
+          "name": "2. Visitor looks at the tables of the slot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const free = pm.response.json().tables.map((table) => table.seats_free);",
+                  "const groupSize = Math.max(...free) + 1;",
+                  "",
+                  "pm.test(\"The tables together can seat a group bigger than any one of them\", () => {",
+                  "    pm.expect(free.reduce((sum, seats) => sum + seats, 0)).to.be.at.least(groupSize);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"groupSize\", groupSize);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot/{{slotId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot", "{{slotId}}"]
+            }
+          }
+        },
+        {
+          "name": "3. A party of one fits at a single table",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const result = pm.response.json();",
+                  "",
+                  "pm.test(\"The party fits\", () => {",
+                  "    pm.expect(result.available).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test(\"The party sits at one table\", () => {",
+                  "    pm.expect(result.tables).to.have.lengthOf(1);",
+                  "    pm.expect(result.tables[0].number).to.be.a(\"number\");",
+                  "    pm.expect(result.tables[0].seats).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. A group too big for one table is split over more tables",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const result = pm.response.json();",
+                  "const groupSize = Number(pm.collectionVariables.get(\"groupSize\"));",
+                  "",
+                  "pm.test(\"The group fits\", () => {",
+                  "    pm.expect(result.available).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test(\"The group would sit at more than one table\", () => {",
+                  "    pm.expect(result.tables.length).to.be.at.least(2);",
+                  "    const numbers = result.tables.map((table) => table.number);",
+                  "    pm.expect(new Set(numbers).size).to.eql(numbers.length);",
+                  "});",
+                  "",
+                  "pm.test(\"The tables seat the whole group\", () => {",
+                  "    const seats = result.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "    pm.expect(seats).to.eql(groupSize);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size={{groupSize}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "{{groupSize}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. A party bigger than the free seats does not fit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The party does not fit and no tables are offered\", () => {",
+                  "    pm.expect(pm.response.json()).to.eql({ available: false, tables: [] });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size={{tooManyPeople}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "{{tooManyPeople}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Checking took no seats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The slot has the same free seats as before\", () => {",
+                  "    const slotId = Number(pm.collectionVariables.get(\"slotId\"));",
+                  "    const before = Number(pm.collectionVariables.get(\"availableSeats\"));",
+                  "    const slot = pm.response.json().find((candidate) => candidate.id === slotId);",
+                  "    pm.expect(slot.available_seats).to.eql(before);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot"]
+            }
+          }
+        },
+        {
+          "name": "7. A date and time with no slot is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"The visitor is told the slot is not available\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.eql(\"Slot not available\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date=2099-01-01&time=12:00:00&party_size=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "2099-01-01" },
+                { "key": "time", "value": "12:00:00" },
+                { "key": "party_size", "value": "2" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. A party of nobody is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "9. A check without the party size is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Hiker checks, then books",
+      "description": "Story: as a hiker, I check that my party fits, book the slot and get the tables the check promised. Afterwards the check sees the seats I took.",
+      "item": [
+        {
+          "name": "1. Hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"email\", `hiker.${Date.now()}@mail.example`);",
+                  "pm.collectionVariables.set(\"password\", \"password\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "2. Hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "3. Hiker checks a party of two",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const result = pm.response.json();",
+                  "",
+                  "pm.test(\"The party fits\", () => {",
+                  "    pm.expect(result.available).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"expectedTables\", JSON.stringify(result.tables));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "2" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Hiker books and gets the tables the check promised",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (booking created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"The booking uses the same tables as the check\", () => {",
+                  "    const expected = JSON.parse(pm.collectionVariables.get(\"expectedTables\"));",
+                  "    const byNumber = (a, b) => a.number - b.number;",
+                  "    pm.expect(pm.response.json().tables.sort(byNumber)).to.eql(expected.sort(byNumber));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"]
+            }
+          }
+        },
+        {
+          "name": "5. The seats left after the booking still fit",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// the free seats before the booking, minus the two booked",
+                  "const before = Number(pm.collectionVariables.get(\"availableSeats\"));",
+                  "pm.collectionVariables.set(\"seatsLeft\", before - 2);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"A party filling every seat left fits\", () => {",
+                  "    pm.expect(pm.response.json().available).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size={{seatsLeft}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "{{seatsLeft}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. The booked seats are no longer offered",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// one more than the seats left: the free seats before the booking, minus the two booked, plus one",
+                  "const before = Number(pm.collectionVariables.get(\"availableSeats\"));",
+                  "pm.collectionVariables.set(\"tooManyPeople\", before - 1);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"A party one bigger than the seats left does not fit\", () => {",
+                  "    pm.expect(pm.response.json()).to.eql({ available: false, tables: [] });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?date={{slotDate}}&time={{slotTime}}&party_size={{tooManyPeople}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["availability"],
+              "query": [
+                { "key": "date", "value": "{{slotDate}}" },
+                { "key": "time", "value": "{{slotTime}}" },
+                { "key": "party_size", "value": "{{tooManyPeople}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. Hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

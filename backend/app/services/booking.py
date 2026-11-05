@@ -24,10 +24,18 @@ def _slot_datetime(data_date: date, data_time: time) -> datetime:
     return datetime.combine(data_date, data_time, HUT_TIMEZONE)
 
 
+def _hut_time(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=HUT_TIMEZONE)
+    return value.astimezone(HUT_TIMEZONE)
+
+
 def slot_start(slot: Slot) -> datetime:
-    if slot.start_time.tzinfo is None:
-        return slot.start_time.replace(tzinfo=HUT_TIMEZONE)
-    return slot.start_time.astimezone(HUT_TIMEZONE)
+    return _hut_time(slot.start_time)
+
+
+def slot_end(slot: Slot) -> datetime:
+    return _hut_time(slot.end_time)
 
 
 def get_user(session: Session, user_id: int) -> User:
@@ -158,6 +166,27 @@ def get_free_seats(session: Session, slot_id: int) -> dict[int, int]:
         table.number: table.free_seats
         for table in _get_table_availability(session, slot_id)
     }
+
+
+def check_availability(
+    session: Session,
+    data_date: date,
+    data_time: time,
+    party_size: int,
+) -> dict:
+    """Check whether a party can be seated without changing the database."""
+    slot = find_slot(session, data_date, data_time)
+    availability = _get_table_availability(session, slot.id)
+    assignment = _allocate_from_availability(availability, party_size)
+
+    return {
+        "available": assignment is not None,
+        "tables": [
+            {"number": table_number, "seats": seats}
+            for table_number, seats in (assignment or [])
+        ],
+    }
+
 
 def assign_tables(session: Session, booking: Booking) -> list[BookingTable] | None:
     """Persist the table assignment for an existing booking.

@@ -25,6 +25,16 @@ class BookingUpdate(SQLModel):
     party_size: int = Field(gt=0)
 
 
+class TableSeats(SQLModel):
+    number: int  # table number
+    seats: int
+
+
+class AvailabilityResponse(SQLModel):
+    available: bool
+    tables: list[TableSeats]  # the tables the party would get; empty when not available
+
+
 class BookingTable(SQLModel, table=True):
     # the seats a booking uses on one of the tables of its slot: a booking uses one or more of them
     __tablename__ = "booking_table"

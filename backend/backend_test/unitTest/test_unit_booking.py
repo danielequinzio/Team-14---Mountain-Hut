@@ -9,19 +9,21 @@ from fastapi import HTTPException
 
 from app.models import Booking, BookingCreate, BookingTable, CurrentUser, Roles, Slot, SlotTable, Table
 from app.routers.booking import create_booking
-import app.services.booking as booking_service
+import app.services.booking as booking_service  
 from app.services.booking import (
     _distribute,
     _slot_datetime,
     allocate,
     assign_tables,
     booking_response,
+    check_availability,
     find_slot,
     get_free_seats,
     get_user,
     slot_start,
 )
 
+from app.services.notification import send_booking_confirmation
 
 HUT_TIMEZONE = ZoneInfo("Europe/Rome")
 
@@ -159,6 +161,59 @@ def test_get_free_seats_returns_persisted_availability(monkeypatch):
     assert get_free_seats(MagicMock(), 5) == {1: 2, 2: 4}
 
 
+def test_check_availability_returns_table_distribution_without_booking(monkeypatch):
+    session = MagicMock()
+    slot = SimpleNamespace(id=5)
+    monkeypatch.setattr(booking_service, "find_slot", lambda *args: slot)
+    monkeypatch.setattr(
+        booking_service,
+        "_get_table_availability",
+        lambda current_session, slot_id: [
+            SimpleNamespace(number=1, free_seats=2),
+            SimpleNamespace(number=2, free_seats=3),
+            SimpleNamespace(number=3, free_seats=1),
+        ],
+    )
+
+    result = check_availability(session, date(2030, 1, 1), time(12, 0), 6)
+
+    assert result == {
+        "available": True,
+        "tables": [
+            {"number": 2, "seats": 3},
+            {"number": 1, "seats": 2},
+            {"number": 3, "seats": 1},
+        ],
+    }
+    session.add.assert_not_called()
+    session.add_all.assert_not_called()
+    session.flush.assert_not_called()
+
+
+def test_check_availability_returns_unavailable_without_table_assignments(monkeypatch):
+    session = MagicMock()
+    monkeypatch.setattr(
+        booking_service,
+        "find_slot",
+        lambda *args: SimpleNamespace(id=5),
+    )
+    monkeypatch.setattr(
+        booking_service,
+        "_get_table_availability",
+        lambda current_session, slot_id: [
+            SimpleNamespace(number=1, free_seats=2),
+            SimpleNamespace(number=2, free_seats=3),
+        ],
+    )
+
+    result = check_availability(session, date(2030, 1, 1), time(12, 0), 6)
+
+    assert result == {"available": False, "tables": []}
+    session.add.assert_not_called()
+    session.add_all.assert_not_called()
+    session.flush.assert_not_called()
+
+
 def test_get_table_availability_clamps_negative_free_seats():
     slot_table = SlotTable(id=10, slot_id=2, table_id=3, occupied_seats=8)
     session = MagicMock()
@@ -276,6 +331,8 @@ def test_assign_tables_uses_existing_booking_id(monkeypatch):
 
 def test_create_booking_returns_booking_response(monkeypatch):
     session = MagicMock()
+    background_tasks = MagicMock()
+    confirmation = MagicMock()  
     session.exec.return_value.first.return_value = None
     user = CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER)
     db_user = SimpleNamespace(id=3)
@@ -295,20 +352,25 @@ def test_create_booking_returns_booking_response(monkeypatch):
 
     monkeypatch.setattr("app.routers.booking.booking_response", make_response)
 
+    monkeypatch.setattr("app.routers.booking.build_confirmation",lambda current_user, current_slot, value: confirmation)
+
     result = create_booking(
         BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
         session,
         user,
+        background_tasks
     )
 
     assert result == response
     assert booking.user_id == 3
     assert booking.slot_id == 9
     assert booking.party_size == 3
+    background_tasks.add_task.assert_called_once_with(send_booking_confirmation, confirmation)
 
 
 def test_create_booking_rejects_duplicate_booking(monkeypatch):
     session = MagicMock()
+    background_tasks = MagicMock()  
     session.exec.return_value.first.return_value = MagicMock()
     monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
     monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
@@ -319,14 +381,17 @@ def test_create_booking_rejects_duplicate_booking(monkeypatch):
             BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
             session,
             CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+            background_tasks
         )
 
     assert exc.value.status_code == 409
     assert exc.value.detail == "A booking already exists for this slot"
+    background_tasks.add_task.assert_not_called()
 
 
 def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
     session = MagicMock()
+    background_tasks = MagicMock()  
     session.exec.return_value.first.return_value = None
     monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
     monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
@@ -338,9 +403,10 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
             BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
             session,
             CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+            background_tasks
         )
 
     assert exc.value.status_code == 409
     assert exc.value.detail == "There are not enough seats for this party"
-
+    background_tasks.add_task.assert_not_called()
 
