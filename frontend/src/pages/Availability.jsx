@@ -193,7 +193,7 @@ export default function Availability() {
     try {
       const result = await createBooking({
         date: selectedDate,
-        time: selectedSlot.start,
+        time: selectedSlot.time, // hut-local HH:MM:SS, which is what POST /booking expects
         partySize,
       });
       navigate("/reservation-detail", {
@@ -403,7 +403,9 @@ export default function Availability() {
         <div className="booking-footer">
           <div className="summary">
             <span>Your selection</span>
-            <strong>Please Log in or register to make a reservation.</strong>
+            {!authLoading && !user && (
+              <strong>Please Log in or register to make a reservation.</strong>
+            )}
             <strong>
               {selectedDate && selectedSlot
                 ? `${formatDate(selectedDate)} · ${formatSlot(selectedSlot)}`

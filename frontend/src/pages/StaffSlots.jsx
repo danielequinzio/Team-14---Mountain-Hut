@@ -158,6 +158,9 @@ export default function StaffSlots() {
             >
               Refresh
             </button>
+            <Link to="/staff/define-slot" className="au-btn au-btn--primary">
+              Define slot
+            </Link>
           </div>
         </header>
 

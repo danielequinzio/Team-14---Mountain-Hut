@@ -84,6 +84,29 @@ const mockAvailability = {
 // GET AVAILABILITY
 // ----------------------------------
 
+// POST /slot/{id} sends the slot start/end in UTC. The hut works in Rome time, so
+// convert to a Rome-time "YYYY-MM-DDTHH:MM:SS" string: every page that shows a
+// time just cuts out HH:MM, and then matches the date, the email and the staff page.
+const HUT_TIMEZONE = "Europe/Rome";
+
+function toHutLocalIso(utcDateTime) {
+  if (!utcDateTime) return utcDateTime;
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(utcDateTime);
+  const moment = new Date(hasZone ? utcDateTime : `${utcDateTime}Z`);
+  if (Number.isNaN(moment.getTime())) return utcDateTime;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: HUT_TIMEZONE,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(moment)
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
 export async function getAvailability() {
   // Use mock data
   if (USE_MOCK_DATA) {
@@ -131,8 +154,8 @@ export async function getAvailability() {
         date: slot.date,
         // Hut-local "HH:MM:SS" start time: POST /booking expects this, not a datetime
         time: slot.time,
-        start: details.start_time,
-        end: details.end_time,
+        start: toHutLocalIso(details.start_time),
+        end: toHutLocalIso(details.end_time),
         availableSeats: slot.available_seats,
       };
     })
@@ -242,9 +265,10 @@ let mockTables = [
 ];
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const slotDate = (slot) => String(slot.start_time ?? "").slice(0, 10);
-const slotStart = (slot) => String(slot.start_time ?? "").slice(11, 16);
-const slotEnd = (slot) => String(slot.end_time ?? "").slice(11, 16);
+// the backend sends UTC: cut the date and times out of the Rome-time version
+const slotDate = (slot) => String(toHutLocalIso(slot.start_time) ?? "").slice(0, 10);
+const slotStart = (slot) => String(toHutLocalIso(slot.start_time) ?? "").slice(11, 16);
+const slotEnd = (slot) => String(toHutLocalIso(slot.end_time) ?? "").slice(11, 16);
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -264,9 +288,24 @@ async function request(path, options = {}) {
 }
 
 function localDateTime(date, time) {
-  // FastAPI receives ISO datetime values. The backend interprets naive datetimes
-  // in Europe/Rome for its availability calculations.
-  return `${date}T${time}:00`;
+  // POST /slots rejects datetimes without a timezone ("must have timezone
+  // information"). The employee types the hut's wall-clock time (Rome), so work
+  // out which UTC instant that is and send it as a UTC timestamp.
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  const wall = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Rome",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    })
+      .formatToParts(new Date(guess))
+      .map((part) => [part.type, Number(part.value)])
+  );
+  const wallAsUtc = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute);
+  const offset = wallAsUtc - guess; // Rome is ahead of UTC by this much at that moment
+  return new Date(guess - offset).toISOString();
 }
 
 export async function getEmployeeSlots(date) {
