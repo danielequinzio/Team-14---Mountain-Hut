@@ -32,7 +32,9 @@ export function resolveAfterLogin(user, from) {
   if (isLocalPath) {
     const staffOnly = from.startsWith("/staff");
     const hikerOnly =
-      from.startsWith("/booking") || from.startsWith("/reservation-detail");
+      from.startsWith("/booking") ||
+      from.startsWith("/availability") ||
+      from.startsWith("/reservation-detail");
     if (staffOnly && !isStaff(user)) return homePathFor();
     if (hikerOnly && user.role !== ROLES.HIKER) return homePathFor();
     return from;

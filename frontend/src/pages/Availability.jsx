@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createBooking, getAvailability } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { hut } from "../content/hutInfo";
@@ -59,7 +59,23 @@ function formatTime(dateTime) {
 
 export default function Availability() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading, logout } = useAuth();
+
+  // A visitor who logs in or registers from this page comes back here with the
+  // date and time they had chosen in the address (?date=2026-11-06&time=12:00:00).
+  const wanted = useMemo(() => {
+    const query = new URLSearchParams(location.search);
+    const date = query.get("date");
+    const time = query.get("time");
+    return {
+      date: /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date : null,
+      time: /^\d{2}:\d{2}:\d{2}$/.test(time ?? "") ? time : null,
+    };
+    // read once, when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const restored = useRef(false);
 
   const today = useMemo(() => {
     const now = new Date();
@@ -67,9 +83,13 @@ export default function Availability() {
     return now;
   }, []);
 
-  const [month, setMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
-  );
+  const [month, setMonth] = useState(() => {
+    if (wanted.date) {
+      const [year, monthNumber] = wanted.date.split("-").map(Number);
+      return new Date(year, monthNumber - 1, 1);
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
@@ -118,6 +138,20 @@ export default function Availability() {
 
         setAvailability(mapped);
 
+        // first load after coming back from login: select the remembered date and slot
+        if (!restored.current && wanted.date) {
+          restored.current = true;
+          const slots = mapped[wanted.date] ?? [];
+          const notPast = new Date(`${wanted.date}T00:00:00`) >= today;
+          if (notPast && slots.length > 0) {
+            setSelectedDate(wanted.date);
+            const index = wanted.time
+              ? slots.findIndex((slot) => slot.time === wanted.time)
+              : -1;
+            if (index >= 0) setSelectedSlotIndex(String(index));
+          }
+        }
+
         if (
           selectedDate &&
           !Object.prototype.hasOwnProperty.call(mapped, selectedDate)
@@ -147,6 +181,13 @@ export default function Availability() {
 
   const selectedSlot =
     selectedSlotIndex === "" ? null : selectedSlots[Number(selectedSlotIndex)];
+
+  // where login and register send the visitor back to, with the current choice
+  const returnPath = selectedDate
+    ? `/availability?date=${encodeURIComponent(selectedDate)}${
+        selectedSlot?.time ? `&time=${encodeURIComponent(selectedSlot.time)}` : ""
+      }`
+    : "/availability";
 
   function isPast(day) {
     return day < today;
@@ -243,10 +284,10 @@ export default function Availability() {
           )}
           {!authLoading && !user && (
             <>
-              <Link to="/login" className="lp-btn lp-btn--ghost">
+              <Link to="/login" state={{ from: returnPath }} className="lp-btn lp-btn--ghost">
                 Log in
               </Link>
-              <Link to="/register" className="lp-btn lp-btn--primary">
+              <Link to="/register" state={{ from: returnPath }} className="lp-btn lp-btn--primary">
                 Register
               </Link>
             </>
@@ -417,10 +458,10 @@ export default function Availability() {
               confirm button until the visitor is signed in. */}
           {!authLoading && !user ? (
             <div className="lp-nav-actions">
-              <Link to="/login" className="lp-btn lp-btn--ghost">
+              <Link to="/login" state={{ from: returnPath }} className="lp-btn lp-btn--ghost">
                 Log in
               </Link>
-              <Link to="/register" className="lp-btn lp-btn--primary">
+              <Link to="/register" state={{ from: returnPath }} className="lp-btn lp-btn--primary">
                 Register
               </Link>
             </div>
