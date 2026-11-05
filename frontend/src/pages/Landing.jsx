@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { isStaff } from "../auth/roles";
 import { hut } from "../content/hutInfo";
 import "./landing.css";
 
@@ -30,6 +31,11 @@ function MountainRidge() {
 
 export default function Landing() {
   const { user, loading, logout } = useAuth();
+
+  // The employee and the warden manage the slots; everyone else books a table.
+  // Without this, staff would have no link back to their page from the home page.
+  const staff = isStaff(user);
+  const mainLink = staff ? "/staff/slots" : "/booking";
 
   useEffect(() => {
     document.title = `${hut.name} · Mountain Hut`;
@@ -82,8 +88,8 @@ export default function Landing() {
               </Link>
             </>
           )}
-          <Link to="/booking" className="lp-btn lp-btn--primary">
-            Book a table
+          <Link to={mainLink} className="lp-btn lp-btn--primary">
+            {staff ? "Manage slots" : "Book a table"}
           </Link>
         </div>
       </header>
@@ -95,8 +101,8 @@ export default function Landing() {
             <h1>{hut.name}</h1>
             <p>{hut.tagline}</p>
             <div className="lp-hero-actions">
-              <Link to="/booking" className="lp-btn lp-btn--primary lp-btn--large">
-                Check availability
+              <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
+                {staff ? "Manage slots" : "Check availability"}
               </Link>
               {!loading && !user && (
                 <Link
@@ -207,14 +213,15 @@ export default function Landing() {
         <section className="lp-section lp-container">
           <div className="lp-cta">
             <div>
-              <h2>Planning your stop?</h2>
+              <h2>{staff ? "Managing the hut?" : "Planning your stop?"}</h2>
               <p>
-                See which meal times still have seats, then book a table for
-                your party.
+                {staff
+                  ? "See the meal-time slots and how many seats are booked in each one."
+                  : "See which meal times still have seats, then book a table for your party."}
               </p>
             </div>
-            <Link to="/booking" className="lp-btn lp-btn--primary lp-btn--large">
-              Check availability
+            <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
+              {staff ? "Manage slots" : "Check availability"}
             </Link>
           </div>
         </section>

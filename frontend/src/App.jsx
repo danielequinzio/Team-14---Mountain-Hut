@@ -5,6 +5,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Booking from "./pages/Booking";
 import ReservationDetail from "./pages/ReservationDetail";
+import StaffSlots from "./pages/StaffSlots";
+import RequireRole from "./auth/RequireRole";
+import { STAFF_ROLES } from "./auth/roles";
 
 export default function App() {
   return (
@@ -14,6 +17,14 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/booking" element={<Booking />} />
       <Route path="/reservation-detail" element={<ReservationDetail />} />
+      <Route
+        path="/staff/slots"
+        element={
+          <RequireRole roles={STAFF_ROLES}>
+            <StaffSlots />
+          </RequireRole>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -1,0 +1,331 @@
+/* Staff slot page. Every class starts with "st-" so nothing clashes with
+   styles.css (booking), landing.css ("lp-") or auth.css ("au-"). */
+
+.st-main {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 56px) clamp(16px, 4vw, 24px) 80px;
+}
+
+.st-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.st-header h1 {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.st-lead {
+  margin: 10px 0 0;
+  color: #8593a3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.st-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-date input {
+  padding: 10px 12px;
+  border: 1px solid #293644;
+  border-radius: 10px;
+  background: #0d1117;
+  color: #e9eef5;
+  font: inherit;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.st-date input:focus-visible {
+  outline: 2px solid #6db7ff;
+  outline-offset: 1px;
+}
+
+.st-controls .au-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.st-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.st-day {
+  margin: 36px 0 18px;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Loading, empty and error states ---------- */
+
+.st-state {
+  padding: 28px;
+  border: 1px dashed #293644;
+  border-radius: 14px;
+  color: #8593a3;
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.st-state p {
+  margin: 0;
+}
+
+.st-state strong {
+  color: #e9eef5;
+}
+
+.st-state--error {
+  border-color: #6b2f2b;
+  background: rgba(200, 86, 79, 0.08);
+  color: #f0b4af;
+}
+
+.st-state--error .au-btn {
+  margin-top: 14px;
+}
+
+.st-state a {
+  color: #e7b96a;
+  text-decoration: underline;
+}
+
+/* ---------- Totals ---------- */
+
+.st-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.st-summary > div {
+  padding: 16px 18px;
+  border: 1px solid #202a35;
+  border-radius: 14px;
+  background: #111821;
+}
+
+.st-summary dt,
+.st-figures dt {
+  color: #758294;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-summary dd {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Slot cards ---------- */
+
+.st-slots {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-slot {
+  padding: clamp(18px, 3vw, 24px);
+  border: 1px solid #202a35;
+  border-radius: 16px;
+  background: #111821;
+}
+
+.st-slot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.st-time {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.st-meta {
+  margin: 4px 0 0;
+  color: #8593a3;
+  font-size: 13px;
+}
+
+.st-badge {
+  flex: none;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.st-badge--free {
+  border-color: rgba(107, 201, 141, 0.35);
+  background: rgba(107, 201, 141, 0.1);
+  color: #6bc98d;
+}
+
+.st-badge--warn {
+  border-color: rgba(231, 185, 106, 0.4);
+  background: rgba(231, 185, 106, 0.1);
+  color: #e7b96a;
+}
+
+.st-badge--full {
+  border-color: rgba(200, 86, 79, 0.45);
+  background: rgba(200, 86, 79, 0.12);
+  color: #f0958f;
+}
+
+.st-badge--muted {
+  border-color: #334151;
+  background: #151d27;
+  color: #9ba9b8;
+}
+
+.st-bar,
+.st-seat-bar {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #1c2632;
+}
+
+.st-bar {
+  height: 8px;
+  margin: 18px 0 14px;
+}
+
+.st-bar span,
+.st-seat-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #e7b96a;
+}
+
+.st-figures {
+  display: flex;
+  gap: clamp(20px, 5vw, 44px);
+  margin: 0;
+}
+
+.st-figures dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.st-hint {
+  margin: 16px 0 0;
+  color: #8593a3;
+  font-size: 13px;
+}
+
+.st-toggle {
+  margin-top: 16px;
+  padding: 8px 14px;
+  border: 1px solid #334151;
+  border-radius: 10px;
+  background: #111821;
+  color: #c5d0dc;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.st-toggle:hover {
+  border-color: #4a5b6f;
+  background: #151d27;
+}
+
+.st-toggle:focus-visible {
+  outline: 2px solid #6db7ff;
+  outline-offset: 3px;
+}
+
+/* ---------- Tables of a slot ---------- */
+
+.st-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-table {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #202a35;
+  border-radius: 12px;
+  background: #0d1117;
+  font-size: 13px;
+}
+
+.st-table strong {
+  display: block;
+}
+
+.st-table > div:first-child span {
+  color: #758294;
+  font-size: 12px;
+}
+
+.st-table-seats {
+  display: grid;
+  gap: 6px;
+  color: #9ba9b8;
+  font-size: 12px;
+}
+
+.st-seat-bar {
+  height: 6px;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 640px) {
+  .st-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .st-controls {
+    width: 100%;
+  }
+
+  .st-date {
+    flex: 1 1 140px;
+  }
+
+  .st-date input {
+    width: 100%;
+  }
+}
