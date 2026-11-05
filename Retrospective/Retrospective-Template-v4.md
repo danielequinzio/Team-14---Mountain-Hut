@@ -40,6 +40,13 @@ sections:
 
 - Hours per task  <span style="color:red">per person</span>  (average, standard deviation)
 
+|        Member         |   Mean     |    StDev    |
+|-----------------------|------------|-------------|
+| Daniele Iacono        |  1h 19m    |   ~49m      | 
+| Daniele Quinzio       |  1h 06m    |    43m      |
+| Alessandro Marinari   |  ~50m      |   ~37m      |
+| Dogukan Postoglu      |
+| Maximiliano Zurlo     |
 
 - Total task estimation error ratio: sum of total hours estimation / sum of total hours spent -1
 
