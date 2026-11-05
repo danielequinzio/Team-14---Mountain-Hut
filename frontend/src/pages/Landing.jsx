@@ -35,7 +35,7 @@ export default function Landing() {
   // The employee and the warden manage the slots; everyone else books a table.
   // Without this, staff would have no link back to their page from the home page.
   const staff = isStaff(user);
-  const mainLink = staff ? "/staff/slots" : "/booking";
+  const mainLink = staff ? "/staff/slots" : "/availability";
 
   useEffect(() => {
     document.title = `${hut.name} · Mountain Hut`;
