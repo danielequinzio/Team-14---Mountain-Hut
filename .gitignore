@@ -225,3 +225,7 @@ backend/MountainHut.db
 
 */.DS
 backend/.venv
+
+# Frontend
+node_modules/
+frontend/dist/
