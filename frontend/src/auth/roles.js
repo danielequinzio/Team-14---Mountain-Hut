@@ -12,14 +12,15 @@ export function isStaff(user) {
   return Boolean(user) && STAFF_ROLES.includes(user.role);
 }
 
-// Where a user lands right after logging in.
-export function homePathFor(user) {
-  if (!user) return "/";
-  return isStaff(user) ? "/staff/slots" : "/booking";
+// Where a user lands right after logging in or registering: the home page, for
+// every role. From there the header buttons lead to their own page (staff:
+// "Manage slots", everyone else: "Book a table").
+export function homePathFor() {
+  return "/";
 }
 
 // The page to open right after a login: the page the user was trying to reach
-// (when their role may see it), otherwise their own home page.
+// (when their role may see it), otherwise the home page.
 export function resolveAfterLogin(user, from) {
   const isLocalPath =
     typeof from === "string" &&
@@ -30,11 +31,12 @@ export function resolveAfterLogin(user, from) {
 
   if (isLocalPath) {
     const staffOnly = from.startsWith("/staff");
-    const hikerOnly = from.startsWith("/booking");
-    if (staffOnly && !isStaff(user)) return homePathFor(user);
-    if (hikerOnly && user.role !== ROLES.HIKER) return homePathFor(user);
+    const hikerOnly =
+      from.startsWith("/booking") || from.startsWith("/reservation-detail");
+    if (staffOnly && !isStaff(user)) return homePathFor();
+    if (hikerOnly && user.role !== ROLES.HIKER) return homePathFor();
     return from;
   }
 
-  return homePathFor(user);
+  return homePathFor();
 }

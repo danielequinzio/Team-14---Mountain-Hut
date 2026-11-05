@@ -7,7 +7,8 @@ import Booking from "./pages/Booking";
 import ReservationDetail from "./pages/ReservationDetail";
 import StaffSlots from "./pages/StaffSlots";
 import RequireRole from "./auth/RequireRole";
-import { STAFF_ROLES } from "./auth/roles";
+import StaffRedirect from "./auth/StaffRedirect";
+import { ROLES, STAFF_ROLES } from "./auth/roles";
 
 export default function App() {
   return (
@@ -15,8 +16,23 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/booking" element={<Booking />} />
-      <Route path="/reservation-detail" element={<ReservationDetail />} />
+      {/* availability is public: visitors and hikers may look, staff are sent to their own page */}
+      <Route
+        path="/booking"
+        element={
+          <StaffRedirect to="/staff/slots">
+            <Booking />
+          </StaffRedirect>
+        }
+      />
+      <Route
+        path="/reservation-detail"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <ReservationDetail />
+          </RequireRole>
+        }
+      />
       <Route
         path="/staff/slots"
         element={
