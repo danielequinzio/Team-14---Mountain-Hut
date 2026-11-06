@@ -63,14 +63,17 @@ export default function Availability() {
   const { user, loading: authLoading, logout } = useAuth();
 
   // A visitor who logs in or registers from this page comes back here with the
-  // date and time they had chosen in the address (?date=2026-11-06&time=12:00:00).
+  // date, time and party size they had chosen in the address
+  // (?date=2026-11-06&time=12:00:00&party=3).
   const wanted = useMemo(() => {
     const query = new URLSearchParams(location.search);
     const date = query.get("date");
     const time = query.get("time");
+    const party = query.get("party");
     return {
       date: /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date : null,
       time: /^\d{2}:\d{2}:\d{2}$/.test(time ?? "") ? time : null,
+      party: /^[1-9]\d*$/.test(party ?? "") ? Number(party) : null,
     };
     // read once, when the page opens
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +141,8 @@ export default function Availability() {
 
         setAvailability(mapped);
 
-        // first load after coming back from login: select the remembered date and slot
+        // first load after coming back from login: select the remembered date,
+        // slot and party size (capped at the seats that are still left)
         if (!restored.current && wanted.date) {
           restored.current = true;
           const slots = mapped[wanted.date] ?? [];
@@ -148,7 +152,14 @@ export default function Availability() {
             const index = wanted.time
               ? slots.findIndex((slot) => slot.time === wanted.time)
               : -1;
-            if (index >= 0) setSelectedSlotIndex(String(index));
+            if (index >= 0) {
+              setSelectedSlotIndex(String(index));
+              if (wanted.party) {
+                setPartySize(
+                  Math.max(1, Math.min(wanted.party, slots[index].availableSeats))
+                );
+              }
+            }
           }
         }
 
@@ -185,7 +196,9 @@ export default function Availability() {
   // where login and register send the visitor back to, with the current choice
   const returnPath = selectedDate
     ? `/availability?date=${encodeURIComponent(selectedDate)}${
-        selectedSlot?.time ? `&time=${encodeURIComponent(selectedSlot.time)}` : ""
+        selectedSlot?.time
+          ? `&time=${encodeURIComponent(selectedSlot.time)}&party=${partySize}`
+          : ""
       }`
     : "/availability";
 
@@ -436,6 +449,55 @@ export default function Availability() {
                 <p>Your available time slots will appear here.</p>
               </div>
             )}
+
+            <div className="party-section">
+              <div className="panel-heading compact">
+                <div>
+                  <span className="step">03</span>
+                  <h2>Party size</h2>
+                </div>
+              </div>
+
+              <div className="party-control">
+                <button
+                  type="button"
+                  disabled={!selectedSlot || partySize <= 1}
+                  onClick={() => setPartySize((value) => Math.max(1, value - 1))}
+                  aria-label="Decrease party size"
+                >
+                  −
+                </button>
+
+                <div className="party-number">
+                  <strong>{partySize}</strong>
+                  <span>{partySize === 1 ? "guest" : "guests"}</span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    !selectedSlot ||
+                    partySize >= (selectedSlot?.availableSeats ?? 1)
+                  }
+                  onClick={() =>
+                    setPartySize((value) =>
+                      Math.min(value + 1, selectedSlot?.availableSeats ?? value)
+                    )
+                  }
+                  aria-label="Increase party size"
+                >
+                  +
+                </button>
+              </div>
+
+              {selectedSlot && (
+                <p className="capacity">
+                  Maximum {selectedSlot.availableSeats}{" "}
+                  {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
+                  this time slot.
+                </p>
+              )}
+            </div>
 
             {error && <div className="error">{error}</div>}
           </div>

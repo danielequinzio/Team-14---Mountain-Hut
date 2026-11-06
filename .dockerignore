@@ -1,0 +1,9 @@
+frontend/
+**/node_modules
+**/__pycache__
+**/*.db
+backend/htmlcov
+backend/backend_test
+**/.env
+.git
+.DS_Store
