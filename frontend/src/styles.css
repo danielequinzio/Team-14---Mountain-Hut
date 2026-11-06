@@ -1174,6 +1174,82 @@ button:focus-visible {
     cursor: pointer;
 }
 
+.slot-table-list.pick-list {
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.slot-table-row.pick {
+    grid-template-columns: 26px 1fr 1fr 1.3fr;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.slot-table-row.pick.header {
+    position: sticky;
+    top: 0;
+    cursor: default;
+}
+
+.slot-table-row.pick:not(.header):hover {
+    background: #18222d;
+}
+
+.slot-table-row.pick.checked {
+    background: #e9b96710;
+}
+
+.slot-table-row.pick > span {
+    color: #92a5ba;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.slot-table-row.pick input[type=checkbox] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #e9b967;
+    cursor: pointer;
+}
+
+.slot-new {
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: #e9b96722;
+    color: #e9b967;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.slot-link {
+    margin-left: 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #e9b967;
+    font: 700 11px 'DM Sans';
+    cursor: pointer;
+}
+
+.slot-link:hover {
+    text-decoration: underline;
+}
+
+.slot-table-note {
+    margin: 0 0 12px;
+    color: #8395aa;
+    font-size: 12px;
+}
+
+.slot-table-note.error {
+    color: #ffaaaa;
+}
+
 .slot-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

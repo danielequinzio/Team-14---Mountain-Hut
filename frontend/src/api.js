@@ -324,6 +324,20 @@ export async function getEmployeeSlots(date) {
   }));
 }
 
+// Every physical table of the hut (GET /tables), sorted by table number.
+export async function getHutTables() {
+  const result = USE_MOCK_SLOT_DATA ? clone(mockTables) : await request("/tables");
+  return (Array.isArray(result) ? result : [])
+    .map((table) => ({
+      id: table.id,
+      number: Number(table.number),
+      size: Number(table.capacity),
+      capacity: Number(table.capacity),
+      location: table.location ?? "",
+    }))
+    .sort((a, b) => a.number - b.number);
+}
+
 export async function getTablesForSlot(slotId) {
   if (USE_MOCK_SLOT_DATA) {
     const slot = mockSlots.find((item) => String(item.id) === String(slotId));
@@ -359,12 +373,19 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
       if (!source) throw new Error("The source time slot no longer exists.");
       assigned = clone(source.tables);
     } else {
-      assigned = clone(tables || []).map((table, index) => ({
-        id: table.id ?? (mockTables.find((t) => t.number === table.number)?.id ?? 1000 + index),
-        number: table.number,
-        capacity: table.capacity ?? table.size,
-        location: table.location,
-      }));
+      assigned = clone(tables || []).map((table) => {
+        let physical = mockTables.find((t) => t.number === table.number);
+        if (!physical) {
+          physical = {
+            id: Math.max(0, ...mockTables.map((t) => t.id)) + 1,
+            number: table.number,
+            capacity: table.capacity ?? table.size,
+            location: table.location,
+          };
+          mockTables.push(physical);
+        }
+        return clone(physical);
+      });
     }
     const created = {
       id: mockNextId++,

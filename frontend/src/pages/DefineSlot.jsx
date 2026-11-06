@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import NavBar from "../components/NavBar";
-import { createEmployeeSlot, getEmployeeSlots, getTablesForSlot, USE_MOCK_SLOT_DATA } from "../api";
+import { createEmployeeSlot, getEmployeeSlots, getHutTables, getTablesForSlot, USE_MOCK_SLOT_DATA } from "../api";
+
+const byNumber = (a, b) => a.number - b.number;
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -41,7 +43,53 @@ export default function DefineSlot() {
   const [copyDate,setCopyDate]=useState(""),[copySlots,setCopySlots]=useState([]),[copySlotId,setCopySlotId]=useState("");
   const [copySourceId,setCopySourceId]=useState(null);
   const [copyLoading,setCopyLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
+  const [hutTables,setHutTables]=useState([]),[hutLoading,setHutLoading]=useState(true),[hutError,setHutError]=useState("");
   const days=useMemo(()=>getCalendarDays(month),[month]);
+
+  // The hut's physical tables (GET /tables): staff tick the ones the slot offers.
+  const loadHutTables = useCallback(async () => {
+    setHutLoading(true);
+    setHutError("");
+    try {
+      setHutTables(await getHutTables());
+    } catch (e) {
+      setHutError(e.message || "Could not load the hut's tables.");
+    } finally {
+      setHutLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHutTables();
+  }, [loadHutTables]);
+
+  // Hut tables plus the new ones added in this form (created when the slot is saved).
+  const hutNumbers = new Set(hutTables.map((t) => t.number));
+  const selectedNumbers = new Set(tables.map((t) => t.number));
+  const tableRows = [
+    ...hutTables.map((t) => ({ ...t, isNew: false })),
+    ...tables.filter((t) => !hutNumbers.has(t.number)).map((t) => ({ ...t, isNew: true })),
+  ].sort(byNumber);
+  const allSelected = tableRows.length > 0 && tableRows.every((t) => selectedNumbers.has(t.number));
+
+  function toggleTable(table) {
+    setTables((current) =>
+      current.some((t) => t.number === table.number)
+        ? current.filter((t) => t.number !== table.number)
+        : [...current, { id: table.id, number: table.number, size: table.size, capacity: table.capacity, location: table.location }].sort(byNumber),
+    );
+    setCopySourceId(null);
+    setError("");
+    setSuccess("");
+  }
+
+  function toggleAll() {
+    // "Clear" keeps nothing; "Select all" ticks every hut table and keeps the new ones
+    setTables(allSelected ? [] : tableRows.map(({ isNew, ...t }) => t));
+    setCopySourceId(null);
+    setError("");
+    setSuccess("");
+  }
 
   useEffect(() => {
     if (!copyDate) {
@@ -85,6 +133,19 @@ export default function DefineSlot() {
     }
     if (tables.some((t) => t.number === number)) {
       setError(`Table ${number} is already in this time slot.`);
+      return;
+    }
+    // Table numbers are unique in the hut: reuse the existing table instead of a duplicate
+    const existing = hutTables.find((t) => t.number === number);
+    if (existing) {
+      toggleTable(existing);
+      setTableNo("");
+      setTableSize("2");
+      setTableLocation("");
+      setAddOpen(false);
+      setSuccess(
+        `Table ${number} already exists (${existing.size} seats, ${existing.location}), so it has been selected.`,
+      );
       return;
     }
     setTables((current) =>
@@ -146,6 +207,7 @@ export default function DefineSlot() {
       );
       setTables([]);
       setCopySourceId(null);
+      loadHutTables(); // tables created with this slot now belong to the hut
     } catch (e) {
       setError(e.message || "Could not create the time slot.");
     } finally {
@@ -234,42 +296,57 @@ export default function DefineSlot() {
                 <i>04</i> Tables for this slot
               </h2>
               <small>
-                {tables.length} {tables.length === 1 ? "table" : "tables"}
+                {tables.length} of {tableRows.length} selected
+                {tableRows.length > 0 && (
+                  <button type="button" className="slot-link" onClick={toggleAll}>
+                    {allSelected ? "Clear" : "Select all"}
+                  </button>
+                )}
               </small>
             </div>
-            {tables.length ? (
-              <div className="slot-table-list">
-                <div className="slot-table-row header">
-                  <span>Table number</span>
-                  <span>Seats</span>
+            {hutError && (
+              <p className="slot-table-note error" role="alert">
+                {hutError}{" "}
+                <button type="button" className="slot-link" onClick={loadHutTables}>Try again</button>
+              </p>
+            )}
+            {tableRows.length ? (
+              <div className="slot-table-list pick-list">
+                <div className="slot-table-row pick header">
                   <span />
+                  <span>Table</span>
+                  <span>Seats</span>
+                  <span>Location</span>
                 </div>
-                {tables.map((t) => (
-                  <div className="slot-table-row" key={t.number}>
-                    <strong>Table {t.number}</strong>
-                    <span>{t.size} seats</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTables((v) =>
-                          v.filter((x) => x.number !== t.number),
-                        );
-                        setCopySourceId(null);
-                      }}
-                      aria-label={`Remove table ${t.number}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                {tableRows.map((t) => {
+                  const checked = selectedNumbers.has(t.number);
+                  return (
+                    <label className={`slot-table-row pick ${checked ? "checked" : ""}`} key={t.number}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleTable(t)}
+                        aria-label={`Use table ${t.number} in this slot`}
+                      />
+                      <strong>Table {t.number}</strong>
+                      <span>{t.size} seats</span>
+                      <span>
+                        {t.location}
+                        {t.isNew && <em className="slot-new">New</em>}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
+            ) : hutLoading ? (
+              <p className="slot-table-note">Loading the hut's tables…</p>
             ) : (
               <div className="slot-empty">
                 <span>▦</span>
-                <strong>No tables added yet</strong>
+                <strong>The hut has no tables yet</strong>
                 <p>
-                  Add tables individually or copy the configuration from
-                  another time slot.
+                  Add the first table: it will be created together with this
+                  time slot and reusable for the next ones.
                 </p>
               </div>
             )}
@@ -299,7 +376,7 @@ export default function DefineSlot() {
                 ⧉ Copy tables
               </button>
             </div>
-            <p className="slot-help">Copied tables reuse the same physical tables. Changes to the source slot are not made.</p>
+            <p className="slot-help">Tick the hut's tables this slot offers, or add a new one. Copying selects the same tables as another slot, without changing it.</p>
           </section>
         </div>
         {error&&<div className="slot-alert error" role="alert">{error}</div>}
