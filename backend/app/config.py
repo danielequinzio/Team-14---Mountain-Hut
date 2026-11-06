@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # backend/.env fills in the ones that aren't already set in the real environment
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-DB_PATH = Path(__file__).resolve().parent.parent / "OQM.db"  # backend/OQM.db
+DB_PATH = Path(__file__).resolve().parent.parent / "MountainHut.db"  # backend/OQM.db
 
 DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{DB_PATH}"  # `or`: an empty value also means the default
 
