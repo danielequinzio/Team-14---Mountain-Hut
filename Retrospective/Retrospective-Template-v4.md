@@ -1,4 +1,4 @@
-TEMPLATE FOR RETROSPECTIVE (Team 14)
+TEMPLATE FOR RETROSPECTIVE (Team 14)  
 Sprint 1
 =====================================
 
