@@ -1,4 +1,5 @@
-TEMPLATE FOR RETROSPECTIVE (Team ##)
+TEMPLATE FOR RETROSPECTIVE (Team 14)
+Sprint 1
 =====================================
 
 The retrospective should include _at least_ the following
