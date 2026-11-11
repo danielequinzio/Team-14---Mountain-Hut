@@ -53,11 +53,10 @@ TOTAL TASKS: 57
 
 $$
 \frac{\sum_i estimation_{task_i}}{\sum_i spent_{task_i}} - 1
-= -0.002905 \approx -0.29\%
-$$
+= -0.0029
+$$  
 
 
-  
 ## QUALITY MEASURES 
 
 - Unit Testing:
