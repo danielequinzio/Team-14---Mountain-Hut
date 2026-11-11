@@ -16,7 +16,7 @@ DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{DB_PATH}"  # `or`: an e
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-change-me-in-production")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 # fill an empty db with sample data on startup. Parsed by hand: bool("False") would be True
-DATA_SEED = os.getenv("SEED_DATA", "false").strip().lower() in ("1", "true", "yes")
+DATA_SEED = os.getenv("SEED_DATA", "true").strip().lower() in ("1", "true", "yes")
 
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:3000",
