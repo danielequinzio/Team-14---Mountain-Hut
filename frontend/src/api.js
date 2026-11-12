@@ -1,7 +1,7 @@
 const API_BASE_URL = "http://localhost:8000";
 
 // Change this to false when you want to use FastAPI.
-const USE_MOCK_DATA = false;
+const USE_MOCK_DATA = true;
 
 // ----------------------------------
 // MOCK DATA
