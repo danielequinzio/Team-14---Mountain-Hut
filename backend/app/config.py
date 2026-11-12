@@ -18,7 +18,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 # how long a password reset link stays valid
 PWD_RESET_EXPIRE_MINUTES = int(os.getenv("PWD_RESET_EXPIRE_MINUTES", "10"))
 # fill an empty db with sample data on startup. Parsed by hand: bool("False") would be True
-DATA_SEED = os.getenv("SEED_DATA", "false").strip().lower() in ("1", "true", "yes")
+DATA_SEED = os.getenv("SEED_DATA", "true").strip().lower() in ("1", "true", "yes")
 
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:3000",
