@@ -13,13 +13,17 @@ services:
       SEED_DATA: "true"   # "true" = fill an empty db with sample data on startup
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080
       SESSION_COOKIE_SECURE: "false"
-      SMTP_HOST: mailpit   # service name: localhost would be the backend container itself
-      SMTP_PORT: 1025
-      SMTP_USERNAME: ""
-      SMTP_PASSWORD: ""
-      EMAIL_FROM: "Mountain Hut <noreply@mountain-hut.local>"
+      SMTP_HOST: smtp.gmail.com #mailpit #for testing only.
+      SMTP_PORT: 587 #1025 #for mail pit only.
+      SMTP_USERNAME: "mountainhut14@gmail.com"
+      # SMTP_PASSWORD is not here: it's loaded from secrets.txt by the command below
+      EMAIL_FROM: "Mountain Hut <mountainhut14@gmail.com>" #"Mountain Hut <noreply@mountain-hut.local>" #for mailpit only.
       PWD_RESET_EXPIRE_MINUTES: 15
       FRONTEND_URL: http://localhost:5173
+    secrets:
+      - smtp_password   # mounted at /run/secrets/smtp_password
+    # $$ = literal $ for the container shell (a single $ would be expanded by compose)
+    command: sh -c 'export SMTP_PASSWORD="$$(cat /run/secrets/smtp_password)" && exec fastapi run app/main.py --port 8000'
     volumes:
       - ./data/db:/app/db_data   # sqlite db survives container restarts/rebuilds
     depends_on:
@@ -49,3 +53,7 @@ services:
 
       # Should be test... Added the volume here to save the data ot the email sent
       # This allow the container to not have volatile memory.
+
+secrets:
+  smtp_password:
+    file: ./secrets.txt   # local only: gitignored, never committed
