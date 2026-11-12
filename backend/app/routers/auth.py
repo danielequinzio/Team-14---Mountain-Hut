@@ -1,14 +1,19 @@
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
+from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, PWD_RESET_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic
+from app.models import CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, pwd_reset, ResetData, ResetPasswordRequest
 from app.services.auth import create_token, get_current_user, hash_password, verify_password
+from app.services.notification import send_pwd_reset
+
 
 router = APIRouter(tags=["auth"])
 
@@ -113,3 +118,61 @@ def logout(
 @router.get("/users/me", response_model=UserPublic, status_code=200)
 def read_me(user: Annotated[CurrentUser, Depends(get_current_user)]):
     return user
+
+
+@router.post("/auth/forgot-password", status_code= status.HTTP_201_CREATED)
+def forgot_password(user_email: str, session: SessionDep, background_tasks: BackgroundTasks):
+    email = user_email.lower()
+    user = session.exec(select(User).where(User.email == email)).first()
+    if user:
+        token = secrets.token_urlsafe(16)  # 128 bits
+        expire_at = datetime.now(timezone.utc) + timedelta(minutes=PWD_RESET_EXPIRE_MINUTES)
+        reset = pwd_reset(
+            user_id=user.id,
+            token_hash=hashlib.sha256(token.encode()).hexdigest(),
+            expire_at=expire_at,
+        )
+        session.add(reset)
+        session.commit()
+
+        # the plain token only goes in the email; the db keeps its hash
+        background_tasks.add_task(send_pwd_reset, user.email, ResetData(token=token, expire_at=expire_at))
+
+
+    # same answer whether the email exists or not: it doesn't reveal which emails are registered
+    return {"detail": "If the email is registered, a reset link has been sent"}
+
+
+@router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(data: ResetPasswordRequest, session: SessionDep):
+    # the db only has the hash, so the token received is hashed the same way to find its row
+    token_hash = hashlib.sha256(data.token.encode()).hexdigest()
+    reset = session.exec(select(pwd_reset).where(pwd_reset.token_hash == token_hash)).first()
+
+    expire_at = reset.expire_at if reset else None
+    if expire_at and expire_at.tzinfo is None:  # sqlite gives the datetime back without its timezone
+        expire_at = expire_at.replace(tzinfo=timezone.utc)
+
+    # one answer for unknown, used and expired tokens: the user has to ask for a new link anyway
+    if not reset or reset.used or expire_at < datetime.now(timezone.utc):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset link")
+
+    user = session.get(User, reset.user_id)
+    if not user:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset link")
+
+    user.password_hash = hash_password(data.new_password)
+    # the password changed: every other link sent to this user stops working too
+    other_resets = session.exec(
+        select(pwd_reset).where(pwd_reset.user_id == user.id, pwd_reset.used == False)  # noqa: E712
+    ).all()
+    for row in other_resets:
+        row.used = True
+    reset.used = True
+    session.add(user)
+    session.commit()
+
+
+
+
+
