@@ -7,8 +7,13 @@ from app.database import SessionDep, booking_transaction
 from app.models import (
     Booking,
     BookingCreate,
+    BookingTable,
     CurrentUser,
     Roles,
+    Slot,
+    SlotTable,
+    Table,
+    TableSeats,
 )
 from app.services.auth import require_role
 from app.services.booking import (
@@ -19,6 +24,7 @@ from app.services.booking import (
 )
 
 from app.services.notification import build_confirmation, send_booking_confirmation
+from app.models.booking import BookingDetails
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -61,17 +67,48 @@ def create_booking(
     background_tasks.add_task(send_booking_confirmation, confirmation)
     return response
 
-# Probably not needed for the frontend at the moment, because this is sent via email
-# @router.get("")
-# def get_my_bookings(
-#     session: SessionDep,
-#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
-# ):
-#     db_user = get_user(session, user.id)
-#     bookings = session.exec(
-#         select(Booking).where(Booking.user_id == db_user.id).order_by(Booking.slot_id)
-#     ).all()
-#     return [booking_response(session, booking) for booking in bookings]
+
+@router.get("")
+def get_my_bookings(
+     session: SessionDep,
+     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    ):
+     db_user = get_user(session, user.id)
+
+     bookings = session.exec(
+        select(
+            Booking.id,
+            Booking.party_size,
+            Slot.start_time,
+            Slot.end_time,
+            Table.number,
+            BookingTable.seats_booked,
+        )
+        .join(Slot, Slot.id == Booking.slot_id)
+        .join(BookingTable, BookingTable.booking_id == Booking.id)
+        .join(
+            SlotTable,
+            (SlotTable.id == BookingTable.slot_table_id)
+            & (SlotTable.slot_id == Slot.id),
+        )
+        .join(Table, Table.id == SlotTable.table_id)
+        .where(Booking.user_id == db_user.id)
+     ).all()
+
+     # one row per (booking, table): group the rows by booking id
+     result: dict[int, BookingDetails] = {}
+     for booking_id, party_size, start_time, end_time, number, seats in bookings:
+         if booking_id not in result:
+             result[booking_id] = BookingDetails(
+                 id=booking_id,
+                 party_size=party_size,
+                 slot_time_start=start_time.time(),
+                 slot_time_end=end_time.time(),
+                 tables=[],
+             )
+         result[booking_id].tables.append(TableSeats(number=number, seats=seats))
+
+     return list(result.values())
 
 
 # Not needed for now, but could be useful for a booking cancellation story:

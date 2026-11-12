@@ -47,3 +47,11 @@ class BookingTable(SQLModel, table=True):
     booking_id: int = Field(foreign_key="booking.id")
     slot_table_id: int = Field(foreign_key="slot_table.id")
     seats_booked: int
+
+
+class BookingDetails(SQLModel):
+    id: int
+    party_size: int
+    slot_time_start: time
+    slot_time_end: time
+    tables: list[TableSeats]
