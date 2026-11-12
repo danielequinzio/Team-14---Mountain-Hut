@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker_dev/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # same variables as backend/.env.example, adapted to run inside compose
+      DATABASE_URL: sqlite:////app/db_data/MountainHut.db   # inside the db_data volume
+      SECRET_KEY: dev-only-secret-key-change-me-in-production
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      SEED_DATA: "true"   # "true" = fill an empty db with sample data on startup
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8080
+      SESSION_COOKIE_SECURE: "false"
+      SMTP_HOST: mailpit   # service name: localhost would be the backend container itself
+      SMTP_PORT: 1025
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      EMAIL_FROM: "Mountain Hut <noreply@mountain-hut.local>"
+      PWD_RESET_EXPIRE_MINUTES: 15
+      FRONTEND_URL: http://localhost:5173
+    volumes:
+      - ./data/db:/app/db_data   # sqlite db survives container restarts/rebuilds
+    depends_on:
+      - mailpit
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker_dev/frontend.Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_USE_MOCK_DATA: "false"
+    depends_on:
+      - backend
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"   # SMTP: the backend sends here
+      - "8025:8025"   # web inbox
+    volumes:
+      - ./data/mailpit:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+
+      # Should be test... Added the volume here to save the data ot the email sent
+      # This allow the container to not have volatile memory.
