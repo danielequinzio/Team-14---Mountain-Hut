@@ -24,7 +24,8 @@ from app.services.booking import (
 )
 
 from app.services.notification import build_confirmation, send_booking_confirmation
-from app.models.booking import BookingDetails
+from app.models.booking import BookingDetails, BookingTable
+from app.models.booking_requirement import BookingRequirementCreate
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -117,6 +118,20 @@ def get_my_bookings(
                  tables=[],
              )
          result[booking_id].tables.append(TableSeats(number=number, seats=seats))
+
+     # requirements are fetched separately so they are not repeated once per table
+     requirements = session.exec(
+         select(BookingRequirement).where(
+             BookingRequirement.booking_id.in_(list(result.keys()))
+         )
+     ).all()
+     for requirement in requirements:
+         result[requirement.booking_id].requirements.append(
+             BookingRequirementCreate(
+                 allergies=requirement.allergies,
+                 description=requirement.description,
+             )
+         )
 
      return list(result.values())
 

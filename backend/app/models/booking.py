@@ -58,3 +58,4 @@ class BookingDetails(SQLModel):
     slot_time_start: time
     slot_time_end: time
     tables: list[TableSeats]
+    requirements: list[BookingRequirementCreate] = Field(default_factory=list)
