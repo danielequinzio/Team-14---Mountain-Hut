@@ -25,7 +25,10 @@ class BookingCreate(SQLModel):
 
 
 class BookingUpdate(SQLModel):
-    party_size: int = Field(gt=0)
+    date: date | None = None
+    time: time | None = None
+    party_size: int | None = Field(default=None, gt=0)
+    requirements: list[BookingRequirementCreate] | None = None
 
 
 class TableSeats(SQLModel):
