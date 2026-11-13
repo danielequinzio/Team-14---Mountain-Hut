@@ -14,7 +14,7 @@ from app.config import (
     SMTP_PORT,
     SMTP_USERNAME,
 )
-from app.models import Booking, ResetData, Slot, User
+from app.models import Booking, BookingRequirementCreate, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
 from app.services.email_template import render_html
 
@@ -39,11 +39,23 @@ def booking_reference(booking_id: int) -> str:
     return f"BK-{booking_id:06d}"
 
 
+def format_requirements(requirements: list[BookingRequirementCreate]) -> str | None:
+    """MH-05: one line per requirement of the party, allergies marked; None when there are none."""
+    lines = []
+    for requirement in requirements:
+        description = (requirement.description or "").strip()
+        if requirement.allergies:
+            lines.append(f"- [Allergy] {description}".rstrip())
+        elif description:  # a requirement with no allergy and no text says nothing
+            lines.append(f"- {description}")
+    return "\n".join(lines) or None
+
+
 def build_confirmation(
     user: User,
     slot: Slot,
     booking: Booking,
-    requirements: str | None = None,  # filled in once MH-05 stores them
+    requirements: list[BookingRequirementCreate] | None = None,   # the requirements stored by MH-05
 ) -> BookingConfirmation:
     return BookingConfirmation(
         recipient=user.email,
@@ -52,7 +64,7 @@ def build_confirmation(
         start=slot_start(slot),
         end=slot_end(slot),
         party_size=booking.party_size,
-        requirements=requirements,
+        requirements=format_requirements(requirements or []),
     )
 
 
