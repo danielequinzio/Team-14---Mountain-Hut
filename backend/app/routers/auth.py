@@ -115,10 +115,6 @@ def logout(
         samesite="lax",
     )
 
-@router.get("/users/me", response_model=UserPublic, status_code=200)
-def read_me(user: Annotated[CurrentUser, Depends(get_current_user)]):
-    return user
-
 
 @router.post("/auth/forgot-password", status_code= status.HTTP_201_CREATED)
 def forgot_password(user_email: str, session: SessionDep, background_tasks: BackgroundTasks):

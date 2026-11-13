@@ -1,5 +1,5 @@
 # re-export every model, so the rest of the code can write `from app.models import Booking`
-from app.models.auth import LoginRequest, RegisterRequest, ResetPasswordRequest
+from app.models.auth import LoginRequest, RegisterRequest, ResetPasswordRequest, RegisterRequestEmployee
 from app.models.booking import (
     AvailabilityResponse,
     Booking,
@@ -11,7 +11,7 @@ from app.models.booking import (
 from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
 from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
-from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset
+from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset, UserBookingCreation
 
 __all__ = [
     "AvailabilityResponse",
@@ -41,4 +41,6 @@ __all__ = [
     "User",
     "UserPublic",
     "pwd_reset",
+    "UserBookingCreation",
+    "RegisterRequestEmployee",
 ]

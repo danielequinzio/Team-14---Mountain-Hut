@@ -20,7 +20,8 @@ from app.models import (
     SlotTablesAdd,
     Table,
 )
-from app.services.auth import require_role
+
+from app.services.user import EmployeeOrWarden
 
 router = APIRouter(prefix="/slot", tags=["slot"])
 management_router = APIRouter(prefix="/slots", tags=["slot management"])
@@ -92,9 +93,6 @@ def get_slot_info(id: int, session: SessionDep):
         )
 
 
-EmployeeOrWarden = Annotated[
-    CurrentUser, Depends(require_role(Roles.EMPLOYEE, Roles.WARDEN))
-]
 
 
 @management_router.get("", response_model=list[Slot], status_code=200)

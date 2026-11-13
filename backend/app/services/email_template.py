@@ -15,7 +15,7 @@ from html import escape
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # notification.py imports this module, so a normal import would be circular
-    from app.services.notification import BookingConfirmation
+    from app.services.notification import AccountCreated, BookingConfirmation
 
 # fixed English names: strftime("%A") would follow the server's locale
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -149,6 +149,92 @@ Your table is booked: {date_text}, {confirmation.start:%H:%M} &ndash; {confirmat
                    font-size:12px;line-height:1.6;color:{MUTED};">
       This is an automatic confirmation from {HUT_NAME}. Please keep your booking reference
       <strong style="color:{TEXT};white-space:nowrap;">{reference}</strong> with you.
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>
+"""
+
+
+def render_account_html(account: AccountCreated, login_url: str) -> str:
+    # every value comes from the staff member who created the account: all escaped
+    name = escape(f"{account.name} {account.surname}".strip(), quote=True)
+    username = escape(account.username, quote=True)
+    email = escape(account.recipient, quote=True)
+    mobile = escape(account.mobile_number, quote=True)
+    password = escape(account.password, quote=True)
+    link = escape(login_url, quote=True)
+
+    rows = "".join(
+        [
+            _row("Name", name),
+            _row("Username", username),
+            _row("Email", email),
+            _row("Mobile number", mobile),
+            _row("Password", f'<span style="font-family:Consolas,Menlo,monospace;'
+                 f"letter-spacing:0.04em;background:{PAPER};padding:4px 8px;border-radius:6px;\">{password}</span>",
+                 last=True),
+        ]
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Your {HUT_NAME} account</title>
+</head>
+<body style="margin:0;padding:0;background:{PAPER};">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+Your account at {HUT_NAME} is ready. Log in and change your temporary password.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{PAPER};">
+<tr><td align="center" style="padding:28px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:600px;background:{CARD};border-radius:16px;overflow:hidden;border:1px solid {LINE};">
+    <tr><td style="background:{DARK};padding:22px 32px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="width:34px;height:34px;background:{GOLD};border-radius:9px;text-align:center;
+                   color:{INK};font-size:14px;font-family:{FONT};">&#9650;</td>
+        <td style="padding-left:12px;font-family:{FONT};">
+          <div style="color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.06em;">{HUT_NAME}</div>
+          <div style="color:#8593a3;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;">Your account</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:32px 32px 8px;font-family:{FONT};">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#b47d1c;">
+        Account created</div>
+      <h1 style="margin:10px 0 0;font-size:26px;line-height:1.2;color:{TEXT};letter-spacing:-0.02em;">
+        Welcome, {name}.</h1>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.7;color:{MUTED};">
+        An account at the mountain hut has been created for you. Here are your details.</p>
+    </td></tr>
+    <tr><td style="padding:12px 32px 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border-top:1px solid {LINE};">{rows}</table>
+    </td></tr>
+    <tr><td style="padding:0 32px 8px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="background:{WARN_BG};border:1px solid {WARN_LINE};border-radius:10px;">
+        <tr><td style="padding:14px 16px;font-family:{FONT};">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+                      color:#8a5a00;">Temporary password</div>
+          <div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">
+            This password was chosen for you: please change it as soon as you log in.</div>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td align="center" style="padding:20px 32px 32px;">
+      <a href="{link}" style="display:inline-block;background:{GOLD};color:{INK};font-family:{FONT};
+         font-size:15px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;">Log in</a>
+    </td></tr>
+    <tr><td style="padding:18px 32px;border-top:1px solid {LINE};font-family:{FONT};
+                   font-size:12px;line-height:1.6;color:{MUTED};">
+      This is an automatic message from {HUT_NAME}. If you didn&rsquo;t expect it, please contact the hut.
     </td></tr>
   </table>
 </td></tr>
