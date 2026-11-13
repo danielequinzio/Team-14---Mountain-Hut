@@ -7,7 +7,7 @@ from app.database import SessionDep, booking_transaction
 from app.models import (
     Booking,
     BookingCreate,
-    BookingTable,
+    BookingRequirement,
     CurrentUser,
     Roles,
     Slot,
@@ -60,6 +60,16 @@ def create_booking(
                 status.HTTP_409_CONFLICT,
                 "There are not enough seats for this party",
             )
+        session.add_all(
+            [
+                BookingRequirement(
+                    booking_id=booking.id,
+                    allergies=requirement.allergies,
+                    description=requirement.description,
+                )
+                for requirement in data.requirements
+            ]
+        )
         response = booking_response(session, booking)
         confirmation = build_confirmation(db_user, slot, booking)
 

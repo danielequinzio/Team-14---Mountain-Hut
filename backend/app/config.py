@@ -15,8 +15,10 @@ DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{DB_PATH}"  # `or`: an e
 # long random value in production (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`)
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-secret-key-change-me-in-production")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+# how long a password reset link stays valid
+PWD_RESET_EXPIRE_MINUTES = int(os.getenv("PWD_RESET_EXPIRE_MINUTES", "10"))
 # fill an empty db with sample data on startup. Parsed by hand: bool("False") would be True
-DATA_SEED = os.getenv("SEED_DATA", "false").strip().lower() in ("1", "true", "yes")
+DATA_SEED = os.getenv("SEED_DATA", "true").strip().lower() in ("1", "true", "yes")
 
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:3000",
@@ -44,3 +46,6 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "")
+
+# where the frontend is served: links in emails (e.g. password reset) point here
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")

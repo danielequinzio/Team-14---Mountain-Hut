@@ -15,3 +15,8 @@ class RegisterRequest(SQLModel):
 class LoginRequest(SQLModel):
     email: EmailStr
     password: str
+
+
+class ResetPasswordRequest(SQLModel):
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)  # same rule as at registration

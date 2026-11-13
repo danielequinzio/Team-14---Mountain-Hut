@@ -2,6 +2,8 @@ from datetime import date, datetime, time, timezone
 
 from sqlmodel import CheckConstraint, Field, SQLModel, UniqueConstraint
 
+from app.models.booking_requirement import BookingRequirementCreate
+
 
 class Booking(SQLModel, table=True):
     __table_args__ = (
@@ -19,6 +21,7 @@ class BookingCreate(SQLModel):
     date: date
     time: time
     party_size: int = Field(gt=0)
+    requirements: list[BookingRequirementCreate] = Field(default_factory=list)
 
 
 class BookingUpdate(SQLModel):

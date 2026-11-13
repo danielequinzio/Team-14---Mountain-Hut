@@ -7,7 +7,17 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi import HTTPException
 
-from app.models import Booking, BookingCreate, BookingTable, CurrentUser, Roles, Slot, SlotTable, Table
+from app.models import (
+    Booking,
+    BookingCreate,
+    BookingRequirement,
+    BookingTable,
+    CurrentUser,
+    Roles,
+    Slot,
+    SlotTable,
+    Table,
+)
 from app.routers.booking import create_booking
 import app.services.booking as booking_service  
 from app.services.booking import (
@@ -366,6 +376,87 @@ def test_create_booking_returns_booking_response(monkeypatch):
     assert booking.slot_id == 9
     assert booking.party_size == 3
     background_tasks.add_task.assert_called_once_with(send_booking_confirmation, confirmation)
+
+
+def test_create_booking_persists_all_requirements(monkeypatch):
+    session = MagicMock()
+    background_tasks = MagicMock()
+    session.exec.return_value.first.return_value = None
+    db_user = SimpleNamespace(id=3)
+    slot = SimpleNamespace(id=9)
+    requirements = [
+        {"allergies": True, "description": "1 peanut allergy"},
+        {"allergies": False, "description": "2 vegetarians"},
+    ]
+
+    monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: db_user)
+    monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: slot)
+
+    def assign_tables_and_set_id(current_session, booking):
+        booking.id = 20
+        return [MagicMock()]
+
+    monkeypatch.setattr("app.routers.booking.assign_tables", assign_tables_and_set_id)
+    monkeypatch.setattr("app.routers.booking.booking_response", lambda session, booking: {"id": booking.id})
+    monkeypatch.setattr(
+        "app.routers.booking.build_confirmation",
+        lambda current_user, current_slot, booking: MagicMock(),
+    )
+
+    result = create_booking(
+        BookingCreate(
+            date=date(2030, 1, 1),
+            time=time(12, 0),
+            party_size=3,
+            requirements=requirements,
+        ),
+        session,
+        CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+        background_tasks,
+    )
+
+    persisted_requirements = session.add_all.call_args.args[0]
+    assert result == {"id": 20}
+    assert persisted_requirements == [
+        BookingRequirement(
+            booking_id=20,
+            allergies=True,
+            description="1 peanut allergy",
+        ),
+        BookingRequirement(
+            booking_id=20,
+            allergies=False,
+            description="2 vegetarians",
+        ),
+    ]
+
+
+def test_create_booking_accepts_no_requirements(monkeypatch):
+    session = MagicMock()
+    background_tasks = MagicMock()
+    session.exec.return_value.first.return_value = None
+    db_user = SimpleNamespace(id=3)
+    slot = SimpleNamespace(id=9)
+
+    monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: db_user)
+    monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: slot)
+    monkeypatch.setattr("app.routers.booking.assign_tables", lambda session, booking: [MagicMock()])
+    monkeypatch.setattr("app.routers.booking.booking_response", lambda session, booking: {"id": 20})
+    monkeypatch.setattr(
+        "app.routers.booking.build_confirmation",
+        lambda current_user, current_slot, booking: MagicMock(),
+    )
+
+    create_booking(
+        BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
+        session,
+        CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+        background_tasks,
+    )
+
+    session.add_all.assert_called_once_with([])
 
 
 def test_create_booking_rejects_duplicate_booking(monkeypatch):

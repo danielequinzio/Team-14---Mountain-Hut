@@ -4,15 +4,17 @@ import ssl
 from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
+from urllib.parse import urlencode
 
 from app.config import (
     EMAIL_FROM,
+    FRONTEND_URL,
     SMTP_HOST,
     SMTP_PASSWORD,
     SMTP_PORT,
     SMTP_USERNAME,
 )
-from app.models import Booking, Slot, User
+from app.models import Booking, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
 from app.services.email_template import render_html
 
@@ -95,3 +97,39 @@ def send_booking_confirmation(confirmation: BookingConfirmation) -> None:
             smtp.send_message(message)
     except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
         logger.exception("Confirmation %s not sent", confirmation.reference)
+
+
+def send_pwd_reset(recipient: str, reset: ResetData) -> None:
+    # runs after the reset row is committed: a failure here is only logged
+    # never log the token itself: anyone reading the logs could reset the password
+    if not SMTP_HOST:
+        logger.warning("SMTP_HOST not set: password reset email not sent")
+        return
+
+    # the page reads the token from the url and sends it to the backend in the request body
+    link = f"{FRONTEND_URL}/reset-password?{urlencode({'token': reset.token})}"
+
+    try:
+        message = EmailMessage()
+        message["Subject"] = "Password reset"
+        message["From"] = EMAIL_FROM
+        message["To"] = recipient
+        message.set_content(
+            "\n".join([
+                "Hello,",
+                "",
+                "open this link to reset your password:",
+                "",
+                link,
+                "",
+                f"It expires at {reset.expire_at:%d/%m/%Y %H:%M} UTC.",
+                "If you didn't ask for a reset, ignore this email.",
+            ])
+        )
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+    except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
+        logger.exception("Password reset email not sent")
