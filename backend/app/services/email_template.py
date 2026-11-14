@@ -156,3 +156,86 @@ Your table is booked: {date_text}, {confirmation.start:%H:%M} &ndash; {confirmat
 </body>
 </html>
 """
+
+
+# ---------- MH-06: HTML of the change email ----------
+
+def render_change_html(change: BookingConfirmation) -> str:
+    name = escape(change.hiker_name.strip(), quote=True)
+    reference = escape(change.reference, quote=True)
+    date_text = format_long_date(change.start)
+    time_text = f"{change.start:%H:%M} &ndash; {change.end:%H:%M}"
+
+    requirements = ""
+    if change.requirements and change.requirements.strip():
+        requirements = (
+            f'<tr><td style="padding:0 32px 8px;">'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            f'style="background:{WARN_BG};border:1px solid {WARN_LINE};border-radius:10px;">'
+            f'<tr><td style="padding:14px 16px;font-family:{FONT};">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:#8a5a00;">Party requirements</div>'
+            f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">'
+            f"{_text(change.requirements)}</div>"
+            f"</td></tr></table></td></tr>"
+        )
+
+    rows = "".join([
+        _row("Booking reference", f'<span style="font-family:Consolas,Menlo,monospace;'
+             f'letter-spacing:0.04em;background:{PAPER};padding:4px 8px;border-radius:6px;">'
+             f'{reference}</span>'),
+        _row("New date", date_text),
+        _row("New time slot", time_text),
+        _row("Party size", _guests(change.party_size), last=True),
+    ])
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Booking changed {reference}</title>
+</head>
+<body style="margin:0;padding:0;background:{PAPER};">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+Your booking has been changed: {date_text}, {time_text}. Reference {reference}.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{PAPER};">
+<tr><td align="center" style="padding:28px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:600px;background:{CARD};border-radius:16px;overflow:hidden;border:1px solid {LINE};">
+    <tr><td style="background:{DARK};padding:22px 32px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="width:34px;height:34px;background:{GOLD};border-radius:9px;text-align:center;
+                   color:{INK};font-size:14px;font-family:{FONT};">&#9650;</td>
+        <td style="padding-left:12px;font-family:{FONT};">
+          <div style="color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.06em;">{HUT_NAME}</div>
+          <div style="color:#8593a3;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;">Table reservations</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:32px 32px 8px;font-family:{FONT};">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#b47d1c;">
+        Booking changed</div>
+      <h1 style="margin:10px 0 0;font-size:26px;line-height:1.2;color:{TEXT};letter-spacing:-0.02em;">
+        Your booking has been updated, {name}.</h1>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.7;color:{MUTED};">
+        We have saved the changes to your reservation. Here are the new details.</p>
+    </td></tr>
+    <tr><td style="padding:12px 32px 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border-top:1px solid {LINE};">{rows}</table>
+    </td></tr>
+    {requirements}
+    <tr><td style="padding:18px 32px;border-top:1px solid {LINE};font-family:{FONT};
+                   font-size:12px;line-height:1.6;color:{MUTED};">
+      This is an automatic notification from {HUT_NAME}. Please keep your booking reference
+      <strong style="color:{TEXT};white-space:nowrap;">{reference}</strong> with you.
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>
+"""

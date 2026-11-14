@@ -23,7 +23,9 @@ from app.services.booking import (
     release_tables,
 )
 
-from app.services.notification import build_confirmation, send_booking_confirmation
+from app.services.notification import ( build_confirmation, send_booking_confirmation, send_booking_change, )
+
+from app.models.booking_requirement import BookingRequirementCreate
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -95,6 +97,7 @@ def update_booking(
     data: BookingUpdate,
     session: SessionDep,
     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks, 
 ):
     with booking_transaction(session):
         db_user = get_user(session, user.id)
@@ -168,4 +171,18 @@ def update_booking(
                 ]
             )
 
-        return booking_response(session, booking)
+         # MH-06: requirements shown in the email (the new ones, or the stored ones)
+        requirements = data.requirements
+        if requirements is None:
+            requirements = [
+                BookingRequirementCreate(allergies=r.allergies, description=r.description)
+                for r in session.exec(
+                    select(BookingRequirement).where(BookingRequirement.booking_id == booking.id)
+                ).all()
+            ]
+
+        response = booking_response(session, booking)
+        change = build_confirmation(db_user, new_slot, booking, requirements)
+    # MH-06: outside the block, so the email leaves only after the commit
+    background_tasks.add_task(send_booking_change, change)
+    return response

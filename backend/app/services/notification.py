@@ -16,7 +16,7 @@ from app.config import (
 )
 from app.models import Booking, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
-from app.services.email_template import render_html
+from app.services.email_template import render_html, render_change_html
 
 logger = logging.getLogger(__name__)
 
@@ -133,3 +133,49 @@ def send_pwd_reset(recipient: str, reset: ResetData) -> None:
             smtp.send_message(message)
     except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
         logger.exception("Password reset email not sent")
+
+
+# ---------- MH-06: email for a changed booking ----------
+
+def compose_change_email(change: BookingConfirmation) -> EmailMessage:
+    lines = [
+        f"Hello {change.hiker_name},",
+        "",
+        "your booking at the mountain hut has been changed. These are the new details:",
+        "",
+        f"Booking reference: {change.reference}",
+        f"Date: {change.start:%d/%m/%Y}",
+        f"Time slot: {change.start:%H:%M} - {change.end:%H:%M}",
+        f"Party size: {change.party_size}",
+    ]
+    if change.requirements:
+        lines.append(f"Party requirements: {change.requirements}")
+
+    message = EmailMessage()
+    message["Subject"] = f"Booking changed {change.reference}"
+    message["From"] = EMAIL_FROM
+    message["To"] = change.recipient
+    message.set_content("\n".join(lines))
+    return message
+
+
+def send_booking_change(change: BookingConfirmation) -> None:
+    # runs after the change is committed: a failure here must not undo it, so it is only logged
+    if not SMTP_HOST:
+        logger.warning("SMTP_HOST not set: change email %s not sent", change.reference)
+        return
+
+    try:
+        message = compose_change_email(change)
+        try:
+            message.add_alternative(render_change_html(change), subtype="html")
+        except Exception:  # the design must never stop the plain-text email from being sent
+            logger.exception("HTML version of change %s not built: sending plain text only",
+                             change.reference)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USERNAME:
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+    except (smtplib.SMTPException, OSError, ValueError):
+        logger.exception("Change email %s not sent", change.reference)
