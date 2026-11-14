@@ -12,9 +12,13 @@ from app.models import (
     CurrentUser,
     Roles,
     Slot,
+    SlotTable,
+    Table,
+    TableSeats,
 )
 from app.services.auth import require_role
 from app.services.booking import (
+    _hut_time,
     assign_tables,
     booking_response,
     ensure_change_allowed,
@@ -23,8 +27,12 @@ from app.services.booking import (
     release_tables,
 )
 
-from app.services.notification import ( build_confirmation, send_booking_confirmation, send_booking_change, )
-
+from app.services.notification import (
+    build_confirmation,
+    send_booking_change,
+    send_booking_confirmation,
+)
+from app.models.booking import BookingDetails, BookingTable
 from app.models.booking_requirement import BookingRequirementCreate
 
 router = APIRouter(prefix="/booking", tags=["booking"])
@@ -72,23 +80,67 @@ def create_booking(
             ]
         )
         response = booking_response(session, booking)
-        confirmation = build_confirmation(db_user, slot, booking)
-
+        confirmation = build_confirmation(db_user, slot, booking, data.requirements)
     # fuori dal blocco: l'email parte solo dopo il commit
     background_tasks.add_task(send_booking_confirmation, confirmation)
     return response
 
-# Probably not needed for the frontend at the moment, because this is sent via email
-# @router.get("")
-# def get_my_bookings(
-#     session: SessionDep,
-#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
-# ):
-#     db_user = get_user(session, user.id)
-#     bookings = session.exec(
-#         select(Booking).where(Booking.user_id == db_user.id).order_by(Booking.slot_id)
-#     ).all()
-#     return [booking_response(session, booking) for booking in bookings]
+
+@router.get("")
+def get_my_bookings(
+     session: SessionDep,
+     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    ):
+     db_user = get_user(session, user.id)
+
+     bookings = session.exec(
+        select(
+            Booking.id,
+            Booking.party_size,
+            Slot.start_time,
+            Slot.end_time,
+            Table.number,
+            BookingTable.seats_booked,
+        )
+        .join(Slot, Slot.id == Booking.slot_id)
+        .join(BookingTable, BookingTable.booking_id == Booking.id)
+        .join(
+            SlotTable,
+            (SlotTable.id == BookingTable.slot_table_id)
+            & (SlotTable.slot_id == Slot.id),
+        )
+        .join(Table, Table.id == SlotTable.table_id)
+        .where(Booking.user_id == db_user.id)
+     ).all()
+
+     # one row per (booking, table): group the rows by booking id
+     result: dict[int, BookingDetails] = {}
+     for booking_id, party_size, start_time, end_time, number, seats in bookings:
+         if booking_id not in result:
+             result[booking_id] = BookingDetails(
+                 id=booking_id,
+                 party_size=party_size,
+                 slot_time_start=_hut_time(start_time).time(),
+                 slot_time_end=_hut_time(end_time).time(),
+                 tables=[],
+             )
+         result[booking_id].tables.append(TableSeats(number=number, seats=seats))
+
+     # requirements are fetched separately so they are not repeated once per table
+     requirements = session.exec(
+         select(BookingRequirement).where(
+             BookingRequirement.booking_id.in_(list(result.keys()))
+         )
+     ).all()
+     for requirement in requirements:
+         result[requirement.booking_id].requirements.append(
+             BookingRequirementCreate(
+                 allergies=requirement.allergies,
+                 description=requirement.description,
+             )
+         )
+
+     return list(result.values())
 
 
 @router.patch("/{booking_id}")
