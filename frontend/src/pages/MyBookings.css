@@ -1,0 +1,297 @@
+/* Mountain Hut / Rifugio Alpe Serena — My Bookings page */
+.my-bookings-page {
+  min-height: calc(100vh - 72px);
+  padding: 64px 24px 88px;
+  color: #edf2f8;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(38, 55, 72, 0.22), transparent 32%),
+    #0d1219;
+}
+
+.my-bookings-container {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.my-bookings-heading {
+  margin-bottom: 34px;
+}
+
+.my-bookings-eyebrow {
+  margin: 0 0 10px;
+  color: #e9b85f;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.my-bookings-heading h1 {
+  margin: 0;
+  color: #f1f4f8;
+  font-size: clamp(34px, 5vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.my-bookings-heading > p:last-child {
+  margin: 8px 0 0;
+  color: #8ea1b7;
+  font-size: 16px;
+}
+
+.my-bookings-list {
+  display: grid;
+  gap: 18px;
+}
+
+.my-bookings-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 2px;
+}
+
+.my-bookings-list-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.my-bookings-list-heading span,
+.my-booking-label {
+  color: #71869f;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.my-booking-card,
+.my-bookings-empty,
+.my-bookings-message {
+  border: 1px solid #263544;
+  border-radius: 18px;
+  background: #131a23;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.my-booking-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 24px;
+}
+
+.my-booking-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.my-booking-date {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.my-booking-date-icon,
+.my-bookings-empty-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  color: #e9b85f;
+  background: rgba(233, 184, 95, 0.12);
+  font-size: 19px;
+}
+
+.my-booking-date h3 {
+  margin: 4px 0 0;
+  color: #f1f4f8;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.my-booking-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 54px;
+  padding-left: 60px;
+}
+
+.my-booking-details > div {
+  display: grid;
+  gap: 6px;
+}
+
+.my-booking-details strong {
+  color: #e8edf4;
+  font-size: 15px;
+}
+
+.my-booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.my-bookings-primary-button,
+.my-bookings-secondary-button,
+.my-bookings-danger-button,
+.my-bookings-primary-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.my-bookings-primary-button,
+.my-bookings-primary-link {
+  color: #171717;
+  background: #e9b85f;
+}
+
+.my-bookings-primary-button:hover,
+.my-bookings-primary-link:hover {
+  color: #171717;
+  background: #f0c879;
+}
+
+.my-bookings-secondary-button {
+  color: #e5ebf2;
+  border-color: #304153;
+  background: #151e28;
+}
+
+.my-bookings-secondary-button:hover {
+  border-color: #71869f;
+  background: #1a2632;
+}
+
+.my-bookings-danger-button {
+  color: #f0b2ac;
+  border-color: rgba(210, 104, 94, 0.45);
+  background: rgba(126, 48, 43, 0.12);
+}
+
+.my-bookings-danger-button:hover {
+  background: rgba(126, 48, 43, 0.24);
+}
+
+.my-bookings-primary-button:disabled,
+.my-bookings-secondary-button:disabled,
+.my-bookings-danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.my-booking-edit {
+  display: grid;
+  min-width: 210px;
+  gap: 9px;
+}
+
+.my-booking-edit label {
+  color: #8ea1b7;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.my-booking-edit input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #304153;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #f1f4f8;
+  background: #0d141c;
+  font: inherit;
+}
+
+.my-booking-edit input:focus {
+  border-color: #e9b85f;
+  outline: 2px solid rgba(233, 184, 95, 0.16);
+}
+
+.my-bookings-empty,
+.my-bookings-message {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 54px 24px;
+  text-align: center;
+}
+
+.my-bookings-empty h2 {
+  margin: 4px 0 0;
+  font-size: 23px;
+}
+
+.my-bookings-empty p,
+.my-bookings-message p {
+  margin: 0;
+  color: #8ea1b7;
+}
+
+.my-bookings-error {
+  margin: 0 0 18px;
+  border: 1px solid rgba(210, 104, 94, 0.45);
+  border-radius: 12px;
+  padding: 12px 15px;
+  color: #f0b2ac;
+  background: rgba(126, 48, 43, 0.12);
+}
+
+@media (max-width: 760px) {
+  .my-bookings-page {
+    padding: 40px 16px 64px;
+  }
+
+  .my-booking-card {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 22px;
+    padding: 19px;
+  }
+
+  .my-booking-details {
+    gap: 18px 28px;
+    padding-left: 0;
+  }
+
+  .my-booking-actions > button,
+  .my-booking-actions > a {
+    flex: 1 1 auto;
+  }
+}
+
+.my-booking-requirements {
+  display: grid;
+  gap: 6px;
+  margin: 18px 0 0 60px;
+}
+
+.my-booking-requirements p {
+  margin: 0;
+  color: #c5d0dc;
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .my-booking-requirements {
+    margin-left: 0;
+  }
+}
