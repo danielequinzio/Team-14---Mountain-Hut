@@ -72,6 +72,7 @@ export default function Booking() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
   const [partySize, setPartySize] = useState(1);
+  const [requirements, setRequirements] = useState([]);
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -220,14 +221,57 @@ export default function Booking() {
     );
   }
 
+  function addRequirement() {
+    setRequirements((current) => [
+      ...current,
+      { allergies: false, description: "" },
+    ]);
+  }
+
+  function updateRequirement(index, changes) {
+    setRequirements((current) =>
+      current.map((requirement, requirementIndex) =>
+        requirementIndex === index
+          ? { ...requirement, ...changes }
+          : requirement
+      )
+    );
+  }
+
+  function removeRequirement(index) {
+    setRequirements((current) =>
+      current.filter((_, requirementIndex) => requirementIndex !== index)
+    );
+  }
+
   async function confirmBooking() {
     if (!selectedDate || !selectedSlot || booking) return;
+
+    const incompleteRequirement = requirements.some(
+      (requirement) => !requirement.description.trim()
+    );
+    if (incompleteRequirement) {
+      setError("Please describe each party requirement or remove the empty requirement.");
+      return;
+    }
+
+    const bookingRequirements = requirements.map((requirement) => ({
+      allergies: requirement.allergies,
+      description: requirement.description.trim(),
+    }));
+
     setBooking(true); setError("");
     try {
-      const result = await createBooking({ date: selectedDate, time: selectedSlot.time, partySize });
+      const result = await createBooking({
+        date: selectedDate,
+        time: selectedSlot.time,
+        partySize,
+        requirements: bookingRequirements,
+      });
       navigate("/reservation-detail", { state: {
         booking: result, date: selectedDate, start: selectedSlot.start,
         end: selectedSlot.end, partySize, availableSeats: selectedSlot.availableSeats,
+        requirements: bookingRequirements,
       }});
     } catch (err) {
       setError(err.message || "Could not create reservation.");
@@ -434,6 +478,79 @@ export default function Booking() {
                 </p>
               )}
             </div>
+
+            <section className="requirements-section" aria-labelledby="requirements-title">
+              <div className="requirements-heading">
+                <div>
+                  <span className="step">04</span>
+                  <h2 id="requirements-title">Party requirements</h2>
+                </div>
+                <p>
+                  Let us know about dietary restrictions or allergies so the hut
+                  can prepare suitable meals safely.
+                </p>
+              </div>
+
+              {requirements.length === 0 ? (
+                <p className="requirements-empty">
+                  No special requirements added. You can continue without adding any.
+                </p>
+              ) : (
+                <div className="requirements-list">
+                  {requirements.map((requirement, index) => (
+                    <div className="requirement-card" key={index}>
+                      <div className="requirement-card-heading">
+                        <strong>Requirement {index + 1}</strong>
+                        <button
+                          type="button"
+                          className="remove-requirement-button"
+                          onClick={() => removeRequirement(index)}
+                          aria-label={`Remove requirement ${index + 1}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <label className="allergy-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={requirement.allergies}
+                          onChange={(event) =>
+                            updateRequirement(index, {
+                              allergies: event.target.checked,
+                            })
+                          }
+                        />
+                        <span>This requirement concerns an allergy</span>
+                      </label>
+
+                      <label className="requirement-description-label">
+                        Description
+                        <textarea
+                          value={requirement.description}
+                          onChange={(event) =>
+                            updateRequirement(index, {
+                              description: event.target.value,
+                            })
+                          }
+                          placeholder="E.g. 1 vegan, peanut allergy"
+                          rows={3}
+                          maxLength={500}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="add-requirement-button"
+                onClick={addRequirement}
+              >
+                + Add a requirement
+              </button>
+            </section>
 
             {error && <div className="error">{error}</div>}
           </div>
