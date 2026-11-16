@@ -20,3 +20,8 @@ class LoginRequest(SQLModel):
 class ResetPasswordRequest(SQLModel):
     token: str = Field(min_length=1)
     new_password: str = Field(min_length=8)  # same rule as at registration
+
+
+class ChangePasswordRequest(SQLModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)  # same rule as at registration
