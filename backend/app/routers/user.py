@@ -28,9 +28,13 @@ router = APIRouter(tags=["user"])
 def read_me(user: Annotated[CurrentUser, Depends(get_current_user)]):
     return user
 
-@router.get("/profileCheck", response_model=UserBookingCreation ,status_code=400)
+@router.get("/profileCheck", response_model=UserBookingCreation, status_code=200)
 def check_hiker_existence(user: EmployeeOrWarden, session: SessionDep, email: str = Query()):
-    hiker = session.exec(select(User).where(User.email == email)).first()
+    # emails are stored lowercase, so normalize before comparing
+    email = email.strip().lower()
+    hiker = session.exec(
+        select(User).where(User.email == email, User.role == Roles.HIKER)
+    ).first()
     if not hiker:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "hiker not found")
 
