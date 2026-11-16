@@ -226,14 +226,15 @@ __marimo__/
 backend/MountainHut.db
 .idea
 
-*/.DS
+*/.DS_Store
 backend/.venv
 
 # Frontend
 node_modules/
 frontend/dist/
-/docker/data/
+/docker_dev/data/
 /backend/backend_test/test.http
 
 backend/.env
 
+/docker_dev/secrets.txt

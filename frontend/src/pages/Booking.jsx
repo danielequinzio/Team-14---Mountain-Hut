@@ -71,7 +71,7 @@ export default function Booking() {
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
-  const [partySize, setPartySize] = useState(1);
+  const [partySizeInput, setPartySizeInput] = useState("1");
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -124,7 +124,7 @@ export default function Booking() {
         ) {
           setSelectedDate(null);
           setSelectedSlotIndex("");
-          setPartySize(1);
+          setPartySizeInput("1");
         }
       } catch (err) {
         if (!cancelled) {
@@ -175,7 +175,7 @@ export default function Booking() {
 
     setSelectedDate(key);
     setSelectedSlotIndex("");
-    setPartySize(1);
+    setPartySizeInput("1");
   }
 
   function changeMonth(offset) {
@@ -185,7 +185,7 @@ export default function Booking() {
     );
     setSelectedDate(null);
     setSelectedSlotIndex("");
-    setPartySize(1);
+    setPartySizeInput("1");
   }
 
   function selectSlot(event) {
@@ -193,35 +193,39 @@ export default function Booking() {
 
     if (value === "") {
       setSelectedSlotIndex("");
-      setPartySize(1);
+      setPartySizeInput("1");
       return;
     }
 
     const slot = selectedSlots[Number(value)];
     setSelectedSlotIndex(value);
-    setPartySize((current) =>
-      Math.min(Math.max(current, 1), slot.availableSeats)
-    );
+    setPartySizeInput((current) => {
+      const currentSize = Number(current);
+      return String(
+        Math.min(
+          Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
+          slot.availableSeats
+        )
+      );
+    });
   }
 
   function changePartySize(event) {
-    const value = Number(event.target.value);
-
-    if (!selectedSlot) {
-      setPartySize(1);
-      return;
-    }
-
-    setPartySize(
-      Math.min(
-        Math.max(Number.isFinite(value) ? value : 1, 1),
-        selectedSlot.availableSeats
-      )
-    );
+    // Keep the raw input so users can edit the value without it being
+    // immediately clamped while they are typing.
+    setPartySizeInput(event.target.value);
   }
 
+  const partySize = Number(partySizeInput);
+  const isPartySizeValid =
+    selectedSlot !== null &&
+    partySizeInput.trim() !== "" &&
+    Number.isInteger(partySize) &&
+    partySize >= 1 &&
+    partySize <= selectedSlot.availableSeats;
+
   async function confirmBooking() {
-    if (!selectedDate || !selectedSlot || booking) return;
+    if (!selectedDate || !selectedSlot || !isPartySizeValid || booking) return;
     setBooking(true); setError("");
     try {
       const result = await createBooking({ date: selectedDate, time: selectedSlot.time, partySize });
@@ -353,12 +357,15 @@ export default function Booking() {
                         className={`slot-card ${selected ? "selected" : ""}`}
                         onClick={() => {
                           setSelectedSlotIndex(String(index));
-                          setPartySize((current) =>
-                            Math.min(
-                              Math.max(current, 1),
-                              slot.availableSeats
-                            )
-                          );
+                          setPartySizeInput((current) => {
+                            const currentSize = Number(current);
+                            return String(
+                              Math.min(
+                                Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
+                                slot.availableSeats
+                              )
+                            );
+                          });
                         }}
                       >
                         <span className="slot-time">
@@ -394,15 +401,36 @@ export default function Booking() {
               <div className="party-control">
                 <button
                   type="button"
-                  disabled={!selectedSlot || partySize <= 1}
-                  onClick={() => setPartySize((value) => Math.max(1, value - 1))}
+                  disabled={!selectedSlot || (isPartySizeValid && partySize <= 1)}
+                  onClick={() => setPartySizeInput(String(Math.max(1, partySize - 1)))}
                   aria-label="Decrease party size"
                 >
                   −
                 </button>
 
                 <div className="party-number">
-                  <strong>{partySize}</strong>
+                  <input
+                    className="party-size-input"
+                    style={{
+                      width: "80px",
+                      background: "transparent",
+                      border: "none",
+                      color: "inherit",
+                      textAlign: "center",
+                      font: "inherit",
+                      fontWeight: 700,
+                      outline: "none",
+                    }}
+                    type="number"
+                    min="1"
+                    max={selectedSlot?.availableSeats ?? ""}
+                    step="1"
+                    value={partySizeInput}
+                    disabled={!selectedSlot}
+                    onChange={changePartySize}
+                    aria-label="Number of guests"
+                    aria-invalid={selectedSlot ? !isPartySizeValid : false}
+                  />
                   <span>{partySize === 1 ? "guest" : "guests"}</span>
                 </div>
 
@@ -410,14 +438,11 @@ export default function Booking() {
                   type="button"
                   disabled={
                     !selectedSlot ||
-                    partySize >= (selectedSlot?.availableSeats ?? 1)
+                    (isPartySizeValid && partySize >= (selectedSlot?.availableSeats ?? 1))
                   }
                   onClick={() =>
-                    setPartySize((value) =>
-                      Math.min(
-                        value + 1,
-                        selectedSlot?.availableSeats ?? value
-                      )
+                    setPartySizeInput(
+                      String(Math.min(partySize + 1, selectedSlot?.availableSeats ?? partySize))
                     )
                   }
                   aria-label="Increase party size"
@@ -427,11 +452,18 @@ export default function Booking() {
               </div>
 
               {selectedSlot && (
-                <p className="capacity">
-                  Maximum {selectedSlot.availableSeats}{" "}
-                  {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
-                  this time slot.
-                </p>
+                <>
+                  <p className="capacity">
+                    Maximum {selectedSlot.availableSeats}{" "}
+                    {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
+                    this time slot.
+                  </p>
+                  {!isPartySizeValid && (
+                    <p className="error" role="alert">
+                      Enter a whole number between 1 and {selectedSlot.availableSeats}.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -459,7 +491,7 @@ export default function Booking() {
           <button
             type="button"
             className="confirm-button"
-            disabled={!selectedDate || !selectedSlot}
+            disabled={!selectedDate || !selectedSlot || !isPartySizeValid || booking}
             onClick={confirmBooking}
           >
             {booking ? "Confirming..." : "Confirm reservation"}
