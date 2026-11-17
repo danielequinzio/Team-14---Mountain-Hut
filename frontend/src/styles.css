@@ -1541,3 +1541,359 @@ button:focus-visible {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Party requirements (MH-05) */
+.requirements-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color, #2a3a4b);
+}
+
+.requirements-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.requirements-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.requirements-heading p,
+.requirements-empty {
+  color: var(--muted-text, #91a7bf);
+  line-height: 1.55;
+  margin: 10px 0 16px;
+}
+
+.requirements-list {
+  display: grid;
+  gap: 14px;
+}
+
+.requirement-card {
+  padding: 16px;
+  border: 1px solid var(--border-color, #2a3a4b);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.requirement-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.requirement-card-heading strong {
+  color: var(--text-color, #f2f5f9);
+}
+
+.remove-requirement-button {
+  border: 0;
+  background: transparent;
+  color: #e7a0a0;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 0;
+}
+
+.allergy-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--text-color, #f2f5f9);
+  cursor: pointer;
+}
+
+.allergy-checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: #d7a84b;
+}
+
+.requirement-description-label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted-text, #91a7bf);
+  font-size: 0.95rem;
+}
+
+.requirement-description-label textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 82px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #2a3a4b);
+  border-radius: 10px;
+  background: rgba(8, 14, 22, 0.55);
+  color: var(--text-color, #f2f5f9);
+  font: inherit;
+}
+
+.requirement-description-label textarea:focus {
+  outline: 2px solid rgba(215, 168, 75, 0.45);
+  outline-offset: 1px;
+}
+
+.add-requirement-button {
+  margin-top: 14px;
+  padding: 10px 15px;
+  border: 1px solid #b88b3d;
+  border-radius: 10px;
+  background: transparent;
+  color: #e7bd6b;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.add-requirement-button:hover {
+  background: rgba(215, 168, 75, 0.1);
+}
+
+@media (max-width: 640px) {
+  .requirement-card {
+    padding: 13px;
+  }
+}
+
+/* Party requirements shown on the reservation confirmation page */
+.confirmed-requirements {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(145, 167, 191, 0.22);
+}
+
+.confirmed-requirements h3 {
+  margin: 0 0 14px;
+  color: #f2f5f9;
+  font-size: 1.08rem;
+}
+
+.confirmed-requirements-list {
+  display: grid;
+  gap: 12px;
+}
+
+.confirmed-requirement {
+  padding: 14px 16px;
+  border: 1px solid rgba(145, 167, 191, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.confirmed-requirement-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.confirmed-requirement-heading strong {
+  color: #f2f5f9;
+}
+
+.allergy-status,
+.dietary-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.allergy-status {
+  color: #ffd4ce;
+  background: rgba(180, 65, 52, 0.18);
+  border: 1px solid rgba(220, 105, 91, 0.35);
+}
+
+.dietary-status {
+  color: #e7c77e;
+  background: rgba(215, 168, 75, 0.1);
+  border: 1px solid rgba(215, 168, 75, 0.28);
+}
+
+.confirmed-requirement p,
+.no-requirements {
+  margin: 0;
+  color: #a9bbce;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .confirmed-requirement {
+    padding: 12px;
+  }
+}
+
+.requirements-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color, #2a3a4b);
+}
+
+.requirements-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.requirements-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.requirements-heading p,
+.requirements-empty {
+  color: var(--muted-text, #91a7bf);
+  line-height: 1.55;
+  margin: 10px 0 16px;
+}
+
+.requirements-list {
+  display: grid;
+  gap: 14px;
+}
+
+.requirement-card {
+  padding: 16px;
+  border: 1px solid var(--border-color, #2a3a4b);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.requirement-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.requirement-card-heading strong {
+  color: var(--text-color, #f2f5f9);
+}
+
+.remove-requirement-button {
+  border: 0;
+  background: transparent;
+  color: #e7a0a0;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 0;
+}
+
+.allergy-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--text-color, #f2f5f9);
+  cursor: pointer;
+}
+
+.allergy-checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: #d7a84b;
+}
+
+.requirement-description-label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted-text, #91a7bf);
+  font-size: 0.95rem;
+}
+
+.requirement-description-label textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 82px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #2a3a4b);
+  border-radius: 10px;
+  background: rgba(8, 14, 22, 0.55);
+  color: var(--text-color, #f2f5f9);
+  font: inherit;
+}
+
+.requirement-description-label textarea:focus {
+  outline: 2px solid rgba(215, 168, 75, 0.45);
+  outline-offset: 1px;
+}
+
+.add-requirement-button {
+  margin-top: 14px;
+  padding: 10px 15px;
+  border: 1px solid #b88b3d;
+  border-radius: 10px;
+  background: transparent;
+  color: #e7bd6b;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.add-requirement-button:hover {
+  background: rgba(215, 168, 75, 0.1);
+}
+
+@media (max-width: 640px) {
+  .requirement-card {
+    padding: 13px;
+  }
+}
+
+
+.requirement-people-label {
+  display: grid;
+  gap: 8px;
+  max-width: 220px;
+  margin-bottom: 14px;
+  color: var(--muted-text, #91a7bf);
+  font-size: 0.95rem;
+}
+
+.requirement-people-label input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #2a3a4b);
+  border-radius: 10px;
+  background: rgba(8, 14, 22, 0.55);
+  color: var(--text-color, #f2f5f9);
+  font: inherit;
+}
+
+.requirement-people-label input:focus {
+  outline: 2px solid rgba(215, 168, 75, 0.45);
+  outline-offset: 1px;
+}
+
+.requirements-capacity {
+  margin: 10px 0 14px;
+  color: var(--muted-text, #91a7bf);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.requirements-capacity.over-limit {
+  color: #f0a29a;
+  font-weight: 650;
+}
+
+.add-requirement-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
