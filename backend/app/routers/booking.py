@@ -238,3 +238,33 @@ def update_booking(
     # MH-06: outside the block, so the email leaves only after the commit
     background_tasks.add_task(send_booking_change, change)
     return response
+
+
+@router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_booking(
+    booking_id: int,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+):
+    with booking_transaction(session):
+        db_user = get_user(session, user.id)
+        booking = session.exec(
+            select(Booking).where(
+                Booking.id == booking_id,
+                Booking.user_id == db_user.id,
+            )
+        ).first()
+        if booking is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
+
+        release_tables(session, booking)
+
+        requirements = session.exec(
+            select(BookingRequirement).where(
+                BookingRequirement.booking_id == booking.id
+            )
+        ).all()
+        for requirement in requirements:
+            session.delete(requirement)
+
+        session.delete(booking)
