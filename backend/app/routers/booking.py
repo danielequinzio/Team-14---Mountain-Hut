@@ -17,6 +17,7 @@ from app.models import (
 )
 from app.services.auth import require_role
 from app.services.booking import (
+    _hut_time,
     assign_tables,
     booking_response,
     find_slot,
@@ -24,7 +25,8 @@ from app.services.booking import (
 )
 
 from app.services.notification import build_confirmation, send_booking_confirmation
-from app.models.booking import BookingDetails
+from app.models.booking import BookingDetails, BookingTable
+from app.models.booking_requirement import BookingRequirementCreate
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -71,8 +73,7 @@ def create_booking(
             ]
         )
         response = booking_response(session, booking)
-        confirmation = build_confirmation(db_user, slot, booking)
-
+        confirmation = build_confirmation(db_user, slot, booking, data.requirements)
     # fuori dal blocco: l'email parte solo dopo il commit
     background_tasks.add_task(send_booking_confirmation, confirmation)
     return response
@@ -112,11 +113,25 @@ def get_my_bookings(
              result[booking_id] = BookingDetails(
                  id=booking_id,
                  party_size=party_size,
-                 slot_time_start=start_time.time(),
-                 slot_time_end=end_time.time(),
+                 slot_time_start=_hut_time(start_time).time(),
+                 slot_time_end=_hut_time(end_time).time(),
                  tables=[],
              )
          result[booking_id].tables.append(TableSeats(number=number, seats=seats))
+
+     # requirements are fetched separately so they are not repeated once per table
+     requirements = session.exec(
+         select(BookingRequirement).where(
+             BookingRequirement.booking_id.in_(list(result.keys()))
+         )
+     ).all()
+     for requirement in requirements:
+         result[requirement.booking_id].requirements.append(
+             BookingRequirementCreate(
+                 allergies=requirement.allergies,
+                 description=requirement.description,
+             )
+         )
 
      return list(result.values())
 
