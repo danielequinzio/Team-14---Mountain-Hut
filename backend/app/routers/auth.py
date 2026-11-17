@@ -21,7 +21,7 @@ SESSION_COOKIE_NAME = "session"
 
 
 def set_session_cookie(response: Response, user: User) -> str:
-    token = create_token(user.id, user.username, user.role)
+    token = create_token(user.id, user.username, user.role, user.must_change_password)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
@@ -141,6 +141,7 @@ def forgot_password(user_email: str, session: SessionDep, background_tasks: Back
 @router.post("/auth/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     data: ChangePasswordRequest,
+    response: Response,
     session: SessionDep,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
@@ -156,8 +157,11 @@ def change_password(
     ).all()
     for row in pending_resets:
         row.used = True
+    db_user.must_change_password = False  # the user now has a password only they know
     session.add(db_user)
     session.commit()
+    # the old token still says must_change_password: a new one lets the user in everywhere right away
+    set_session_cookie(response, db_user)
 
 
 @router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
@@ -186,10 +190,6 @@ def reset_password(data: ResetPasswordRequest, session: SessionDep):
     for row in other_resets:
         row.used = True
     reset.used = True
+    user.must_change_password = False  # the user chose this password: no forced change at the next login
     session.add(user)
     session.commit()
-
-
-
-
-

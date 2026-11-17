@@ -64,6 +64,7 @@ def create_hiker_profile(user: EmployeeOrWarden,
         emergency_contact=hiker.emergency_contact.strip() if hiker.emergency_contact else None,
         password_hash=hash_password(password),
         role=Roles.HIKER,
+        must_change_password=True,  # the password travelled by email: it must be changed at the first login
     )
     session.add(user)
     try:

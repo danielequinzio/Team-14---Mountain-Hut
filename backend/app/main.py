@@ -150,6 +150,7 @@ def add_user_profile_columns(): # pragma: no cover
         "mobile_number": "VARCHAR",
         "notes": "VARCHAR",
         "emergency_contact": "VARCHAR",
+        "must_change_password": "BOOLEAN NOT NULL DEFAULT 0",
     }
     with engine.begin() as connection:
         for column_name, column_type in missing_columns.items():
