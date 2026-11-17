@@ -404,3 +404,18 @@
 .au-switch a:hover {
   text-decoration: underline;
 }
+
+/* a button that looks like the footer links (e.g. "Log out" on the new-password step) */
+.au-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e7b96a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.au-link:hover {
+  text-decoration: underline;
+}
