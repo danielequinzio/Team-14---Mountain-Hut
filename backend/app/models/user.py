@@ -44,3 +44,8 @@ class pwd_reset(SQLModel, table=True):
 class ResetData(SQLModel):
     token: str
     expire_at: datetime
+
+class UserBookingCreation(SQLModel):
+    id: int
+    email: str
+    role: Roles
