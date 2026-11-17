@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
     add_slot_table_occupied_seats()
     add_user_profile_columns()
+    make_user_email_nullable()  # after add_user_profile_columns: the copy needs every column
 
     # add some sample data the first time the db is created
     with Session(engine) as session:
@@ -151,6 +152,7 @@ def add_user_profile_columns(): # pragma: no cover
         "notes": "VARCHAR",
         "emergency_contact": "VARCHAR",
         "must_change_password": "BOOLEAN NOT NULL DEFAULT 0",
+        "is_guest": "BOOLEAN NOT NULL DEFAULT 0",  # existing users all have an account
     }
     with engine.begin() as connection:
         for column_name, column_type in missing_columns.items():
@@ -158,6 +160,48 @@ def add_user_profile_columns(): # pragma: no cover
                 connection.exec_driver_sql(
                     f'ALTER TABLE "user" ADD COLUMN {column_name} {column_type}'
                 )
+
+
+def make_user_email_nullable(): # pragma: no cover
+    # guests give no email, but older dbs have email NOT NULL; sqlite can't alter a column,
+    # so the table is rebuilt with the same rows and a nullable email
+    inspector = inspect(engine)
+    if not inspector.has_table("user"):
+        return
+    email = next(column for column in inspector.get_columns("user") if column["name"] == "email")
+    if email["nullable"]:
+        return
+
+    columns = (
+        "id, username, name, surname, email, mobile_number, notes, emergency_contact, "
+        "password_hash, role, must_change_password, is_guest"
+    )
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE user_new (
+                id INTEGER NOT NULL PRIMARY KEY,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                surname VARCHAR NOT NULL,
+                email VARCHAR,
+                mobile_number VARCHAR,
+                notes VARCHAR,
+                emergency_contact VARCHAR,
+                password_hash VARCHAR NOT NULL,
+                role VARCHAR NOT NULL,
+                must_change_password BOOLEAN NOT NULL DEFAULT 0,
+                is_guest BOOLEAN NOT NULL DEFAULT 0
+            )
+            """
+        )
+        connection.exec_driver_sql(f"INSERT INTO user_new ({columns}) SELECT {columns} FROM user")
+        connection.exec_driver_sql('DROP TABLE "user"')
+        connection.exec_driver_sql("ALTER TABLE user_new RENAME TO user")
+        # several NULL emails are allowed by a unique index: only real emails must be unique
+        connection.exec_driver_sql("CREATE UNIQUE INDEX user_email ON user (email)")
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 def add_slot_table_occupied_seats(): # pragma: no cover

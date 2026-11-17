@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.models import CurrentUser, UserPublic, UserBookingCreation
+from app.models import CurrentUser, UserPublic, UserBookingCreation, Guest
 
 from app.services.user import EmployeeOrWarden
 
@@ -82,4 +82,32 @@ def create_hiker_profile(user: EmployeeOrWarden,
     background_tasks.add_task(send_account_created, build_account_created(user, password))
 
     return user
+
+
+@router.post("/registerGuest", response_model=UserBookingCreation, status_code=201)
+def create_guest_profile(user: EmployeeOrWarden,
+                         session: SessionDep,
+                         guest: Guest):
+    """Add a hiker without an account, only to put them in a booking: they can't log in."""
+    name = guest.name.strip()
+    surname = guest.surname.strip()
+
+    guest_user = User(
+        username=f"{name.lower()}.{surname.lower()}",
+        name=name,
+        surname=surname,
+        email=None,
+        mobile_number=guest.mobile_number.strip(),
+        notes=None,
+        emergency_contact=None,
+        # a random password that is never sent to anyone: the guest has no way to log in
+        password_hash=hash_password(secrets.token_urlsafe(32)),
+        role=Roles.HIKER,
+        is_guest=True,
+    )
+    session.add(guest_user)
+    session.commit()
+    session.refresh(guest_user)
+    # no email at all: the guest gave none, so neither an account email nor booking confirmations are sent
+    return guest_user
 

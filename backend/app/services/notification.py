@@ -26,7 +26,7 @@ SMTP_TIMEOUT_SECONDS = 10
 @dataclass(frozen=True)
 class BookingConfirmation:
     # plain data, so the background task doesn't depend on the request's db session
-    recipient: str
+    recipient: str | None  # None for a guest without an email: nothing is sent
     hiker_name: str
     reference: str
     start: datetime
@@ -80,6 +80,9 @@ def compose_email(confirmation: BookingConfirmation) -> EmailMessage:
 
 def send_booking_confirmation(confirmation: BookingConfirmation) -> None:
     # runs after the booking is committed: a failure here must not undo it, so it is only logged
+    if not confirmation.recipient:  # a guest without an email: there is no one to write to
+        logger.info("No email address: confirmation %s not sent", confirmation.reference)
+        return
     if not SMTP_HOST:
         logger.warning("SMTP_HOST not set: confirmation %s not sent", confirmation.reference)
         return
