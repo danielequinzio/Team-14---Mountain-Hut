@@ -1883,4 +1883,15 @@ button:focus-visible {
 .add-requirement-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+/* Chrome, Edge, Safari and Opera */
+.party-size-input::-webkit-inner-spin-button,
+.party-size-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+.party-size-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

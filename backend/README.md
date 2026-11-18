@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI + SQLModel API for the Office Queue Management service. Data is stored in a local SQLite database (`OQM.db`), created automatically on startup.
+FastAPI + SQLModel API for the Mountain Hut service. Data is stored in a local SQLite database (`MountainHut.db`), created automatically on startup.
 
 Requires Python 3.10 or newer.
 
