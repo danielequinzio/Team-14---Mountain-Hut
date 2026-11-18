@@ -71,6 +71,8 @@ export default function Booking() {
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
+  const [partySize, setPartySize] = useState(1);
+  const [requirements, setRequirements] = useState([]);
   const [partySizeInput, setPartySizeInput] = useState("1");
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -216,6 +218,76 @@ export default function Booking() {
     setPartySizeInput(event.target.value);
   }
 
+  const assignedRequirementPeople = requirements.reduce(
+    (total, requirement) => total + (Number(requirement.people) || 0),
+    0
+  );
+  const remainingRequirementPeople = Math.max(
+    partySize - assignedRequirementPeople,
+    0
+  );
+
+  function addRequirement() {
+    if (remainingRequirementPeople <= 0) return;
+
+    setRequirements((current) => [
+      ...current,
+      { people: 1, allergies: false, description: "" },
+    ]);
+  }
+
+  function updateRequirement(index, changes) {
+    setRequirements((current) =>
+      current.map((requirement, requirementIndex) =>
+        requirementIndex === index
+          ? { ...requirement, ...changes }
+          : requirement
+      )
+    );
+  }
+
+  function removeRequirement(index) {
+    setRequirements((current) =>
+      current.filter((_, requirementIndex) => requirementIndex !== index)
+    );
+  }
+
+  async function confirmBooking() {
+    if (!selectedDate || !selectedSlot || booking) return;
+
+    const totalRequirementPeople = requirements.reduce(
+      (total, requirement) => total + Number(requirement.people || 0),
+      0
+    );
+
+    if (totalRequirementPeople > partySize) {
+      setError(
+        `The requirements cover ${totalRequirementPeople} people, but your party has only ${partySize}. Adjust the quantities before confirming.`
+      );
+      return;
+    }
+
+    const invalidRequirement = requirements.some(
+      (requirement) =>
+        !Number.isInteger(Number(requirement.people)) ||
+        Number(requirement.people) < 1 ||
+        !requirement.description.trim()
+    );
+    if (invalidRequirement) {
+      setError("Each requirement needs a valid number of people and a description.");
+      return;
+    }
+
+    const bookingRequirements = requirements.map((requirement) => {
+      const people = Number(requirement.people);
+      return {
+        allergies: requirement.allergies,
+        // Keep compatibility with the current backend model
+        // (allergies + description) while preserving the people count.
+        description: `${people} ${people === 1 ? "person" : "people"} — ${requirement.description.trim()}`,
+      };
+    });
+
   const partySize = Number(partySizeInput);
   const isPartySizeValid =
     selectedSlot !== null &&
@@ -228,10 +300,16 @@ export default function Booking() {
     if (!selectedDate || !selectedSlot || !isPartySizeValid || booking) return;
     setBooking(true); setError("");
     try {
-      const result = await createBooking({ date: selectedDate, time: selectedSlot.time, partySize });
+      const result = await createBooking({
+        date: selectedDate,
+        time: selectedSlot.time,
+        partySize,
+        requirements: bookingRequirements,
+      });
       navigate("/reservation-detail", { state: {
         booking: result, date: selectedDate, start: selectedSlot.start,
         end: selectedSlot.end, partySize, availableSeats: selectedSlot.availableSeats,
+        requirements: bookingRequirements,
       }});
     } catch (err) {
       setError(err.message || "Could not create reservation.");
@@ -466,6 +544,135 @@ export default function Booking() {
                 </>
               )}
             </div>
+
+            <section className="requirements-section" aria-labelledby="requirements-title">
+              <div className="requirements-heading">
+                <div>
+                  <span className="step">04</span>
+                  <h2 id="requirements-title">Party requirements</h2>
+                </div>
+                <p>
+                  Let us know about dietary restrictions or allergies so the hut
+                  can prepare suitable meals safely.
+                </p>
+              </div>
+
+              <div className={`requirements-capacity ${
+                assignedRequirementPeople > partySize ? "over-limit" : ""
+              }`}>
+                {assignedRequirementPeople > partySize
+                  ? `${assignedRequirementPeople} people assigned to requirements, but the party size is ${partySize}. Reduce the quantities.`
+                  : `${remainingRequirementPeople} of ${partySize} ${
+                      partySize === 1 ? "person" : "people"
+                    } not yet assigned to a requirement.`}
+              </div>
+
+              {requirements.length === 0 ? (
+                <p className="requirements-empty">
+                  No special requirements added. You can continue without adding any.
+                </p>
+              ) : (
+                <div className="requirements-list">
+                  {requirements.map((requirement, index) => (
+                    <div className="requirement-card" key={index}>
+                      <div className="requirement-card-heading">
+                        <strong>Requirement {index + 1}</strong>
+                        <button
+                          type="button"
+                          className="remove-requirement-button"
+                          onClick={() => removeRequirement(index)}
+                          aria-label={`Remove requirement ${index + 1}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <label className="requirement-people-label">
+                        Number of people
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(
+                            1,
+                            partySize -
+                              requirements.reduce(
+                                (total, item, itemIndex) =>
+                                  total +
+                                  (itemIndex === index
+                                    ? 0
+                                    : Number(item.people) || 0),
+                                0
+                              )
+                          )}
+                          step="1"
+                          value={requirement.people}
+                          onChange={(event) => {
+                            const otherPeople = requirements.reduce(
+                              (total, item, itemIndex) =>
+                                total +
+                                (itemIndex === index
+                                  ? 0
+                                  : Number(item.people) || 0),
+                              0
+                            );
+                            const maxForThisRequirement = Math.max(
+                              partySize - otherPeople,
+                              1
+                            );
+                            const rawValue = event.target.value;
+                            const nextValue =
+                              rawValue === ""
+                                ? ""
+                                : Math.min(
+                                    Math.max(Number(rawValue), 1),
+                                    maxForThisRequirement
+                                  );
+                            updateRequirement(index, { people: nextValue });
+                          }}
+                        />
+                      </label>
+
+                      <label className="allergy-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={requirement.allergies}
+                          onChange={(event) =>
+                            updateRequirement(index, {
+                              allergies: event.target.checked,
+                            })
+                          }
+                        />
+                        <span>This requirement concerns an allergy</span>
+                      </label>
+
+                      <label className="requirement-description-label">
+                        Description
+                        <textarea
+                          value={requirement.description}
+                          onChange={(event) =>
+                            updateRequirement(index, {
+                              description: event.target.value,
+                            })
+                          }
+                          placeholder="E.g. peanut allergy, vegetarian, vegan"
+                          rows={3}
+                          maxLength={500}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="add-requirement-button"
+                onClick={addRequirement}
+                disabled={remainingRequirementPeople <= 0}
+              >
+                + Add a requirement
+              </button>
+            </section>
 
             {error && <div className="error">{error}</div>}
           </div>
