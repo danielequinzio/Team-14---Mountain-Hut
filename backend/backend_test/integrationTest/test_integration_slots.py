@@ -11,6 +11,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from app.main import app
@@ -236,6 +237,63 @@ def test_create_slot_end_not_after_start(as_warden_client, session, minutes):
 
     assert response.status_code == 422
     assert session.exec(select(Slot)).all() == []
+
+
+@pytest.mark.parametrize(
+    ("start", "minutes"),
+    [
+        (at(DAY, 12), 90),        # same interval
+        (at(DAY, 11), 90),        # ends inside the existing 12:00-13:30
+        (at(DAY, 13), 60),        # starts inside it
+        (at(DAY, 12, 30), 30),    # inside it
+        (at(DAY, 11), 180),       # contains it
+    ],
+    ids=["same", "end-inside", "start-inside", "inside", "contains"],
+)
+def test_create_slot_overlapping_is_rejected(as_warden_client, session, add_slot, start, minutes):
+    existing = add_slot(at(DAY, 12))  # 12:00-13:30
+
+    response = as_warden_client.post(URL, json=slot_payload(start, minutes))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "The slot overlaps an existing slot"}
+    session.expire_all()
+    assert [slot.id for slot in session.exec(select(Slot)).all()] == [existing]
+
+
+def test_create_slot_overlapping_given_in_utc_is_rejected(as_warden_client, add_slot):
+    add_slot(at(DAY, 12))  # 12:00-13:30 Rome = 11:00-12:30 UTC
+    start = datetime(2030, 1, 10, 12, 0, tzinfo=ZoneInfo("UTC"))  # 13:00 Rome
+
+    response = as_warden_client.post(URL, json=slot_payload(start, 60))
+
+    assert response.status_code == 409
+
+
+@pytest.mark.parametrize(
+    ("start", "minutes"),
+    [(at(DAY, 10, 30), 90), (at(DAY, 13, 30), 90)],  # ends at 12:00 / starts at 13:30
+    ids=["just-before", "just-after"],
+)
+def test_create_slot_back_to_back_is_accepted(as_warden_client, add_slot, start, minutes):
+    add_slot(at(DAY, 12))  # 12:00-13:30
+
+    assert as_warden_client.post(URL, json=slot_payload(start, minutes)).status_code == 201
+
+
+def test_create_slot_same_time_on_another_day_is_accepted(as_warden_client, add_slot):
+    add_slot(at(DAY, 12))
+
+    response = as_warden_client.post(URL, json=slot_payload(at(DAY + timedelta(days=1), 12)))
+
+    assert response.status_code == 201
+
+
+def test_db_rejects_slot_ending_before_it_starts(session, warden):
+    # the check constraint covers the slots not created through the api
+    session.add(Slot(start_time=at(DAY, 12), end_time=at(DAY, 12), created_by=warden.id))
+    with pytest.raises(IntegrityError):
+        session.commit()
 
 
 @pytest.mark.parametrize("missing", ["start_time", "end_time"])

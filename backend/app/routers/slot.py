@@ -56,10 +56,15 @@ def get_slots(session: SessionDep):
     ]
 
 
+def _hut_time(value: datetime) -> datetime:
+    # sqlite gives the datetime back without its timezone: it is the hut's local time
+    if value.tzinfo is None:
+        return value.replace(tzinfo=HUT_TIMEZONE)
+    return value.astimezone(HUT_TIMEZONE)
+
+
 def _slot_start(slot: Slot) -> datetime:
-    if slot.start_time.tzinfo is None:
-        return slot.start_time.replace(tzinfo=HUT_TIMEZONE)
-    return slot.start_time.astimezone(HUT_TIMEZONE)
+    return _hut_time(slot.start_time)
 
 @router.get("/{id}", response_model=SlotDetail, status_code=200)
 def get_slot_info(id: int, session: SessionDep):
@@ -128,6 +133,16 @@ def create_slot(
     session: SessionDep,
     user: EmployeeOrWarden,
 ):
+    # SlotCreate already rejects end_time <= start_time (422)
+    start, end = _hut_time(data.start_time), _hut_time(data.end_time)
+    # two slots overlap when each starts before the other ends: back-to-back slots are allowed
+    overlaps = any(
+        _hut_time(existing.start_time) < end and start < _hut_time(existing.end_time)
+        for existing in session.exec(select(Slot)).all()
+    )
+    if overlaps:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The slot overlaps an existing slot")
+
     slot = Slot(start_time=data.start_time, end_time=data.end_time, created_by=user.id)
     session.add(slot)
     session.commit()
