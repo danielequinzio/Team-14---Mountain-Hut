@@ -19,12 +19,14 @@ export default function App() {
       <Route path="/availability" element={<Availability />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      {/* availability is public: visitors and hikers may look, staff are sent to their own page */}
+      {/* booking needs a login: staff are sent to their own page, visitors to /login */}
       <Route
         path="/booking"
         element={
           <StaffRedirect to="/staff/slots">
-            <Booking />
+            <RequireRole roles={[ROLES.HIKER]}>
+              <Booking />
+            </RequireRole>
           </StaffRedirect>
         }
       />
