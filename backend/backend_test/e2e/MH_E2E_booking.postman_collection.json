@@ -309,7 +309,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2,\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - peanut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"1 person - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -342,7 +342,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2,\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - peanut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"1 person - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -457,7 +457,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{groupSlotDate}}\",\n  \"time\": \"{{groupSlotTime}}\",\n  \"party_size\": {{groupSize}}\n}"
+              "raw": "{\n  \"date\": \"{{groupSlotDate}}\",\n  \"time\": \"{{groupSlotTime}}\",\n  \"party_size\": {{groupSize}},\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - nut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"Dietary requirement - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
