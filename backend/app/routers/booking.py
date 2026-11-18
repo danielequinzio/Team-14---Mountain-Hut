@@ -31,6 +31,7 @@ from app.services.notification import (
     build_confirmation,
     send_booking_change,
     send_booking_confirmation,
+    send_booking_cancellation,
 )
 from app.models.booking import BookingDetails, BookingTable
 from app.models.booking_requirement import BookingRequirementCreate
@@ -245,6 +246,7 @@ def delete_booking(
     booking_id: int,
     session: SessionDep,
     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
 ):
     with booking_transaction(session):
         db_user = get_user(session, user.id)
@@ -257,6 +259,14 @@ def delete_booking(
         if booking is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
 
+        slot = session.get(Slot, booking.slot_id)
+        if slot is None:
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "Booking slot not found",
+            )
+        cancellation = build_confirmation(db_user, slot, booking)
+
         release_tables(session, booking)
 
         requirements = session.exec(
@@ -268,3 +278,5 @@ def delete_booking(
             session.delete(requirement)
 
         session.delete(booking)
+
+    background_tasks.add_task(send_booking_cancellation, cancellation)
