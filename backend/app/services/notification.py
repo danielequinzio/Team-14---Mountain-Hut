@@ -16,7 +16,7 @@ from app.config import (
 )
 from app.models import Booking, BookingRequirementCreate, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
-from app.services.email_template import render_html
+from app.services.email_template import render_account_html, render_html
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ SMTP_TIMEOUT_SECONDS = 10
 @dataclass(frozen=True)
 class BookingConfirmation:
     # plain data, so the background task doesn't depend on the request's db session
-    recipient: str
+    recipient: str | None  # None for a guest without an email: nothing is sent
     hiker_name: str
     reference: str
     start: datetime
@@ -92,6 +92,9 @@ def compose_email(confirmation: BookingConfirmation) -> EmailMessage:
 
 def send_booking_confirmation(confirmation: BookingConfirmation) -> None:
     # runs after the booking is committed: a failure here must not undo it, so it is only logged
+    if not confirmation.recipient:  # a guest without an email: there is no one to write to
+        logger.info("No email address: confirmation %s not sent", confirmation.reference)
+        return
     if not SMTP_HOST:
         logger.warning("SMTP_HOST not set: confirmation %s not sent", confirmation.reference)
         return
@@ -145,3 +148,76 @@ def send_pwd_reset(recipient: str, reset: ResetData) -> None:
             smtp.send_message(message)
     except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
         logger.exception("Password reset email not sent")
+
+
+@dataclass(frozen=True)
+class AccountCreated:
+    # plain data, so the background task doesn't depend on the request's db session
+    recipient: str
+    name: str
+    surname: str
+    username: str
+    mobile_number: str
+    password: str  # the plain temporary password: only ever goes in the email, never in the logs
+
+
+def build_account_created(user: User, password: str) -> AccountCreated:
+    return AccountCreated(
+        recipient=user.email,
+        name=user.name,
+        surname=user.surname,
+        username=user.username,
+        mobile_number=user.mobile_number,
+        password=password,
+    )
+
+
+def login_url() -> str:
+    return f"{FRONTEND_URL}/login"
+
+
+def compose_account_email(account: AccountCreated) -> EmailMessage:
+    lines = [
+        f"Hello {account.name} {account.surname},",
+        "",
+        "an account at the mountain hut has been created for you.",
+        "",
+        f"Name: {account.name} {account.surname}",
+        f"Username: {account.username}",
+        f"Email: {account.recipient}",
+        f"Mobile number: {account.mobile_number}",
+        f"Password: {account.password}",
+        "",
+        "This password is temporary: please change it as soon as you log in.",
+        "",
+        f"Log in here: {login_url()}",
+    ]
+
+    message = EmailMessage()
+    message["Subject"] = "Your Mountain Hut account"
+    message["From"] = EMAIL_FROM
+    message["To"] = account.recipient
+    message.set_content("\n".join(lines))
+    return message
+
+
+def send_account_created(account: AccountCreated) -> None:
+    # runs after the user is committed: a failure here must not undo it, so it is only logged
+    # never log the password: anyone reading the logs could log in as the hiker
+    if not SMTP_HOST:
+        logger.warning("SMTP_HOST not set: account email not sent")
+        return
+
+    try:
+        message = compose_account_email(account)
+        try:
+            message.add_alternative(render_account_html(account, login_url()), subtype="html")
+        except Exception:  # the design must never stop the plain-text email from being sent
+            logger.exception("HTML version of the account email not built: sending plain text only")
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+    except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
+        logger.exception("Account email not sent")

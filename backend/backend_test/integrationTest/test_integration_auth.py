@@ -55,7 +55,7 @@ def test_register_saves_user(client, session):
     response = client.post("/register", json=NEW_USER)
 
     assert response.status_code == 201
-    assert response.json() == {"username": "mario.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "mario.rossi", "role": "Hiker", "must_change_password": False}
     saved = session.exec(select(User).where(User.email == NEW_USER["email"])).one()
     assert saved.username == "mario.rossi"
     assert saved.role == Roles.HIKER
@@ -75,7 +75,7 @@ def test_login_success(client, user):
     response = client.post("/login", json={"email": user.email, "password": PASSWORD})
 
     assert response.status_code == 200
-    assert response.json() == {"username": "anna.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "anna.rossi", "role": "Hiker", "must_change_password": False}
     assert "session" in response.cookies
 
 
@@ -108,7 +108,7 @@ def test_me_with_bearer_token(client, user):
     response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
-    assert response.json() == {"username": "anna.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "anna.rossi", "role": "Hiker", "must_change_password": False}
 
 
 def test_me_with_invalid_token(client):
@@ -159,7 +159,7 @@ def test_register_login_me_logout_flow(client):
 
     response = client.get("/users/me")  # the session cookie is sent by the client
     assert response.status_code == 200
-    assert response.json() == {"username": "mario.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "mario.rossi", "role": "Hiker", "must_change_password": False}
 
     assert client.post("/logout").status_code == 204
     assert client.get("/users/me").status_code == 401

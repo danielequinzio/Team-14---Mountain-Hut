@@ -14,6 +14,7 @@ from app.models import (
     SlotTable,
     Table,
     TableSeats,
+    User,
 )
 from app.services.auth import require_role
 from app.services.booking import (
@@ -24,6 +25,7 @@ from app.services.booking import (
     get_user,
 )
 
+from app.services.user import EmployeeOrWarden
 from app.services.notification import build_confirmation, send_booking_confirmation
 from app.models.booking import BookingDetails, BookingTable
 from app.models.booking_requirement import BookingRequirementCreate
@@ -31,15 +33,14 @@ from app.models.booking_requirement import BookingRequirementCreate
 router = APIRouter(prefix="/booking", tags=["booking"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_booking(
-    data: BookingCreate,
+def _create_booking_for(
     session: SessionDep,
-    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    db_user: User,
+    data: BookingCreate,
     background_tasks: BackgroundTasks,
 ):
+    """Shared logic: book `data` for `db_user` and queue the confirmation email."""
     with booking_transaction(session):
-        db_user = get_user(session, user.id)
         slot = find_slot(session, data.date, data.time)
         if session.exec(
             select(Booking).where(
@@ -78,6 +79,44 @@ def create_booking(
     background_tasks.add_task(send_booking_confirmation, confirmation)
     return response
 
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_booking(
+    data: BookingCreate,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
+):
+    db_user = get_user(session, user.id)
+    return _create_booking_for(session, db_user, data, background_tasks)
+
+
+@router.post("/hiker/{hiker_id}", status_code=status.HTTP_201_CREATED)
+def create_booking_for_hiker(
+    hiker_id: int,
+    data: BookingCreate,
+    session: SessionDep,
+    user: EmployeeOrWarden,
+    background_tasks: BackgroundTasks,
+):
+    """Employee/warden books on behalf of a hiker (e.g. a phone reservation)."""
+    hiker = session.get(User, hiker_id)
+    if hiker is None or hiker.role != Roles.HIKER:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Hiker not found")
+    return _create_booking_for(session, hiker, data, background_tasks)
+
+
+# Probably not needed for the frontend at the moment, because this is sent via email
+# @router.get("")
+# def get_my_bookings(
+#     session: SessionDep,
+#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+# ):
+#     db_user = get_user(session, user.id)
+#     bookings = session.exec(
+#         select(Booking).where(Booking.user_id == db_user.id).order_by(Booking.slot_id)
+#     ).all()
+#     return [booking_response(session, booking) for booking in bookings]
 
 @router.get("")
 def get_my_bookings(

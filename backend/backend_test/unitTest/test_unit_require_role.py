@@ -31,3 +31,15 @@ def test_require_role_forbidden():
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "Not enough permissions"
+
+
+def test_require_role_password_change_required():
+    # right role, but the emailed password has not been changed yet
+    user = UserPublic(username="anna.rossi", role=Roles.HIKER, must_change_password=True)
+    checker = require_role(Roles.HIKER)
+
+    with pytest.raises(HTTPException) as exc:
+        checker(user=user)
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Password change required"
