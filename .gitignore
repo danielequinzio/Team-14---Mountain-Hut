@@ -238,3 +238,4 @@ frontend/dist/
 backend/.env
 
 /docker_dev/secrets.txt
+.DS_Store
