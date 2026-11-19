@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
 import { getMyBookings } from "../api";
 import "./MyBookings.css";
@@ -29,6 +29,7 @@ function formatRequirements(requirement) {
 }
 
 export default function MyBookings() {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -156,7 +157,11 @@ export default function MyBookings() {
                     </div>
 
                     <div className="my-booking-actions">
-                      <button type="button" className="my-bookings-secondary-button">
+                      <button
+                        type="button"
+                        className="my-bookings-secondary-button"
+                        onClick={() => navigate("/my-bookings/edit", { state: { booking } })}
+                      >
                         Edit booking
                       </button>
                       <button type="button" className="my-bookings-danger-button">

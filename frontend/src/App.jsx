@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Booking from "./pages/Booking";
 import MyBookings from "./pages/MyBookings";
+import ChangeBooking from "./pages/ChangeBooking";
 import ReservationDetail from "./pages/ReservationDetail";
 import StaffSlots from "./pages/StaffSlots";
 import RequireRole from "./auth/RequireRole";
@@ -37,6 +38,14 @@ export default function App() {
           <RequireRole roles={[ROLES.HIKER]}>
             <MyBookings />
           </RequireRole>} />
+      <Route
+        path="/my-bookings/edit"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <ChangeBooking />
+          </RequireRole>
+        }
+      />
       <Route
         path="/reservation-detail"
         element={

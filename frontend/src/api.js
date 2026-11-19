@@ -465,3 +465,49 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
 export function getMyBookings() {
   return request("/booking");
 }
+// ----------------------------------
+// CHANGE BOOKING (MH-06)
+// ----------------------------------
+
+// PATCH /booking/{id}. Send only what changes:
+//   date + time  -> move to another slot (the backend wants them together)
+//   partySize    -> new number of guests
+//   requirements -> the new complete list (it replaces the old one)
+export async function updateBooking(bookingId, { date, time, partySize, requirements } = {}) {
+  const body = {};
+  if (date !== undefined && time !== undefined) {
+    body.date = date;
+    body.time = time;
+  }
+  if (partySize !== undefined) {
+    body.party_size = partySize;
+  }
+  if (requirements !== undefined) {
+    body.requirements = requirements.map((requirement) => ({
+      allergies: Boolean(requirement.allergies),
+      description: requirement.description,
+    }));
+  }
+
+  const response = await fetch(`${API_BASE_URL}/booking/${bookingId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    // FastAPI validation errors (422) return detail as an array of objects
+    const message = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(", ")
+      : data?.detail;
+
+    throw new Error(message || "Could not change the booking.");
+  }
+
+  return data;
+}
