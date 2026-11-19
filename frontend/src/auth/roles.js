@@ -12,6 +12,10 @@ export function isStaff(user) {
   return Boolean(user) && STAFF_ROLES.includes(user.role);
 }
 
+export function isHiker(user) {
+  return Boolean(user) && user.role === ROLES.HIKER;
+}
+
 // Where a user lands right after logging in or registering: the home page, for
 // every role. From there the header buttons lead to their own page (staff:
 // "Manage slots", everyone else: "Book a table").

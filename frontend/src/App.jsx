@@ -5,6 +5,7 @@ import Availability from "./pages/Availability";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Booking from "./pages/Booking";
+import MyBookings from "./pages/MyBookings";
 import ReservationDetail from "./pages/ReservationDetail";
 import StaffSlots from "./pages/StaffSlots";
 import RequireRole from "./auth/RequireRole";
@@ -28,6 +29,12 @@ export default function App() {
           </StaffRedirect>
         }
       />
+      <Route 
+        path="/my-bookings"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <MyBookings />
+          </RequireRole>} />
       <Route
         path="/reservation-detail"
         element={
