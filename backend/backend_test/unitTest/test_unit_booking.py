@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
@@ -18,7 +18,7 @@ from app.models import (
     SlotTable,
     Table,
 )
-from app.routers.booking import create_booking
+from app.routers.booking import create_booking, get_my_bookings
 import app.services.booking as booking_service  
 from app.services.booking import (
     _distribute,
@@ -362,7 +362,7 @@ def test_create_booking_returns_booking_response(monkeypatch):
 
     monkeypatch.setattr("app.routers.booking.booking_response", make_response)
 
-    monkeypatch.setattr("app.routers.booking.build_confirmation",lambda current_user, current_slot, value: confirmation)
+    monkeypatch.setattr("app.routers.booking.build_confirmation",lambda current_user, current_slot, value, requirements: confirmation)
 
     result = create_booking(
         BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
@@ -399,10 +399,7 @@ def test_create_booking_persists_all_requirements(monkeypatch):
 
     monkeypatch.setattr("app.routers.booking.assign_tables", assign_tables_and_set_id)
     monkeypatch.setattr("app.routers.booking.booking_response", lambda session, booking: {"id": booking.id})
-    monkeypatch.setattr(
-        "app.routers.booking.build_confirmation",
-        lambda current_user, current_slot, booking: MagicMock(),
-    )
+    monkeypatch.setattr("app.routers.booking.build_confirmation", lambda current_user, current_slot, booking, requirements: MagicMock(),)
 
     result = create_booking(
         BookingCreate(
@@ -444,10 +441,7 @@ def test_create_booking_accepts_no_requirements(monkeypatch):
     monkeypatch.setattr("app.routers.booking.find_slot", lambda session, data_date, data_time: slot)
     monkeypatch.setattr("app.routers.booking.assign_tables", lambda session, booking: [MagicMock()])
     monkeypatch.setattr("app.routers.booking.booking_response", lambda session, booking: {"id": 20})
-    monkeypatch.setattr(
-        "app.routers.booking.build_confirmation",
-        lambda current_user, current_slot, booking: MagicMock(),
-    )
+    monkeypatch.setattr("app.routers.booking.build_confirmation", lambda current_user, current_slot, booking, requirements: MagicMock(),)
 
     create_booking(
         BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
@@ -501,3 +495,115 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
     assert exc.value.detail == "There are not enough seats for this party"
     background_tasks.add_task.assert_not_called()
 
+def _mock_get_session(booking_rows, requirement_rows):
+    """Session whose two exec() calls return the bookings rows and then the requirements."""
+    bookings_result = MagicMock()
+    bookings_result.all.return_value = booking_rows
+    requirements_result = MagicMock()
+    requirements_result.all.return_value = requirement_rows
+    session = MagicMock()
+    session.exec.side_effect = [bookings_result, requirements_result]
+    return session
+
+
+def test_get_my_bookings_returns_empty_list_without_bookings(monkeypatch):
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
+    session = _mock_get_session([], [])
+
+    result = get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+
+    assert result == []
+    assert session.exec.call_count == 2
+
+
+def test_get_my_bookings_returns_booking_details(monkeypatch):
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
+    start = datetime(2030, 1, 1, 12, 0, tzinfo=HUT_TIMEZONE)
+    end = datetime(2030, 1, 1, 13, 30, tzinfo=HUT_TIMEZONE)
+    session = _mock_get_session([(10, 3, start, end, 2, 3)], [])
+
+    [booking] = get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+
+    assert booking.id == 10
+    assert booking.party_size == 3
+    assert booking.slot_time_start == time(12, 0)
+    assert booking.slot_time_end == time(13, 30)
+    assert [(table.number, table.seats) for table in booking.tables] == [(2, 3)]
+    assert booking.requirements == []
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (
+            datetime(2030, 1, 1, 11, 0, tzinfo=timezone.utc),
+            datetime(2030, 1, 1, 12, 30, tzinfo=timezone.utc),
+        ),
+        (datetime(2030, 1, 1, 12, 0), datetime(2030, 1, 1, 13, 30)),
+    ],
+    ids=["utc-from-db", "naive-from-db"],
+)
+def test_get_my_bookings_returns_slot_times_in_hut_timezone(monkeypatch, start, end):
+    # the db may give the slot back in UTC or without timezone: the hiker sees the hut time
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
+    session = _mock_get_session([(10, 3, start, end, 2, 3)], [])
+
+    [booking] = get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+
+    assert booking.slot_time_start == time(12, 0)
+    assert booking.slot_time_end == time(13, 30)
+
+
+def test_get_my_bookings_groups_the_tables_of_a_booking(monkeypatch):
+    # a party of 10 split over two tables: two rows, one booking
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
+    start = datetime(2030, 1, 1, 13, 30, tzinfo=HUT_TIMEZONE)
+    end = datetime(2030, 1, 1, 15, 0, tzinfo=HUT_TIMEZONE)
+    session = _mock_get_session([(11, 10, start, end, 5, 8), (11, 10, start, end, 7, 2)], [])
+
+    result = get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+
+    assert len(result) == 1
+    assert [(table.number, table.seats) for table in result[0].tables] == [(5, 8), (7, 2)]
+
+
+def test_get_my_bookings_returns_every_booking_with_its_requirements(monkeypatch):
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=3))
+    lunch = datetime(2030, 1, 1, 12, 0, tzinfo=HUT_TIMEZONE)
+    dinner = datetime(2030, 1, 1, 19, 0, tzinfo=HUT_TIMEZONE)
+    rows = [
+        (11, 10, lunch, lunch + timedelta(minutes=90), 5, 8),
+        (11, 10, lunch, lunch + timedelta(minutes=90), 7, 2),
+        (12, 2, dinner, dinner + timedelta(minutes=90), 6, 2),
+    ]
+    requirements = [
+        BookingRequirement(id=1, booking_id=11, allergies=True, description="Gluten free"),
+        BookingRequirement(id=2, booking_id=11, allergies=False, description="High chair"),
+    ]
+    session = _mock_get_session(rows, requirements)
+
+    bookings = get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+    result = {booking.id: booking for booking in bookings}
+
+    assert set(result) == {11, 12}
+    # not repeated once per table, even if booking 11 uses two tables
+    assert [(r.allergies, r.description) for r in result[11].requirements] == [
+        (True, "Gluten free"),
+        (False, "High chair"),
+    ]
+    assert result[12].requirements == []
+
+
+def test_get_my_bookings_rejects_unknown_user(monkeypatch):
+    def missing_user(session, user_id):
+        raise HTTPException(401, "User not found")
+
+    monkeypatch.setattr("app.routers.booking.get_user", missing_user)
+    session = MagicMock()
+
+    with pytest.raises(HTTPException) as exc:
+        get_my_bookings(session, CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER))
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "User not found"
+    session.exec.assert_not_called()

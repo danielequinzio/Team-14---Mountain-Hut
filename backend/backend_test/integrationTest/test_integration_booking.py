@@ -1,10 +1,14 @@
 """
-Integration tests for MH-01 "Book a table": POST /booking.
-
-The route runs against the real test db created by conftest.py and the real
-authentication (the as_warden override is removed: only hikers can book).
+Integration tests for the booking routes:
+- MH-01 "Book a table": POST /booking
+- the hiker's own bookings: GET /booking
+- MH-05 "Provide party requirements": POST /booking with requirements, confirmation email
+ 
+The routes run against the real test db created by conftest.py and the real
+authentication (the as_warden override is removed: only hikers can book and
+see their bookings).
 Each test inserts only the rows it needs. Run from the backend folder with:
-
+ 
     python -m pytest backend_test -v
 """
 from datetime import date, datetime, time, timedelta
@@ -13,9 +17,12 @@ from zoneinfo import ZoneInfo
 import pytest
 from sqlmodel import select
 
+import app.routers.booking as booking_router
 from app.main import app
-from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
+from app.models import Booking, BookingRequirement, BookingTable, Roles, Slot, SlotTable, Table, User
 from app.services.auth import hash_password
+from app.services.email_template import render_html
+from app.services.notification import compose_email
 
 HUT_TZ = ZoneInfo("Europe/Rome")
 URL = "/booking"
@@ -44,12 +51,14 @@ def login(client, user: User):
     return client
 
 
-def book(client, party_size, day=None, start=LUNCH):
+def book(client, party_size, day=None, start=LUNCH, requirements=None):
     payload = {
         "date": (day or tomorrow()).isoformat(),
         "time": start.isoformat(),
         "party_size": party_size,
     }
+    if requirements is not None:
+        payload["requirements"] = requirements
     return client.post(URL, json=payload)
 
 
@@ -80,8 +89,19 @@ def occupied_seats(session, slot_id: int) -> dict[int, int]:
     return dict(rows)
 
 
+def stored_requirements(session) -> list[tuple[int, bool, str | None]]:
+    """(booking id, allergies, description) of every requirement in the db."""
+    session.expire_all()
+    rows = session.exec(select(BookingRequirement).order_by(BookingRequirement.id)).all()
+    return [(row.booking_id, row.allergies, row.description) for row in rows]
+
+
 def seats_by_table(response) -> dict[int, int]:
     return {table["number"]: table["seats"] for table in response.json()["tables"]}
+
+def my_bookings(client):
+    """GET /booking: the bookings of the logged-in user."""
+    return client.get(URL)
 
 
 # ---------- Fixtures ----------
@@ -127,6 +147,42 @@ def add_slot(session):
         return slot_id
 
     return _add_slot
+
+
+@pytest.fixture
+def add_booking(session):
+    """Factory: adds a booking with its seats per table number and its requirements."""
+    def _add_booking(user: User, slot_id: int, seats: dict[int, int],
+                     requirements: list[tuple[bool, str | None]] = ()) -> int:
+        booking = Booking(user_id=user.id, slot_id=slot_id, party_size=sum(seats.values()))
+        session.add(booking)
+        session.flush()
+        booking_id = booking.id
+        slot_tables = dict(session.exec(  # table number -> slot_table id
+            select(Table.number, SlotTable.id)
+            .join(Table, Table.id == SlotTable.table_id)
+            .where(SlotTable.slot_id == slot_id)
+        ).all())
+        session.add_all([
+            BookingTable(booking_id=booking_id, slot_table_id=slot_tables[n], seats_booked=booked)
+            for n, booked in seats.items()
+        ])
+        session.add_all([
+            BookingRequirement(booking_id=booking_id, allergies=allergies, description=description)
+            for allergies, description in requirements
+        ])
+        session.commit()
+        return booking_id
+ 
+    return _add_booking
+
+
+@pytest.fixture
+def sent_emails(monkeypatch) -> list:
+    """Captures the confirmations that POST /booking hands to the email background task."""
+    sent = []
+    monkeypatch.setattr(booking_router, "send_booking_confirmation", sent.append)
+    return sent
 
 
 @pytest.fixture
@@ -304,3 +360,256 @@ def test_same_hiker_can_book_another_slot(as_hiker, session, lunch, add_slot):
     assert book(as_hiker, 2).status_code == 201
     assert book(as_hiker, 2, start=DINNER).status_code == 201
     assert len(bookings(session)) == 2
+
+
+# ---------- Tests: party requirements (MH-05) ----------
+
+PARTY_REQUIREMENTS = [  # the example of the MH-05 clarifications
+    {"allergies": True, "description": "1 vegan, peanut allergy"},
+    {"allergies": True, "description": "1 shellfish allergy"},
+    {"allergies": False, "description": "2 vegetarians"},
+]
+
+
+def test_requirements_are_stored_with_the_booking(as_hiker, session, lunch):
+    response = book(as_hiker, 4, requirements=PARTY_REQUIREMENTS)
+
+    assert response.status_code == 201
+    booking_id = response.json()["id"]
+    assert stored_requirements(session) == [
+        (booking_id, True, "1 vegan, peanut allergy"),
+        (booking_id, True, "1 shellfish allergy"),
+        (booking_id, False, "2 vegetarians"),
+    ]
+
+
+@pytest.mark.parametrize("requirements", [None, []], ids=["field-missing", "empty-list"])
+def test_booking_without_requirements_stores_none(as_hiker, session, lunch, requirements):
+    response = book(as_hiker, 2, requirements=requirements)
+
+    assert response.status_code == 201
+    assert stored_requirements(session) == []
+
+
+@pytest.mark.parametrize(
+    ("requirement", "expected"),
+    [({"description": "2 vegetarians"}, (False, "2 vegetarians")), ({"allergies": True}, (True, None))],
+    ids=["allergies-default-false", "description-optional"],
+)
+def test_requirement_fields_have_defaults(as_hiker, session, lunch, requirement, expected):
+    response = book(as_hiker, 2, requirements=[requirement])
+
+    assert response.status_code == 201
+    assert stored_requirements(session) == [(response.json()["id"], *expected)]
+
+
+@pytest.mark.parametrize(
+    "requirements",
+    ["no list", [{"allergies": "maybe"}], [{"description": 12}]],
+    ids=["not-a-list", "allergies-not-boolean", "description-not-text"],
+)
+def test_invalid_requirements_are_rejected(as_hiker, session, lunch, requirements):
+    response = book(as_hiker, 2, requirements=requirements)
+
+    assert response.status_code == 422
+    assert bookings(session) == []
+    assert stored_requirements(session) == []
+
+
+def test_requirements_are_not_stored_when_the_booking_fails(as_hiker, session, lunch):
+    response = book(as_hiker, 13, requirements=PARTY_REQUIREMENTS)  # over the 12 seats of the slot
+
+    assert response.status_code == 409
+    assert bookings(session) == []
+    assert stored_requirements(session) == []
+
+
+def test_requirements_belong_to_their_own_booking(as_hiker, session, lunch, add_slot):
+    add_slot(at(tomorrow(), DINNER))
+
+    lunch_booking = book(as_hiker, 2, requirements=[{"description": "2 vegetarians"}]).json()["id"]
+    dinner_booking = book(as_hiker, 1, start=DINNER, requirements=[{"allergies": True}]).json()["id"]
+
+    assert stored_requirements(session) == [
+        (lunch_booking, False, "2 vegetarians"),
+        (dinner_booking, True, None),
+    ]
+
+
+def test_requirements_are_listed_with_the_booking(as_hiker, lunch):
+    book(as_hiker, 4, requirements=PARTY_REQUIREMENTS)
+
+    response = my_bookings(as_hiker)
+
+    assert response.status_code == 200
+    assert response.json()[0]["requirements"] == PARTY_REQUIREMENTS
+
+
+# ---------- Tests: confirmation email with requirements (MH-05) ----------
+
+def test_confirmation_email_lists_every_requirement(as_hiker, lunch, sent_emails):
+    response = book(as_hiker, 4, requirements=PARTY_REQUIREMENTS)
+
+    assert response.status_code == 201
+    [confirmation] = sent_emails
+    assert confirmation.requirements == (
+        "- [Allergy] 1 vegan, peanut allergy\n"
+        "- [Allergy] 1 shellfish allergy\n"
+        "- 2 vegetarians"
+    )
+    assert "Party requirements: " + confirmation.requirements in compose_email(confirmation).get_content()
+    assert "1 vegan, peanut allergy<br>- [Allergy] 1 shellfish allergy" in render_html(confirmation)
+
+
+def test_confirmation_email_without_requirements(as_hiker, lunch, sent_emails):
+    assert book(as_hiker, 2).status_code == 201
+
+    [confirmation] = sent_emails
+    assert confirmation.requirements is None
+    assert "Party requirements" not in compose_email(confirmation).get_content()
+    assert "Party requirements" not in render_html(confirmation)
+
+
+def test_confirmation_email_skips_requirements_without_allergy_or_text(as_hiker, session, lunch, sent_emails):
+    empty = [{"allergies": False, "description": "   "}, {"allergies": False}]
+
+    response = book(as_hiker, 2, requirements=[*empty, {"description": "2 vegetarians"}])
+
+    assert response.status_code == 201
+    assert len(stored_requirements(session)) == 3  # stored as sent
+    [confirmation] = sent_emails
+    assert confirmation.requirements == "- 2 vegetarians"  # only what says something is emailed
+
+
+def test_no_confirmation_email_when_the_booking_fails(as_hiker, lunch, sent_emails):
+    assert book(as_hiker, 13, requirements=PARTY_REQUIREMENTS).status_code == 409
+
+    assert sent_emails == []
+
+
+# ---------- Tests: GET /booking authentication ----------
+ 
+def test_anonymous_user_cannot_see_bookings(client):
+    assert my_bookings(client).status_code == 401
+ 
+ 
+@pytest.mark.parametrize("role", [Roles.WARDEN, Roles.EMPLOYEE])
+def test_staff_cannot_see_bookings(client, session, role):
+    login(client, add_user(session, "giulia.ferrero", role))
+ 
+    response = my_bookings(client)
+ 
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not enough permissions"}
+ 
+ 
+def test_deleted_hiker_cannot_see_bookings(as_hiker, session, hiker):
+    # the session cookie is still valid, but its user id is no longer in the db
+    session.delete(hiker)
+    session.commit()
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 401
+    assert response.json() == {"detail": "User not found"}
+ 
+ 
+# ---------- Tests: GET /booking list ----------
+ 
+def test_hiker_without_bookings_gets_empty_list(as_hiker, lunch):
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    assert response.json() == []
+ 
+ 
+def test_booking_is_listed_with_slot_times_in_hut_time(as_hiker, hiker, lunch, add_booking):
+    booking_id = add_booking(hiker, lunch, {2: 3})
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    assert response.json() == [{
+        "id": booking_id,
+        "party_size": 3,
+        "slot_time_start": "12:00:00",
+        "slot_time_end": "13:30:00",
+        "tables": [{"number": 2, "seats": 3}],
+        "requirements": [],
+    }]
+ 
+ 
+def test_party_split_over_two_tables_is_listed_once(as_hiker, hiker, lunch, add_booking):
+    add_booking(hiker, lunch, {3: 6, 1: 1})
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    [booking] = response.json()
+    assert booking["party_size"] == 7
+    assert {t["number"]: t["seats"] for t in booking["tables"]} == {3: 6, 1: 1}
+ 
+ 
+def test_every_booking_of_the_hiker_is_listed(as_hiker, hiker, lunch, add_slot, add_booking):
+    dinner = add_slot(at(tomorrow(), DINNER))
+    lunch_booking = add_booking(hiker, lunch, {1: 2})
+    dinner_booking = add_booking(hiker, dinner, {3: 5})
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    times = {b["id"]: (b["slot_time_start"], b["slot_time_end"]) for b in response.json()}
+    assert times == {
+        lunch_booking: ("12:00:00", "13:30:00"),
+        dinner_booking: ("19:00:00", "20:30:00"),
+    }
+ 
+ 
+def test_bookings_of_other_hikers_are_not_listed(as_hiker, hiker, session, lunch, add_booking):
+    other = add_user(session, "paolo.bianchi", Roles.HIKER)
+    add_booking(other, lunch, {3: 4}, requirements=[(True, "Nuts")])
+    own_booking = add_booking(hiker, lunch, {1: 2})
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    assert [b["id"] for b in response.json()] == [own_booking]
+    assert response.json()[0]["requirements"] == []
+ 
+ 
+def test_booking_created_with_post_is_listed(as_hiker, lunch):
+    created = book(as_hiker, 3).json()
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    [booking] = response.json()
+    assert booking["id"] == created["id"]
+    assert booking["slot_time_start"] == created["time"]
+    assert booking["tables"] == created["tables"]
+ 
+ 
+# ---------- Tests: GET /booking requirements ----------
+ 
+def test_requirements_are_listed_once_per_booking(as_hiker, hiker, lunch, add_booking):
+    # the booking uses two tables: its requirements must not be repeated per table
+    add_booking(hiker, lunch, {3: 6, 2: 2},
+                requirements=[(True, "Gluten free"), (False, "High chair")])
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    assert response.json()[0]["requirements"] == [
+        {"allergies": True, "description": "Gluten free"},
+        {"allergies": False, "description": "High chair"},
+    ]
+ 
+ 
+def test_requirement_without_description_is_listed(as_hiker, hiker, lunch, add_booking):
+    add_booking(hiker, lunch, {2: 3}, requirements=[(True, None)])
+ 
+    response = my_bookings(as_hiker)
+ 
+    assert response.status_code == 200
+    assert response.json()[0]["requirements"] == [{"allergies": True, "description": None}]
+ 

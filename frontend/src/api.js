@@ -457,3 +457,11 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
   }
   return createdSlot;
 }
+
+// ----------------------------------
+// MY BOOKINGS
+// ----------------------------------
+
+export function getMyBookings() {
+  return request("/booking");
+}

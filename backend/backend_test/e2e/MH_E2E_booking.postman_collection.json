@@ -16,7 +16,8 @@
     { "key": "groupSlotId", "value": "" },
     { "key": "groupSlotDate", "value": "" },
     { "key": "groupSlotTime", "value": "" },
-    { "key": "groupSize", "value": "" }
+    { "key": "groupSize", "value": "" },
+    { "key": "bookingId", "value": "" }
   ],
   "item": [
     {
@@ -289,6 +290,8 @@
                   "",
                   "const booking = pm.response.json();",
                   "",
+                  "pm.collectionVariables.set(\"bookingId\", booking.id);",
+                  "",
                   "pm.test(\"Body is the booking the hiker asked for\", () => {",
                   "    pm.expect(booking.id).to.be.a(\"number\");",
                   "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotDate\"));",
@@ -319,7 +322,73 @@
           }
         },
         {
-          "name": "9. Booking the same slot again is refused",
+          "name": "9. Hiker sees their bookings",
+          "description": "Checks that GET /booking returns the authenticated hiker’s bookings, including the booking just created and its party requirements.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const bookings = pm.response.json();",
+                  "const bookingId = Number(pm.collectionVariables.get(\"bookingId\"));",
+                  "const booking = Array.isArray(bookings)",
+                  "    ? bookings.find((item) => item.id === bookingId)",
+                  "    : undefined;",
+                  "",
+                  "pm.test(\"Response is the current hiker’s booking list\", () => {",
+                  "    pm.expect(bookings).to.be.an(\"array\");",
+                  "    pm.expect(booking, `Booking ${bookingId} was not found in the hiker’s list`).to.exist;",
+                  "});",
+                  "",
+                  "if (booking) {",
+                  "    pm.test(\"Booking details are returned\", () => {",
+                  "        pm.expect(booking.party_size).to.eql(2);",
+                  "        pm.expect(booking.slot_time_start).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(booking.slot_time_end).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(booking.tables).to.be.an(\"array\").that.is.not.empty;",
+                  "        const seats = booking.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "        pm.expect(seats).to.eql(2);",
+                  "    });",
+                  "",
+                  "    pm.test(\"Party requirements are returned with their allergy flags\", () => {",
+                  "        pm.expect(booking.requirements).to.be.an(\"array\").with.lengthOf(2);",
+                  "        const allergy = booking.requirements.find(",
+                  "            (requirement) => requirement.description === \"1 person - peanut allergy\"",
+                  "        );",
+                  "        const dietary = booking.requirements.find(",
+                  "            (requirement) => requirement.description === \"1 person - vegetarian\"",
+                  "        );",
+                  "        pm.expect(allergy, \"Peanut allergy requirement missing\").to.exist;",
+                  "        pm.expect(allergy.allergies).to.eql(true);",
+                  "        pm.expect(dietary, \"Vegetarian requirement missing\").to.exist;",
+                  "        pm.expect(dietary.allergies).to.eql(false);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Booking the same slot again is refused",
           "event": [
             {
               "listen": "test",
@@ -352,7 +421,7 @@
           }
         },
         {
-          "name": "10. The slot has two free seats less",
+          "name": "11. The slot has two free seats less",
           "event": [
             {
               "listen": "test",
