@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { isStaff } from "../auth/roles";
+import { isStaff, isHiker } from "../auth/roles";
 import { hut } from "../content/hutInfo";
 import "./landing.css";
 
@@ -115,6 +115,14 @@ export default function Landing() {
                   className="lp-btn lp-btn--ghost lp-btn--large"
                 >
                   Create an account
+                </Link>
+              )}
+              {!loading && isHiker(user) && (
+                <Link
+                  to="/my-bookings"
+                  className="lp-btn lp-btn--ghost lp-btn--large"
+                >
+                  View Bookings
                 </Link>
               )}
             </div>
