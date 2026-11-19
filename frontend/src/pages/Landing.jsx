@@ -92,6 +92,14 @@ export default function Landing() {
           <Link to={mainLink} className="lp-btn lp-btn--primary">
             {staff ? "Manage slots" : hiker ? "View Bookings" : "Book a table"}
           </Link>
+          {!loading && user && (
+            <Link
+              to={staff ? "/staff/slots" : "/booking"}
+              className="lp-btn lp-btn--primary"
+            >
+              {staff ? "Manage slots" : "Book a table"}
+            </Link>
+          )}
         </div>
       </header>
 

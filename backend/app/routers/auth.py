@@ -10,7 +10,7 @@ from sqlmodel import select
 
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, PWD_RESET_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, pwd_reset, ResetData, ResetPasswordRequest
+from app.models import ChangePasswordRequest, CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, pwd_reset, ResetData, ResetPasswordRequest
 from app.services.auth import create_token, get_current_user, hash_password, verify_password
 from app.services.notification import send_pwd_reset
 
@@ -141,6 +141,27 @@ def forgot_password(user_email: str, session: SessionDep, background_tasks: Back
 
     # same answer whether the email exists or not: it doesn't reveal which emails are registered
     return {"detail": "If the email is registered, a reset link has been sent"}
+
+@router.post("/auth/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    data: ChangePasswordRequest,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+):
+    db_user = session.get(User, user.id)
+    # asking for the current password stops someone using an unattended logged-in session
+    if not db_user or not verify_password(data.current_password, db_user.password_hash):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is wrong")
+
+    db_user.password_hash = hash_password(data.new_password)
+    # the password changed: any reset link still pending stops working, like in reset_password
+    pending_resets = session.exec(
+        select(pwd_reset).where(pwd_reset.user_id == db_user.id, pwd_reset.used == False)  # noqa: E712
+    ).all()
+    for row in pending_resets:
+        row.used = True
+    session.add(db_user)
+    session.commit()
 
 
 @router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
