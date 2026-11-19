@@ -1,0 +1,292 @@
+/* MH-07 Create hiker page. Own layout (prefix ch-), same dark colors as the
+   rest of the app. */
+
+.ch-page {
+  width: min(600px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0 72px;
+  color: #e9eef5;
+}
+
+.ch-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.ch-header h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(26px, 5vw, 34px);
+}
+
+.ch-header p {
+  margin: 0;
+  color: #8593a3;
+  font-size: 14px;
+}
+
+.ch-eyebrow {
+  color: #e7b96a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ch-card {
+  padding: 22px;
+  border: 1px solid #202a35;
+  border-radius: 16px;
+  background: #111821;
+}
+
+/* hiker / guest switch */
+.ch-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 12px;
+  background: #0d141c;
+}
+
+.ch-switch button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #8593a3;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ch-switch button strong {
+  color: #c0c8d2;
+  font-size: 15px;
+}
+
+.ch-switch button span {
+  font-size: 12px;
+}
+
+.ch-switch button.active {
+  border-color: #e7b96a;
+  background: #2a2417;
+}
+
+.ch-switch button.active strong {
+  color: #e7b96a;
+}
+
+/* form */
+.ch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.ch-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #9ba9b8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ch-field small {
+  color: #6c7a89;
+  font-weight: 400;
+}
+
+.ch-field input,
+.ch-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #334151;
+  border-radius: 10px;
+  background: #0d141c;
+  color: #e9eef5;
+  font: inherit;
+  font-size: 15px;
+}
+
+.ch-field textarea {
+  resize: vertical;
+}
+
+.ch-field input:focus,
+.ch-field textarea:focus {
+  border-color: #e7b96a;
+  outline: none;
+}
+
+.ch-field input[aria-invalid="true"] {
+  border-color: #b85c5c;
+}
+
+.ch-field-error {
+  color: #f1a7a7;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.ch-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #334151;
+  color: #8593a3;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ch-error {
+  padding: 10px 12px;
+  border: 1px solid #5b2d2d;
+  border-radius: 10px;
+  background: #2a1717;
+  color: #f1a7a7;
+  font-size: 14px;
+}
+
+/* buttons: same size */
+.ch-actions,
+.ch-done-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 150px;
+  height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.ch-btn--ghost {
+  border: 1px solid #334151;
+  background: transparent;
+  color: #c0c8d2;
+}
+
+.ch-btn--ghost:hover {
+  border-color: #e7b96a;
+  color: #e7b96a;
+}
+
+.ch-btn--primary {
+  border: 1px solid #e7b96a;
+  background: #e7b96a;
+  color: #17130c;
+}
+
+.ch-btn--primary:hover:not(:disabled) {
+  background: #f0c77f;
+}
+
+.ch-btn--primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* created */
+.ch-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.ch-done h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.ch-done-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid #3c5a46;
+  border-radius: 50%;
+  background: #1a2a20;
+  color: #8fcf9f;
+  font-size: 24px;
+}
+
+.ch-done-list {
+  width: 100%;
+  margin: 12px 0 4px;
+}
+
+.ch-done-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid #202a35;
+}
+
+.ch-done-list dt {
+  color: #8593a3;
+}
+
+.ch-done-list dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.ch-done-note {
+  margin: 8px 0 12px;
+  color: #8593a3;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .ch-page {
+    padding-top: 28px;
+  }
+
+  .ch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ch-actions,
+  .ch-done-actions {
+    flex-direction: column-reverse;
+  }
+
+  .ch-btn {
+    width: 100%;
+  }
+}

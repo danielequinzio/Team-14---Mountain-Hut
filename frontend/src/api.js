@@ -511,3 +511,87 @@ export async function updateBooking(bookingId, { date, time, partySize, requirem
 
   return data;
 }
+
+// ----------------------------------
+// STAFF: HIKER PROFILES (MH-07)
+// ----------------------------------
+
+// POST with a JSON body for the staff pages. The backend explains 409/404 with
+// a text and invalid fields (422) with a list: both become one readable message.
+async function staffRequest(path, body, fallbackMessage) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message = Array.isArray(detail)
+      ? detail.map((item) => item.msg).join(", ")
+      : detail;
+    throw new Error(message || fallbackMessage);
+  }
+  return data;
+}
+
+// POST /registerHiker: a hiker with an account. The temporary password is only
+// sent to the hiker's email, never returned.
+export function registerHiker({ name, surname, email, mobileNumber, notes, emergencyContact }) {
+  return staffRequest(
+    "/registerHiker",
+    {
+      name,
+      surname,
+      email,
+      mobile_number: mobileNumber,
+      notes: notes || null,
+      emergency_contact: emergencyContact || null,
+    },
+    "Could not create the hiker."
+  );
+}
+
+// POST /registerGuest: a hiker without an account (no email, cannot log in).
+export function registerGuest({ name, surname, mobileNumber }) {
+  return staffRequest(
+    "/registerGuest",
+    { name, surname, mobile_number: mobileNumber },
+    "Could not create the guest."
+  );
+}
+
+// GET /profileCheck?email=: staff look a hiker up by email. Returns the profile
+// ({ id, email, role, is_guest }) or null when nobody has that email (404).
+export async function findHikerByEmail(email) {
+  const response = await fetch(
+    `${API_BASE_URL}/profileCheck?email=${encodeURIComponent(email)}`,
+    { credentials: "include" }
+  );
+  if (response.status === 404) return null;
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message = Array.isArray(detail) ? detail.map((item) => item.msg).join(", ") : detail;
+    throw new Error(message || "Could not look the hiker up.");
+  }
+  return data;
+}
+
+// POST /booking/hiker/{id}: staff book a table on behalf of a hiker or guest.
+export function bookForHiker(hikerId, { date, time, partySize, requirements = [] }) {
+  return staffRequest(
+    `/booking/hiker/${hikerId}`,
+    {
+      date,
+      time,
+      party_size: partySize,
+      requirements: requirements.map((requirement) => ({
+        allergies: Boolean(requirement.allergies),
+        description: requirement.description,
+      })),
+    },
+    "Could not create the reservation."
+  );
+}

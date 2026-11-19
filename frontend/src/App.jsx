@@ -13,6 +13,8 @@ import RequireRole from "./auth/RequireRole";
 import StaffRedirect from "./auth/StaffRedirect";
 import { ROLES, STAFF_ROLES } from "./auth/roles";
 import DefineSlot from "./pages/DefineSlot";
+import CreateHiker from "./pages/CreateHiker";
+import ReserveForHiker from "./pages/ReserveForHiker";
 
 export default function App() {
   return (
@@ -67,6 +69,22 @@ export default function App() {
         element={
           <RequireRole roles={STAFF_ROLES}>
             <DefineSlot />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/staff/create-hiker"
+        element={
+          <RequireRole roles={STAFF_ROLES}>
+            <CreateHiker />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/staff/reserve"
+        element={
+          <RequireRole roles={STAFF_ROLES}>
+            <ReserveForHiker />
           </RequireRole>
         }
       />

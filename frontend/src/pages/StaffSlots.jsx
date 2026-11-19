@@ -158,6 +158,9 @@ export default function StaffSlots() {
             >
               Refresh
             </button>
+            <Link to="/staff/reserve" className="au-btn au-btn--ghost">
+              Reserve for hiker
+            </Link>
             <Link to="/staff/define-slot" className="au-btn au-btn--primary">
               Define slot
             </Link>
