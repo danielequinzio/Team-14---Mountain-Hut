@@ -13,20 +13,6 @@ function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
 
-function formatRequirements(requirement) {
-  if (!requirement || typeof requirement !== "object") return null;
-
-  const parts = [];
-  if (Array.isArray(requirement.allergies) && requirement.allergies.length > 0) {
-    parts.push(`Allergies: ${requirement.allergies.join(", ")}`);
-  } else if (hasValue(requirement.allergies) && !Array.isArray(requirement.allergies)) {
-    parts.push(`Allergies: ${requirement.allergies}`);
-  }
-  if (hasValue(requirement.description)) {
-    parts.push(requirement.description);
-  }
-  return parts.length ? parts.join(" — ") : null;
-}
 
 export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
@@ -101,7 +87,12 @@ export default function MyBookings() {
                 const startTime = formatTime(booking.slot_time_start);
                 const endTime = formatTime(booking.slot_time_end);
                 const requirements = Array.isArray(booking.requirements)
-                  ? booking.requirements.map(formatRequirements).filter(Boolean)
+                  ? booking.requirements.filter(
+                      (requirement) =>
+                        requirement &&
+                        typeof requirement === "object" &&
+                        hasValue(requirement.description)
+                    )
                   : [];
                 const tables = Array.isArray(booking.tables) ? booking.tables : [];
 
@@ -146,12 +137,32 @@ export default function MyBookings() {
                       </div>
 
                       {requirements.length > 0 && (
-                        <div className="my-booking-requirements">
+                        <section className="my-booking-requirements">
                           <span className="my-booking-label">SPECIAL REQUIREMENTS</span>
-                          {requirements.map((requirement, requirementIndex) => (
-                            <p key={requirementIndex}>{requirement}</p>
-                          ))}
-                        </div>
+
+                          <div className="my-booking-requirements-list">
+                            {requirements.map((requirement, requirementIndex) => (
+                              <article
+                                className="my-booking-requirement"
+                                key={requirement.id ?? requirementIndex}
+                              >
+                                <div className="my-booking-requirement-heading">
+                                  <strong>Requirement {requirementIndex + 1}</strong>
+
+                                  {requirement.allergies === true ? (
+                                    <span className="allergy-status">Allergy flagged</span>
+                                  ) : requirement.allergies === false ? (
+                                    <span className="dietary-status">Dietary requirement</span>
+                                  ) : null}
+                                </div>
+
+                                <p className="my-booking-requirement-description">
+                                  {requirement.description}
+                                </p>
+                              </article>
+                            ))}
+                          </div>
+                        </section>
                       )}
                     </div>
 
