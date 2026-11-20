@@ -205,7 +205,11 @@ export default function ChangeBooking() {
     setError("");
     try {
       const updated = await updateBooking(original.id, changes);
-      setResult(updated);
+      // the answer has no requirements: show what was saved (or the unchanged ones)
+      setResult({
+        ...updated,
+        requirements: changes.requirements ?? normalizeRequirements(original.requirements),
+      });
     } catch (err) {
       setError(err.message || "Could not change the booking.");
     } finally {
@@ -242,6 +246,25 @@ export default function ChangeBooking() {
               <div>
                 <dt>Tables</dt>
                 <dd>{tables.length > 0 ? tablesLabel(tables) : "Assigned by the hut"}</dd>
+              </div>
+              <div>
+                <dt>Requirements</dt>
+                <dd>
+                  {result.requirements.length === 0 ? (
+                    "None"
+                  ) : (
+                    <ul className="cb-done-reqs">
+                      {result.requirements.map((requirement, index) => (
+                        <li key={index}>
+                          {requirement.allergies && (
+                            <span className="cb-done-tag">Allergy</span>
+                          )}
+                          {requirement.description}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </dd>
               </div>
             </dl>
 
