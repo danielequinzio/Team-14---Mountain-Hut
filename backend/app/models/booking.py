@@ -1,3 +1,4 @@
+import datetime as dt
 from datetime import date, datetime, time, timezone
 
 from sqlmodel import CheckConstraint, Field, SQLModel, UniqueConstraint
@@ -25,7 +26,11 @@ class BookingCreate(SQLModel):
 
 
 class BookingUpdate(SQLModel):
-    party_size: int = Field(gt=0)
+    # dt.* because the field names shadow the date/time types once the defaults are bound
+    date: dt.date | None = None
+    time: dt.time | None = None
+    party_size: int | None = Field(default=None, gt=0)
+    requirements: list[BookingRequirementCreate] | None = None
 
 
 class TableSeats(SQLModel):
@@ -58,4 +63,4 @@ class BookingDetails(SQLModel):
     slot_time_start: time
     slot_time_end: time
     tables: list[TableSeats]
-    requirements: list[BookingRequirementCreate] = Field(default_factory=list)
+    requirements: list[BookingRequirementCreate] = Field(default_factory=list)
