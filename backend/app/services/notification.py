@@ -16,7 +16,7 @@ from app.config import (
 )
 from app.models import Booking, BookingRequirementCreate, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
-from app.services.email_template import render_account_html, render_change_html, render_html
+from app.services.email_template import render_account_html, render_change_html, render_html, render_password_reset_html
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,10 @@ def send_pwd_reset(recipient: str, reset: ResetData) -> None:
                 f"It expires at {reset.expire_at:%d/%m/%Y %H:%M} UTC.",
                 "If you didn't ask for a reset, ignore this email.",
             ])
+        )
+        message.add_alternative(
+            render_password_reset_html(link, reset.expire_at),
+            subtype="html",
         )
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
             if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
@@ -266,4 +270,4 @@ def send_booking_change(change: BookingConfirmation) -> None:
                 smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
             smtp.send_message(message)
     except (smtplib.SMTPException, OSError, ValueError):
-        logger.exception("Change email %s not sent", change.reference)
+        logger.exception("Change email %s not sent", change.reference)

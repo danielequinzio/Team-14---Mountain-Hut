@@ -16,6 +16,8 @@ import DefineSlot from "./pages/DefineSlot";
 import CreateHiker from "./pages/CreateHiker";
 import ReserveForHiker from "./pages/ReserveForHiker";
 import ChangePassword from "./pages/ChangePassword";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/availability" element={<Availability />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/register" element={<Register />} />
       {/* booking needs a login: staff are sent to their own page, visitors to /login */}
       <Route
