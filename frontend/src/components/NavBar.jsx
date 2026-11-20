@@ -42,6 +42,9 @@ export default function NavBar() {
                 <small>{user.role}</small>
               </span>
             </span>
+            <Link to="/account/password" className="au-btn au-btn--ghost">
+              <span className="au-pw-extra">Change&nbsp;</span>Password
+            </Link>
             <button type="button" className="au-btn au-btn--ghost" onClick={handleLogout}>
               Log out
             </button>

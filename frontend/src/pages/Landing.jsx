@@ -66,6 +66,12 @@ export default function Landing() {
                 <strong>{user.username}</strong>
                 <small>{user.role}</small>
               </span>
+              <Link
+                to="/account/password"
+                className="lp-btn lp-btn--ghost lp-hide-small"
+              >
+                Change password
+              </Link>
               <button
                 type="button"
                 className="lp-btn lp-btn--ghost lp-hide-small"

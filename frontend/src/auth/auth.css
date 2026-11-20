@@ -206,6 +206,15 @@
   .au-user span:last-child {
     display: none;
   }
+
+  /* "Change Password" shrinks to "Password" so the bar still fits next to "Log out" */
+  .au-pw-extra {
+    display: none;
+  }
+
+  .au-nav-actions {
+    gap: 8px;
+  }
 }
 
 /* ---------- Login and registration pages ---------- */
