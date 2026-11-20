@@ -174,6 +174,32 @@ export async function getAvailability() {
   return availability;
 }
 
+/**
+ * Ask the backend to email a password-reset link.
+ * The backend accepts user_email as a query parameter and deliberately
+ * returns the same message whether or not the address belongs to an account.
+ */
+export async function requestPasswordReset(email) {
+  const query = new URLSearchParams({ user_email: email.trim().toLowerCase() });
+  return request(`/auth/forgot-password?${query.toString()}`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Complete a password reset using the one-time token from the email link.
+ * ResetPasswordRequest expects { token, new_password }.
+ */
+export async function resetPassword(token, newPassword) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+    }),
+  });
+}
+
 // ----------------------------------
 // CREATE BOOKING
 // ----------------------------------
@@ -465,6 +491,7 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
 export function getMyBookings() {
   return request("/booking");
 }
+
 // ----------------------------------
 // CHANGE BOOKING (MH-06)
 // ----------------------------------

@@ -127,6 +127,10 @@ export default function Login() {
         >
           {submitting ? "Logging in…" : "Log in"}
         </button>
+        
+        <Link to="/forgot-password" className="au-link au-recover-password">
+          Recover password
+        </Link>
       </form>
     </AuthLayout>
   );
