@@ -295,3 +295,61 @@
     margin-left: 0;
   }
 }
+
+/* Requirement cards styled to match ReservationDetail's party-requirement labels. */
+.my-booking-requirements-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.my-booking-requirement {
+  padding: 12px 14px;
+  border: 1px solid rgba(139, 157, 181, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.my-booking-requirement-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.my-booking-requirement-heading strong {
+  color: #f4f6fb;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.my-booking-card .allergy-status,
+.my-booking-card .dietary-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.my-booking-card .allergy-status {
+  color: #ffb4a9;
+  background: rgba(190, 65, 54, 0.16);
+  border: 1px solid rgba(230, 105, 91, 0.35);
+}
+
+.my-booking-card .dietary-status {
+  color: #a9d8bd;
+  background: rgba(61, 139, 99, 0.16);
+  border: 1px solid rgba(100, 180, 135, 0.32);
+}
+
+.my-booking-requirement-description {
+  margin: 8px 0 0;
+  color: #c7d2e2;
+  line-height: 1.5;
+}
