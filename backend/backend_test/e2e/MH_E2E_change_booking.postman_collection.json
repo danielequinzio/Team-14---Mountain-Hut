@@ -1,0 +1,1465 @@
+{
+  "info": {
+    "name": "Mountain Hut - E2E change booking",
+    "description": "End-to-end scenario for MH-06 (change a booking), run against the real running server.\n\nA hiker books a slot and then changes the party size, the requirements and the slot; the refused changes (a date without a time, no free seats, a missing booking, someone else's booking, a warden, less than 48 hours before the slot) leave the booking as it was.\n\nStart the server on a freshly seeded db, from the backend folder, for example:\n\n    DATABASE_URL=sqlite:////tmp/mh_e2e.db SEED_DATA=true fastapi dev app/main.py\n\nThen run the collection in order with the Collection Runner or:\n\n    newman run MH_E2E_change_booking.postman_collection.json\n\nThe collection needs two slots that start more than 72 hours from now (the seed creates slots for the following days). Every run registers new hikers with unique emails and the 48 hours scenario creates its own slot, so it can be repeated on the same db until the last slot is full (each run puts a party of four on it, about ten runs): then restart the server on a freshly seeded db.\nThe email sent after a change is not checked here: Postman cannot read the mailbox, see the integration tests.\nThe warden is the seeded one (luca.bonetti@rifugio.example).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "slotADate",
+      "value": ""
+    },
+    {
+      "key": "slotATime",
+      "value": ""
+    },
+    {
+      "key": "slotBDate",
+      "value": ""
+    },
+    {
+      "key": "slotBTime",
+      "value": ""
+    },
+    {
+      "key": "bookingId",
+      "value": ""
+    },
+    {
+      "key": "tableA",
+      "value": ""
+    },
+    {
+      "key": "tableB",
+      "value": ""
+    },
+    {
+      "key": "closeStart",
+      "value": ""
+    },
+    {
+      "key": "closeEnd",
+      "value": ""
+    },
+    {
+      "key": "closeSlotId",
+      "value": ""
+    },
+    {
+      "key": "slotTries",
+      "value": ""
+    },
+    {
+      "key": "closeDate",
+      "value": ""
+    },
+    {
+      "key": "closeTime",
+      "value": ""
+    },
+    {
+      "key": "closeBookingId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Hiker changes a booking",
+      "item": [
+        {
+          "name": "1. Changing a booking without logging in is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "2. Hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"email\", `hiker.${Date.now()}@mail.example`);",
+                  "pm.collectionVariables.set(\"password\", \"password\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3. Hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4. Hiker sees the open slots and picks two of them",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slots = pm.response.json();",
+                  "",
+                  "// a change is only allowed 48 hours before the slot: use slots at least 72 hours away",
+                  "const farAway = (slot) => new Date(`${slot.date}T${slot.time}`).getTime() > Date.now() + 72 * 3600 * 1000;",
+                  "const usable = Array.isArray(slots) ? slots.filter(farAway).sort((a, b) =>",
+                  "    `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)) : [];",
+                  "",
+                  "pm.test(\"At least two slots are more than 72 hours away (reseed the db if not)\", () => {",
+                  "    pm.expect(usable.length).to.be.at.least(2);",
+                  "});",
+                  "",
+                  "// nothing below can work without them",
+                  "if (usable.length < 2) {",
+                  "    postman.setNextRequest(null);",
+                  "    return;",
+                  "}",
+                  "",
+                  "// the last two slots: the booking starts on the first and is moved to the second",
+                  "const slotA = usable[usable.length - 2];",
+                  "const slotB = usable[usable.length - 1];",
+                  "pm.collectionVariables.set(\"slotADate\", slotA.date);",
+                  "pm.collectionVariables.set(\"slotATime\", slotA.time);",
+                  "pm.collectionVariables.set(\"slotBDate\", slotB.date);",
+                  "pm.collectionVariables.set(\"slotBTime\", slotB.time);",
+                  "",
+                  "pm.test(\"The two slots are different\", () => {",
+                  "    pm.expect(`${slotA.date}T${slotA.time}`).to.not.eql(`${slotB.date}T${slotB.time}`);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. Hiker books the first slot for two people",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (booking created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const booking = pm.response.json();",
+                  "pm.collectionVariables.set(\"bookingId\", booking.id);",
+                  "",
+                  "pm.test(\"The booking is on the first slot for two people\", () => {",
+                  "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotADate\"));",
+                  "    pm.expect(booking.time).to.eql(pm.collectionVariables.get(\"slotATime\"));",
+                  "    pm.expect(booking.party_size).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{slotADate}}\",\n  \"time\": \"{{slotATime}}\",\n  \"party_size\": 2,\n  \"requirements\": [\n    {\n      \"allergies\": false,\n      \"description\": \"2 people - vegetarian\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "6. Hiker changes the party size to four",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const booking = pm.response.json();",
+                  "",
+                  "pm.test(\"Same booking, same slot, now for four people\", () => {",
+                  "    pm.expect(booking.id).to.eql(Number(pm.collectionVariables.get(\"bookingId\")));",
+                  "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotADate\"));",
+                  "    pm.expect(booking.time).to.eql(pm.collectionVariables.get(\"slotATime\"));",
+                  "    pm.expect(booking.party_size).to.eql(4);",
+                  "});",
+                  "",
+                  "pm.test(\"The tables seat the new party\", () => {",
+                  "    const seats = booking.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "    pm.expect(seats).to.eql(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 4\n}"
+            }
+          }
+        },
+        {
+          "name": "7. Hiker changes only the requirements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const booking = pm.response.json();",
+                  "",
+                  "pm.test(\"The party size and the slot are untouched\", () => {",
+                  "    pm.expect(booking.party_size).to.eql(4);",
+                  "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotADate\"));",
+                  "    pm.expect(booking.time).to.eql(pm.collectionVariables.get(\"slotATime\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requirements\": [\n    {\n      \"allergies\": true,\n      \"description\": \"2 people - gluten allergy\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "8. The booking list shows the new requirements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const mine = pm.response.json().find((booking) => booking.id === Number(pm.collectionVariables.get(\"bookingId\")));",
+                  "",
+                  "pm.test(\"The booking is in the list\", () => {",
+                  "    pm.expect(mine).to.be.an(\"object\");",
+                  "});",
+                  "",
+                  "pm.test(\"Only the new requirement is kept\", () => {",
+                  "    pm.expect(mine.requirements).to.have.lengthOf(1);",
+                  "    pm.expect(mine.requirements[0].allergies).to.eql(true);",
+                  "    pm.expect(mine.requirements[0].description).to.eql(\"2 people - gluten allergy\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          }
+        },
+        {
+          "name": "9. Hiker moves the booking to the second slot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const booking = pm.response.json();",
+                  "",
+                  "pm.test(\"The booking is now on the second slot, still for four\", () => {",
+                  "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotBDate\"));",
+                  "    pm.expect(booking.time).to.eql(pm.collectionVariables.get(\"slotBTime\"));",
+                  "    pm.expect(booking.party_size).to.eql(4);",
+                  "});",
+                  "",
+                  "pm.test(\"The tables seat the whole party\", () => {",
+                  "    const seats = booking.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "    pm.expect(seats).to.eql(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{slotBDate}}\",\n  \"time\": \"{{slotBTime}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "10. A date without a time is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"The message says date and time go together\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.include(\"together\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{slotADate}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "11. A party of nobody is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "12. A party bigger than the free seats is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"The message says there are not enough seats\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.include(\"not enough seats\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 999\n}"
+            }
+          }
+        },
+        {
+          "name": "13. The refused change left the booking as it was",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const mine = pm.response.json().find((booking) => booking.id === Number(pm.collectionVariables.get(\"bookingId\")));",
+                  "",
+                  "pm.test(\"Still for four people, with the same table seats\", () => {",
+                  "    pm.expect(mine).to.be.an(\"object\");",
+                  "    pm.expect(mine.party_size).to.eql(4);",
+                  "    const seats = mine.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "    pm.expect(seats).to.eql(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          }
+        },
+        {
+          "name": "14. A booking that does not exist is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"The message says the booking was not found\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.include(\"not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 2\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Only the owner can change it",
+      "item": [
+        {
+          "name": "1. First hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. A second hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"email\", `hiker.${Date.now()}@mail.example`);",
+                  "pm.collectionVariables.set(\"password\", \"password\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3. Second hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4. The second hiker cannot change the first hiker's booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"The booking is not shown to anyone but its owner\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.include(\"not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "5. Second hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Warden logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luca.bonetti@rifugio.example\",\n  \"password\": \"warden\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7. The warden cannot change a booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{bookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 2\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Less than 48 hours before the slot",
+      "item": [
+        {
+          "name": "1. The warden looks at the tables of the hut",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const tables = pm.response.json();",
+                  "",
+                  "pm.test(\"The hut has at least two tables\", () => {",
+                  "    pm.expect(tables).to.be.an(\"array\");",
+                  "    pm.expect(tables.length).to.be.at.least(2);",
+                  "});",
+                  "",
+                  "if (!Array.isArray(tables) || tables.length < 2) {",
+                  "    postman.setNextRequest(null);",
+                  "    return;",
+                  "}",
+                  "",
+                  "pm.collectionVariables.set(\"slotTries\", 0);",
+                  "pm.collectionVariables.set(\"tableA\", tables[0].id);",
+                  "pm.collectionVariables.set(\"tableB\", tables[1].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. The warden opens a slot about a day ahead",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// a slot that starts between 3 and 40 hours from now: closed for changes (less than 48 hours),",
+                  "// but still open for booking (more than 2 hours). Random, so that a second run does not overlap the first.",
+                  "const hoursAhead = 3 + Math.random() * 37;",
+                  "const start = new Date(Date.now() + hoursAhead * 3600 * 1000);",
+                  "start.setSeconds(0, 0);",
+                  "const end = new Date(start.getTime() + 90 * 60 * 1000);",
+                  "pm.collectionVariables.set(\"closeStart\", start.toISOString());",
+                  "pm.collectionVariables.set(\"closeEnd\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// the random start can overlap a slot left by an earlier run on the same db (409): try another time",
+                  "if (pm.response.code === 409 && Number(pm.collectionVariables.get(\"slotTries\") || 0) < 10) {",
+                  "    pm.collectionVariables.set(\"slotTries\", Number(pm.collectionVariables.get(\"slotTries\") || 0) + 1);",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "    return;",
+                  "}",
+                  "",
+                  "pm.test(\"Status is 201 (slot created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json();",
+                  "pm.collectionVariables.set(\"closeSlotId\", slot.id);",
+                  "",
+                  "pm.test(\"The slot has an id\", () => {",
+                  "    pm.expect(slot.id).to.be.a(\"number\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"{{closeStart}}\",\n  \"end_time\": \"{{closeEnd}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3. The warden gives the slot two tables",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/slots/{{closeSlotId}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slots",
+                "{{closeSlotId}}",
+                "tables"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_ids\": [{{tableA}}, {{tableB}}]\n}"
+            }
+          }
+        },
+        {
+          "name": "4. Warden logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. A third hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"email\", `hiker.${Date.now()}@mail.example`);",
+                  "pm.collectionVariables.set(\"password\", \"password\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mario\",\n  \"surname\": \"Verdi\",\n  \"email\": \"{{email}}\",\n  \"mobile_number\": \"+39 23231341\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "6. Third hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7. The hiker finds the new slot in the open slots",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const slot = pm.response.json().find((item) => item.id === Number(pm.collectionVariables.get(\"closeSlotId\")));",
+                  "",
+                  "pm.test(\"The new slot is open for booking\", () => {",
+                  "    pm.expect(slot).to.be.an(\"object\");",
+                  "});",
+                  "",
+                  "if (!slot) {",
+                  "    postman.setNextRequest(null);",
+                  "    return;",
+                  "}",
+                  "",
+                  "pm.collectionVariables.set(\"closeDate\", slot.date);",
+                  "pm.collectionVariables.set(\"closeTime\", slot.time);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "slot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. The hiker books the slot for two people",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (booking created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"closeBookingId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{closeDate}}\",\n  \"time\": \"{{closeTime}}\",\n  \"party_size\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "9. Changing it less than 48 hours before the slot is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"The message gives the 48 hours rule\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.include(\"48 hours\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{closeBookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking",
+                "{{closeBookingId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"party_size\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "10. The refused change left the booking as it was",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const mine = pm.response.json().find((booking) => booking.id === Number(pm.collectionVariables.get(\"closeBookingId\")));",
+                  "",
+                  "pm.test(\"Still for two people\", () => {",
+                  "    pm.expect(mine).to.be.an(\"object\");",
+                  "    pm.expect(mine.party_size).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11. Hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
