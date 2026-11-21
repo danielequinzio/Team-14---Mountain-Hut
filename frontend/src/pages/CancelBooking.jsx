@@ -4,23 +4,27 @@ import NavBar from "../components/NavBar";
 import { cancelBooking, getMyBookings } from "../api";
 import "./CancelBooking.css";
 
-function formatTime(dateTime) {
-  if (!dateTime) return "";
-
-  // start/end arrive as full ISO datetimes ("2026-11-05T12:00:00"),
-  // so take the time portion before trimming to HH:MM
-  const time = dateTime.includes("T")
-    ? dateTime.split("T")[1]
-    : dateTime;
-
-  return time.slice(0, 5);
+// The API sends slot_time_start / slot_time_end as "HH:MM:SS"
+function formatTime(value) {
+  if (!value) return "";
+  return String(value).slice(0, 5);
 }
 
+// The API sends slot_date as "YYYY-MM-DD"
+function formatDate(value) {
+  if (!value) return "";
 
-function formatDate(dateTime) {
-  if (!dateTime) return "";
-  // take the date portion from start time that arrives as full ISO datetimes ("2026-11-05T12:00:00")
-  return dateTime.includes("T") ? dateTime.split("T")[0] : dateTime;
+  const datePart = String(value).slice(0, 10);
+
+  // Use midday to avoid timezone-related date shifts
+  const parsed = new Date(`${datePart}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return datePart;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(parsed);
 }
 
 export default function CancelBooking() {
@@ -132,7 +136,7 @@ export default function CancelBooking() {
                 <div className="cancel-booking-details">
                   <div>
                     <span className="cancel-booking-label">DATE</span>
-                    <strong>{formatDate(booking.slot_time_start)}</strong>
+                    <strong>{formatDate(booking.slot_date) || "Date not available"}</strong>
                   </div>
                   <div>
                     <span className="cancel-booking-label">START TIME</span>
