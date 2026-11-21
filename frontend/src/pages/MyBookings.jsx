@@ -170,9 +170,13 @@ export default function MyBookings() {
                       <button type="button" className="my-bookings-secondary-button">
                         Edit booking
                       </button>
-                      <button type="button" className="my-bookings-danger-button">
+                      <Link
+                        className="my-bookings-danger-button"
+                        to={`/cancel-booking/${booking.id}`}
+                        aria-label={`Review cancellation for booking ${booking.id}`}
+                      >
                         Cancel booking
-                      </button>
+                      </Link>
                     </div>
                   </article>
                 );

@@ -465,3 +465,13 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
 export function getMyBookings() {
   return request("/booking");
 }
+
+export async function cancelBooking(bookingId) {
+  if (USE_MOCK_DATA) {
+    throw new Error("Booking cancellation requires the FastAPI backend.");
+  }
+
+  return request(`/booking/${encodeURIComponent(bookingId)}`, {
+    method: "DELETE",
+  });
+}

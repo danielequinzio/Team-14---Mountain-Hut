@@ -12,6 +12,7 @@ import RequireRole from "./auth/RequireRole";
 import StaffRedirect from "./auth/StaffRedirect";
 import { ROLES, STAFF_ROLES } from "./auth/roles";
 import DefineSlot from "./pages/DefineSlot";
+import CancelBooking from "./pages/CancelBooking";
 
 export default function App() {
   return (
@@ -58,6 +59,14 @@ export default function App() {
         element={
           <RequireRole roles={STAFF_ROLES}>
             <DefineSlot />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/cancel-booking/:bookingId"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <CancelBooking />
           </RequireRole>
         }
       />

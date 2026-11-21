@@ -558,17 +558,7 @@ export default function Booking() {
                     can prepare suitable meals safely.
                   </p>
                 </div>
-                
-                <div className={`requirements-capacity ${
-                    assignedRequirementPeople > partySize ? "over-limit" : ""
-                }`}>
-                  {assignedRequirementPeople > partySize
-                      ? `${assignedRequirementPeople} people assigned to requirements, but the party size is ${partySize}. Reduce the quantities.`
-                      : `${remainingRequirementPeople} of ${partySize} ${
-                          partySize === 1 ? "person" : "people"
-                      } not yet assigned to a requirement.`}
-                </div>
-                
+
                 {requirements.length === 0 ? (
                     <p className="requirements-empty">
                       No special requirements added. You can continue without adding any.
