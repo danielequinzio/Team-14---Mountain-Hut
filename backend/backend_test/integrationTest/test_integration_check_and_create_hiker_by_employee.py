@@ -3,6 +3,7 @@ Integration tests for MH-07 "Reserve for a hiker": the employee checks and creat
   - GET  /profileCheck     check the presence of a hiker (by email)
   - POST /registerHiker    create a full hiker profile
   - POST /registerGuest    add a guest: a hiker without an account
+  - DELETE /guests/{id}    remove a guest (refused while the guest has bookings)
 
 The routes run against the real test db created by conftest.py and the real
 authentication (the as_warden override is removed: the employee logs in for real).
@@ -12,13 +13,15 @@ Run from the backend folder with:
 
     python -m pytest backend_test -v
 """
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.database import engine
 from app.main import app
-from app.models import Roles, User
+from app.models import Booking, Roles, Slot, User
 from app.routers import user as user_router
 from app.services.auth import hash_password
 
@@ -291,3 +294,104 @@ def test_employee_create_guest_missing_field(as_employee, session, field):
 
     assert as_employee.post(GUEST_URL, json=body).status_code == 422
     assert stored_guests(session) == []
+
+
+# ---------- Tests: remove a guest (DELETE /guests/{guest_id}) ----------
+
+def remove_guest_url(guest_id: int) -> str:
+    return f"/guests/{guest_id}"
+
+
+def add_guest(client) -> int:
+    """Adds a guest through the api, as the staff does, and returns its id."""
+    response = client.post(GUEST_URL, json=GUEST)
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+def add_booking(session, user_id: int, staff_id: int) -> Booking:
+    start = datetime(2030, 1, 1, 12, 0, tzinfo=timezone.utc)
+    slot = Slot(start_time=start, end_time=start + timedelta(minutes=90), created_by=staff_id)
+    session.add(slot)
+    session.commit()
+    booking = Booking(user_id=user_id, slot_id=slot.id, party_size=2)
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    return booking
+
+
+def test_remove_guest_needs_login(client, session, as_employee):
+    guest_id = add_guest(as_employee)
+    client.cookies.clear()  # log out
+
+    assert client.delete(remove_guest_url(guest_id)).status_code == 401
+    assert [g.id for g in stored_guests(session)] == [guest_id]
+
+
+def test_remove_guest_forbidden_to_hikers(client, session, as_employee, hiker):
+    guest_id = add_guest(as_employee)
+    client.cookies.clear()
+
+    response = login(client, hiker).delete(remove_guest_url(guest_id))
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not enough permissions"}
+    assert [g.id for g in stored_guests(session)] == [guest_id]
+
+
+@pytest.mark.parametrize("role", [Roles.EMPLOYEE, Roles.WARDEN])
+def test_staff_removes_a_guest(client, session, role):
+    staff = add_user(session, "luca.bonetti", role)
+    login(client, staff)
+    guest_id = add_guest(client)
+    other_id = add_guest(client)  # another guest: only the requested one goes
+
+    response = client.delete(remove_guest_url(guest_id))
+
+    assert response.status_code == 204
+    assert [g.id for g in stored_guests(session)] == [other_id]
+
+
+def test_remove_guest_twice_is_not_found(as_employee, session):
+    guest_id = add_guest(as_employee)
+    assert as_employee.delete(remove_guest_url(guest_id)).status_code == 204
+
+    response = as_employee.delete(remove_guest_url(guest_id))
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "guest not found"}
+
+
+def test_remove_guest_unknown_id(as_employee):
+    response = as_employee.delete(remove_guest_url(999))
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "guest not found"}
+
+
+def test_remove_guest_never_removes_a_hiker_with_an_account(as_employee, session, hiker):
+    response = as_employee.delete(remove_guest_url(hiker.id))
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "guest not found"}
+    assert stored_hikers(session) == [hiker]
+
+
+def test_remove_guest_never_removes_staff(as_employee, session, employee):
+    assert as_employee.delete(remove_guest_url(employee.id)).status_code == 404
+
+    session.expire_all()
+    assert session.get(User, employee.id) is not None
+
+
+def test_remove_guest_with_bookings_is_refused(as_employee, session, employee):
+    guest_id = add_guest(as_employee)
+    booking = add_booking(session, guest_id, employee.id)
+
+    response = as_employee.delete(remove_guest_url(guest_id))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "guest still has bookings"}
+    assert [g.id for g in stored_guests(session)] == [guest_id]
+    assert session.get(Booking, booking.id) is not None
