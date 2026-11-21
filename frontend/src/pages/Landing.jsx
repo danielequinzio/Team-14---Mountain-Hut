@@ -35,7 +35,10 @@ export default function Landing() {
   // The employee and the warden manage the slots; everyone else books a table.
   // Without this, staff would have no link back to their page from the home page.
   const staff = isStaff(user);
-  const mainLink = staff ? "/staff/slots" : "/availability";
+  // A logged-in hiker books directly; a visitor first checks availability.
+  const hikerLoggedIn = !loading && isHiker(user);
+  const mainLink = staff ? "/staff/slots" : hikerLoggedIn ? "/booking" : "/availability";
+  const mainLabel = staff ? "Manage slots" : hikerLoggedIn ? "Book a table" : "Check availability";
 
   useEffect(() => {
     document.title = `${hut.name} · Mountain Hut`;
@@ -113,7 +116,7 @@ export default function Landing() {
             <p>{hut.tagline}</p>
             <div className="lp-hero-actions">
               <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
-                {staff ? "Manage slots" : "Check availability"}
+                {mainLabel}
               </Link>
               {!loading && !user && (
                 <Link
@@ -240,7 +243,7 @@ export default function Landing() {
               </p>
             </div>
             <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
-              {staff ? "Manage slots" : "Check availability"}
+              {mainLabel}
             </Link>
           </div>
         </section>

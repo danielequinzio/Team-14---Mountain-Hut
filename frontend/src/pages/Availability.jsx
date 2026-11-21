@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { checkAvailability, getAvailability } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { ROLES, isStaff } from "../auth/roles";
+import { isHiker, isStaff } from "../auth/roles";
 import { hut } from "../content/hutInfo";
 import "./landing.css"; // header and the .lp-btn styles
 import "./Availability.css";
@@ -60,7 +60,6 @@ function friendlyError(message) {
 }
 
 export default function Availability() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading, logout } = useAuth();
 
@@ -218,14 +217,12 @@ export default function Availability() {
       ? `/availability?date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&party=${guestCount}`
       : "/availability";
 
-  function goBook() {
-    if (!result) return;
-    navigate(
-      `/booking?date=${encodeURIComponent(result.date)}&time=${encodeURIComponent(result.time)}&party=${result.guests}`
-    );
-  }
-
   const split = result?.tables.map((table) => table.seats).join(" + ");
+
+  // A logged-in hiker books directly: the Booking page opens with the date, time
+  // and guests already chosen when they come with them (?date&time&party).
+  if (authLoading) return <div className="lp" />;
+  if (isHiker(user)) return <Navigate to={`/booking${location.search}`} replace />;
 
   return (
     <div className="lp">
@@ -406,15 +403,6 @@ export default function Availability() {
                     <Link to="/register" state={{ from: returnPath }} className="lp-btn lp-btn--primary">
                       Register
                     </Link>
-                  </div>
-                </div>
-              ) : user.role === ROLES.HIKER ? (
-                <div className="av-next">
-                  <p>You can add special requirements on the next page.</p>
-                  <div>
-                    <button type="button" className="av-book" onClick={goBook}>
-                      Book this table
-                    </button>
                   </div>
                 </div>
               ) : (
