@@ -69,12 +69,6 @@ export default function Landing() {
                 <strong>{user.username}</strong>
                 <small>{user.role}</small>
               </span>
-              <Link
-                to="/account/password"
-                className="lp-btn lp-btn--ghost lp-hide-small"
-              >
-                Change password
-              </Link>
               <button
                 type="button"
                 className="lp-btn lp-btn--ghost lp-hide-small"
@@ -96,14 +90,6 @@ export default function Landing() {
                 Register
               </Link>
             </>
-          )}
-          {!loading && user && (
-            <Link
-              to={staff ? "/staff/slots" : "/booking"}
-              className="lp-btn lp-btn--primary"
-            >
-              {staff ? "Manage slots" : "Book a table"}
-            </Link>
           )}
         </div>
       </header>

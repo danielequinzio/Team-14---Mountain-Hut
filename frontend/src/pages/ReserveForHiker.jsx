@@ -23,6 +23,15 @@ function formatDate(dateKey) {
   });
 }
 
+// 25/11/2026, same format as the hiker's own confirmation page
+function formatShortDate(dateKey) {
+  return parseKey(dateKey).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function formatTime(value) {
   if (!value) return "";
   const time = String(value).includes("T") ? String(value).split("T")[1] : String(value);
@@ -221,57 +230,115 @@ export default function ReserveForHiker() {
 
   if (result) {
     const tables = result.tables ?? [];
+    const doneDate = result.date || selectedDate;
+    const doneRequirements = requirements.map((requirement) => ({
+      allergies: requirement.allergies,
+      description: requirement.description.trim(),
+    }));
     return (
       <div className="app-shell">
         <NavBar />
 
-        <main className="rh-page">
-          <section className="rh-card rh-done">
-            <div className="rh-done-icon">✓</div>
-            <span className="rh-eyebrow">Reservation #{result.id}</span>
+        {/* same look as the hiker's own confirmation page (ReservationDetail) */}
+        <main className="summary-page">
+          <div className="summary-intro">
+            <span className="eyebrow">Reservation confirmed</span>
             <h1>Reservation created</h1>
             <p>
               {hiker.isGuest || !hiker.email
                 ? "This guest has no email, so no confirmation was sent."
                 : `A confirmation was sent to ${hiker.email}.`}
             </p>
+          </div>
 
-            <dl className="rh-list">
-              <div>
-                <dt>Hiker</dt>
-                <dd>{hiker.label}</dd>
+          <section className="summary-card card">
+            <div className="success-icon">✓</div>
+
+            <div className="card-label">Reservation successful</div>
+
+            <h2>The reservation</h2>
+
+            <div className="reservation-details">
+              <div className="detail-row">
+                <span>Hiker</span>
+                <strong>{hiker.label}</strong>
               </div>
-              <div>
-                <dt>Date</dt>
-                <dd>{result.date ? formatDate(result.date) : formatDate(selectedDate)}</dd>
-              </div>
-              <div>
-                <dt>Time</dt>
-                <dd>{formatTime(result.time)}</dd>
-              </div>
-              <div>
-                <dt>Party size</dt>
-                <dd>{guestsLabel(result.party_size)}</dd>
-              </div>
-              <div>
-                <dt>Tables</dt>
-                <dd>
+
+              <div className="detail-row">
+                <span>Table</span>
+                <strong>
                   {tables.length > 0
-                    ? tables.map((table) => `#${table.number} (${table.seats} seats)`).join(", ")
-                    : "Assigned by the hut"}
-                </dd>
+                    ? tables.map((table) => table.number).join(", ")
+                    : "Assigned table"}
+                </strong>
               </div>
-            </dl>
 
-            <div className="rh-actions">
-              <button type="button" className="rh-btn rh-btn--ghost" onClick={startOver}>
-                New reservation
-              </button>
-              <Link to="/staff/slots" className="rh-btn rh-btn--primary">
-                Back to slots
-              </Link>
+              <div className="detail-row">
+                <span>Date</span>
+                <strong>{formatShortDate(doneDate)}</strong>
+              </div>
+
+              <div className="detail-row">
+                <span>Time slot</span>
+                <strong>
+                  {selectedSlot
+                    ? formatSlot(selectedSlot)
+                    : formatTime(result.time)}
+                </strong>
+              </div>
+
+              <div className="detail-row">
+                <span>Party size</span>
+                <strong>{guestsLabel(result.party_size ?? partySize)}</strong>
+              </div>
             </div>
+
+            {result.id && (
+              <div className="reservation-id">Reservation #{result.id}</div>
+            )}
+
+            <section
+              className="confirmed-requirements"
+              aria-labelledby="confirmed-requirements-title"
+            >
+              <h3 id="confirmed-requirements-title">Party requirements</h3>
+
+              {doneRequirements.length > 0 ? (
+                <div className="confirmed-requirements-list">
+                  {doneRequirements.map((requirement, index) => (
+                    <article className="confirmed-requirement" key={index}>
+                      <div className="confirmed-requirement-heading">
+                        <strong>Requirement {index + 1}</strong>
+                        {requirement.allergies ? (
+                          <span className="allergy-status">Allergy flagged</span>
+                        ) : (
+                          <span className="dietary-status">Dietary requirement</span>
+                        )}
+                      </div>
+                      <p>{requirement.description}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-requirements">
+                  No special dietary requirements or allergies were added.
+                </p>
+              )}
+            </section>
           </section>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            <button type="button" className="secondary-button" onClick={startOver}>
+              New reservation
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate("/staff/slots")}
+            >
+              Back to slots
+            </button>
+          </div>
         </main>
       </div>
     );

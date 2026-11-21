@@ -15,7 +15,6 @@ import { ROLES, STAFF_ROLES } from "./auth/roles";
 import DefineSlot from "./pages/DefineSlot";
 import CreateHiker from "./pages/CreateHiker";
 import ReserveForHiker from "./pages/ReserveForHiker";
-import ChangePassword from "./pages/ChangePassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -90,15 +89,6 @@ export default function App() {
         element={
           <RequireRole roles={STAFF_ROLES}>
             <ReserveForHiker />
-          </RequireRole>
-        }
-      />
-      {/* any logged-in role (hiker, employee, warden) may change their own password */}
-      <Route
-        path="/account/password"
-        element={
-          <RequireRole>
-            <ChangePassword />
           </RequireRole>
         }
       />
