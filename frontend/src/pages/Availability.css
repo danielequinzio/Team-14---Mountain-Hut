@@ -1,0 +1,383 @@
+/* MH-04 Check availability. Own layout (prefix av-), same dark colors as the
+   rest of the app. */
+
+.av-page {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 56px 0 80px;
+  color: #e9eef5;
+}
+
+.av-head {
+  margin-bottom: 26px;
+  text-align: center;
+}
+
+.av-eyebrow {
+  color: #e7b96a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.av-head h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(28px, 5vw, 40px);
+}
+
+.av-head p {
+  margin: 0;
+  color: #8593a3;
+  font-size: 15px;
+}
+
+/* search bar */
+.av-search {
+  display: grid;
+  grid-template-columns: 1.3fr 1.4fr 1fr;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #202a35;
+  border-radius: 18px;
+  background: #111821;
+}
+
+.av-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: #9ba9b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.av-field input,
+.av-field select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid #334151;
+  border-radius: 10px;
+  background: #0d141c;
+  color: #e9eef5;
+  font: inherit;
+  font-size: 15px;
+  text-transform: none;
+  letter-spacing: 0;
+  color-scheme: dark;
+}
+
+.av-field input:focus,
+.av-field select:focus {
+  border-color: #e7b96a;
+  outline: none;
+}
+
+.av-field select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.av-stepper {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  gap: 6px;
+}
+
+.av-stepper input {
+  text-align: center;
+  font-weight: 700;
+  padding: 0;
+}
+
+.av-stepper button {
+  height: 46px;
+  border: 1px solid #334151;
+  border-radius: 10px;
+  background: #151d27;
+  color: #e9eef5;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.av-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.av-check {
+  grid-column: 1 / -1;
+  height: 48px;
+  border: 1px solid #e7b96a;
+  border-radius: 11px;
+  background: #e7b96a;
+  color: #17130c;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.av-check:hover:not(:disabled) {
+  background: #f0c77f;
+}
+
+.av-check:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.av-note,
+.av-error {
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+
+.av-note {
+  color: #9ba9b8;
+}
+
+.av-error {
+  padding: 10px 12px;
+  border: 1px solid #5b2d2d;
+  border-radius: 10px;
+  background: #2a1717;
+  color: #f1a7a7;
+}
+
+/* quick pick of the open days */
+.av-days {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  color: #6c7a89;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.av-days > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.av-days > span {
+  padding-top: 8px;
+  white-space: nowrap;
+}
+
+.av-days button {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #334151;
+  border-radius: 999px;
+  background: #151d27;
+  color: #9ba9b8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.av-days button:hover,
+.av-days button.selected {
+  border-color: #e7b96a;
+  color: #e7b96a;
+}
+
+/* answer */
+.av-answer {
+  margin-top: 26px;
+}
+
+.av-card {
+  padding: 24px;
+  border: 1px solid #202a35;
+  border-radius: 18px;
+  background: #111821;
+}
+
+.av-card h2 {
+  margin: 10px 0 6px;
+  font-size: 24px;
+}
+
+.av-card p {
+  margin: 0;
+}
+
+.av-card--yes {
+  border-color: #3c5a46;
+  background: #121c17;
+}
+
+.av-card--no {
+  border-color: #5b4a2a;
+  background: #1a160e;
+}
+
+.av-card--error {
+  border-color: #5b2d2d;
+  background: #2a1717;
+  color: #f1a7a7;
+}
+
+.av-card--error strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.av-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1a2a20;
+  color: #8fcf9f;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.av-badge--no {
+  background: #2a2417;
+  color: #e7b96a;
+}
+
+.av-when {
+  color: #9ba9b8;
+  font-size: 15px;
+}
+
+.av-hint {
+  margin-top: 12px !important;
+  color: #8593a3;
+  font-size: 14px;
+}
+
+.av-seating {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #0d141c;
+}
+
+.av-seating > span {
+  display: block;
+  color: #8593a3;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.av-seating > strong {
+  display: block;
+  margin: 4px 0 12px;
+  color: #8fcf9f;
+  font-size: 26px;
+}
+
+.av-seating ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.av-seating li {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #202a35;
+  border-radius: 10px;
+  background: #111821;
+  color: #c0c8d2;
+  font-size: 14px;
+}
+
+.av-seating li b {
+  color: #e9eef5;
+}
+
+.av-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #243329;
+}
+
+.av-next p {
+  color: #9ba9b8;
+  font-size: 14px;
+}
+
+.av-next > div {
+  display: flex;
+  gap: 10px;
+}
+
+.av-book {
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid #e7b96a;
+  border-radius: 11px;
+  background: #e7b96a;
+  color: #17130c;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.av-book:hover {
+  background: #f0c77f;
+}
+
+@media (max-width: 620px) {
+  .av-page {
+    padding-top: 30px;
+  }
+
+  .av-search {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .av-days {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .av-next {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-next > div > * {
+    flex: 1;
+  }
+
+  .av-card h2 {
+    font-size: 21px;
+  }
+}

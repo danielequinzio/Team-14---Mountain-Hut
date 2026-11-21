@@ -201,6 +201,39 @@ export async function resetPassword(token, newPassword) {
 }
 
 // ----------------------------------
+// CHECK AVAILABILITY (public, books nothing)
+// ----------------------------------
+
+// GET /availability?date&time&party_size -> { available, tables: [{ number, seats }] }
+// "time" is the slot start as hut-local HH:MM:SS. The backend answers 400 when
+// there is no slot at that date and time, or when it starts in less than two hours.
+export async function checkAvailability({ date, time, partySize }) {
+  if (USE_MOCK_DATA) {
+    const slot = (mockAvailability[date] || []).find((item) => item.start === time);
+    if (!slot) throw new Error("Slot not available");
+    const fits = partySize <= slot.availableSeats;
+    return { available: fits, tables: fits ? [{ number: 1, seats: partySize }] : [] };
+  }
+
+  const query = new URLSearchParams({ date, time, party_size: String(partySize) });
+  const response = await fetch(`${API_BASE_URL}/availability?${query.toString()}`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(", ")
+      : data?.detail;
+    throw new Error(message || "Could not check availability.");
+  }
+
+  return data;
+}
+
+// ----------------------------------
 // CREATE BOOKING
 // ----------------------------------
 
