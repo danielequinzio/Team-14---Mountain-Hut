@@ -182,6 +182,7 @@ export async function createBooking({
   date,
   time,
   partySize,
+  requirements = []
 }) {
   // Simulate a successful booking
   if (USE_MOCK_DATA)  {
@@ -226,6 +227,10 @@ export async function createBooking({
       date,
       time,
       party_size: partySize,
+      requirements: requirements.map((requirement) => ({
+        allergies: Boolean(requirement.allergies),
+        description: requirement.description,
+      })),
     }),
   });
 
@@ -451,4 +456,12 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
     });
   }
   return createdSlot;
+}
+
+// ----------------------------------
+// MY BOOKINGS
+// ----------------------------------
+
+export function getMyBookings() {
+  return request("/booking");
 }
