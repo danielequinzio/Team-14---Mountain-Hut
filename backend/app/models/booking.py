@@ -60,6 +60,7 @@ class BookingTable(SQLModel, table=True):
 class BookingDetails(SQLModel):
     id: int
     party_size: int
+    slot_date: date
     slot_time_start: time
     slot_time_end: time
     tables: list[TableSeats]
