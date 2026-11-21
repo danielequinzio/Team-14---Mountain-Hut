@@ -38,6 +38,14 @@ def slot_end(slot: Slot) -> datetime:
     return _hut_time(slot.end_time)
 
 
+def ensure_change_allowed(slot: Slot) -> None:
+    if datetime.now(HUT_TIMEZONE) > slot_start(slot) - timedelta(hours=48):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Booking changes must be made at least 48 hours before the slot",
+        )
+
+
 def get_user(session: Session, user_id: int) -> User:
     user = session.get(User, user_id)
     if user is None:
@@ -229,23 +237,22 @@ def assign_tables(session: Session, booking: Booking) -> list[BookingTable] | No
     return rows
 
 
-# Not needed for now, but could be useful for a booking cancellation story:
-# def release_tables(session: Session, booking: Booking) -> None:
-#     """Release the seats currently assigned to a booking."""
-#     rows = session.exec(
-#         select(BookingTable).where(BookingTable.booking_id == booking.id)
-#     ).all()
-#     if not rows:
-#         return
-#     slot_tables = {
-#         row.id: row
-#         for row in session.exec(
-#             select(SlotTable).where(
-#                 SlotTable.id.in_([assignment.slot_table_id for assignment in rows])
-#             )
-#         ).all()
-#     }
-#     for row in rows:
-#         slot_tables[row.slot_table_id].occupied_seats -= row.seats_booked
-#         session.delete(row)
-#     session.flush()
+def release_tables(session: Session, booking: Booking) -> None:
+    """Release the seats currently assigned to a booking."""
+    rows = session.exec(
+        select(BookingTable).where(BookingTable.booking_id == booking.id)
+    ).all()
+    if not rows:
+        return
+    slot_tables = {
+        row.id: row
+        for row in session.exec(
+            select(SlotTable).where(
+                SlotTable.id.in_([assignment.slot_table_id for assignment in rows])
+            )
+        ).all()
+    }
+    for row in rows:
+        slot_tables[row.slot_table_id].occupied_seats -= row.seats_booked
+        session.delete(row)
+    session.flush()
