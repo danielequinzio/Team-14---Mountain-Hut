@@ -4,9 +4,27 @@ import NavBar from "../components/NavBar";
 import { getMyBookings } from "../api";
 import "./MyBookings.css";
 
+// The API sends slot_time_start / slot_time_end as "HH:MM:SS"
 function formatTime(value) {
   if (!value) return null;
   return String(value).slice(0, 5);
+}
+
+// The API sends slot_date as "YYYY-MM-DD"
+function formatDate(value) {
+  if (!value) return null;
+
+  const datePart = String(value).slice(0, 10);
+
+  // Use midday to avoid timezone-related date shifts
+  const parsed = new Date(`${datePart}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return datePart;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(parsed);
 }
 
 function hasValue(value) {
@@ -85,6 +103,7 @@ export default function MyBookings() {
               </div>
 
               {bookings.map((booking, index) => {
+                const date = formatDate(booking.slot_date);
                 const startTime = formatTime(booking.slot_time_start);
                 const endTime = formatTime(booking.slot_time_end);
                 const requirements = Array.isArray(booking.requirements)
@@ -109,6 +128,12 @@ export default function MyBookings() {
                       </div>
 
                       <div className="my-booking-details">
+                        {date && (
+                          <div>
+                            <span className="my-booking-label">DATE</span>
+                            <strong>{date}</strong>
+                          </div>
+                        )}
                         {startTime && (
                           <div>
                             <span className="my-booking-label">START TIME</span>
@@ -175,9 +200,13 @@ export default function MyBookings() {
                       >
                         Edit booking
                       </button>
-                      <button type="button" className="my-bookings-danger-button">
+                      <Link
+                        className="my-bookings-danger-button"
+                        to={`/cancel-booking/${booking.id}`}
+                        aria-label={`Review cancellation for booking ${booking.id}`}
+                      >
                         Cancel booking
-                      </button>
+                      </Link>
                     </div>
                   </article>
                 );

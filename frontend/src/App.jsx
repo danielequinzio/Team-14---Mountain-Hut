@@ -17,6 +17,7 @@ import CreateHiker from "./pages/CreateHiker";
 import ReserveForHiker from "./pages/ReserveForHiker";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import CancelBooking from "./pages/CancelBooking";
 
 export default function App() {
   return (
@@ -89,6 +90,14 @@ export default function App() {
         element={
           <RequireRole roles={STAFF_ROLES}>
             <ReserveForHiker />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/cancel-booking/:bookingId"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <CancelBooking />
           </RequireRole>
         }
       />

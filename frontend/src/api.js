@@ -655,3 +655,18 @@ export function bookForHiker(hikerId, { date, time, partySize, requirements = []
     "Could not create the reservation."
   );
 }
+
+// ----------------------------------
+// CANCEL BOOKING (MH-08)
+// ----------------------------------
+
+// DELETE /booking/{id}: the backend answers 204 and emails the cancellation
+export async function cancelBooking(bookingId) {
+  if (USE_MOCK_DATA) {
+    throw new Error("Booking cancellation requires the FastAPI backend.");
+  }
+
+  return request(`/booking/${encodeURIComponent(bookingId)}`, {
+    method: "DELETE",
+  });
+}

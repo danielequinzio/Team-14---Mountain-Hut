@@ -19,7 +19,12 @@ from app.models import (
     SlotTable,
     Table,
 )
-from app.routers.booking import create_booking, get_my_bookings, update_booking
+from app.routers.booking import (
+    create_booking,
+    delete_booking,
+    get_my_bookings,
+    update_booking,
+)
 import app.services.booking as booking_service  
 from app.services.booking import (
     _distribute,
@@ -34,7 +39,11 @@ from app.services.booking import (
     slot_start,
 )
 
-from app.services.notification import send_booking_change, send_booking_confirmation
+from app.services.notification import (
+    send_booking_cancellation,
+    send_booking_change,
+    send_booking_confirmation,
+)
 from app.models.booking_requirement import BookingRequirementCreate
 
 HUT_TIMEZONE = ZoneInfo("Europe/Rome")
@@ -667,6 +676,137 @@ def test_update_booking_rejects_unknown_booking(monkeypatch):
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Booking not found"
+    background_tasks.add_task.assert_not_called()
+
+
+def _delete_booking_session(booking, requirements=()):
+    """Session whose exec() calls return the booking and then its requirements."""
+    booking_result = MagicMock()
+    booking_result.first.return_value = booking
+    requirements_result = MagicMock()
+    requirements_result.all.return_value = list(requirements)
+    session = MagicMock()
+    session.exec.side_effect = [booking_result, requirements_result]
+    return session
+
+
+def _patch_delete_dependencies(monkeypatch):
+    release_tables = MagicMock()
+    monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
+    monkeypatch.setattr("app.routers.booking.get_user", lambda session, user_id: SimpleNamespace(id=user_id))
+    monkeypatch.setattr("app.routers.booking.release_tables", release_tables)
+    # the fake user has no email/name: the email data is not what these tests check
+    monkeypatch.setattr("app.routers.booking.build_confirmation", lambda *args: "cancellation")
+    return release_tables
+
+
+def test_delete_booking_releases_tables_and_deletes_requirements_and_booking(monkeypatch):
+    booking = Booking(id=20, user_id=3, slot_id=9, party_size=2)
+    requirements = [
+        BookingRequirement(id=1, booking_id=20, allergies=True, description="Nuts"),
+        BookingRequirement(id=2, booking_id=20, allergies=False, description="Vegan"),
+    ]
+    session = _delete_booking_session(booking, requirements)
+    release_tables = _patch_delete_dependencies(monkeypatch)
+    background_tasks = MagicMock()
+
+    result = delete_booking(
+        20,
+        session,
+        CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+        background_tasks,
+    )
+
+    assert result is None
+    release_tables.assert_called_once_with(session, booking)
+    deleted = [call.args[0] for call in session.delete.call_args_list]
+    # requirements go first, the booking last (FK on booking_id)
+    assert deleted == [*requirements, booking]
+    background_tasks.add_task.assert_called_once_with(send_booking_cancellation, "cancellation")
+
+
+def test_delete_booking_without_requirements_deletes_only_booking(monkeypatch):
+    booking = Booking(id=20, user_id=3, slot_id=9, party_size=2)
+    session = _delete_booking_session(booking)
+    release_tables = _patch_delete_dependencies(monkeypatch)
+    background_tasks = MagicMock()
+
+    delete_booking(
+        20,
+        session,
+        CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+        background_tasks,
+    )
+
+    release_tables.assert_called_once_with(session, booking)
+    session.delete.assert_called_once_with(booking)
+    background_tasks.add_task.assert_called_once_with(send_booking_cancellation, "cancellation")
+
+
+def test_delete_booking_rejects_unknown_or_foreign_booking(monkeypatch):
+    # the query filters on user_id too, so another user's booking also yields None
+    session = _delete_booking_session(None)
+    release_tables = _patch_delete_dependencies(monkeypatch)
+    background_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc:
+        delete_booking(
+            99,
+            session,
+            CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+            background_tasks,
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Booking not found"
+    release_tables.assert_not_called()
+    session.delete.assert_not_called()
+    background_tasks.add_task.assert_not_called()
+
+
+def test_delete_booking_rejects_booking_without_slot(monkeypatch):
+    booking = Booking(id=20, user_id=3, slot_id=9, party_size=2)
+    session = _delete_booking_session(booking)
+    session.get.return_value = None
+    release_tables = _patch_delete_dependencies(monkeypatch)
+    background_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc:
+        delete_booking(
+            20,
+            session,
+            CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+            background_tasks,
+        )
+
+    assert exc.value.status_code == 500
+    assert exc.value.detail == "Booking slot not found"
+    release_tables.assert_not_called()
+    session.delete.assert_not_called()
+    background_tasks.add_task.assert_not_called()
+
+
+def test_delete_booking_propagates_unknown_user(monkeypatch):
+    session = MagicMock()
+    background_tasks = MagicMock()
+
+    def missing_user(session, user_id):
+        raise HTTPException(404, "User not found")
+
+    monkeypatch.setattr("app.routers.booking.booking_transaction", lambda session: nullcontext())
+    monkeypatch.setattr("app.routers.booking.get_user", missing_user)
+
+    with pytest.raises(HTTPException) as exc:
+        delete_booking(
+            20,
+            session,
+            CurrentUser(id=3, username="anna.rossi", role=Roles.HIKER),
+            background_tasks,
+        )
+
+    assert exc.value.status_code == 404
+    session.exec.assert_not_called()
+    session.delete.assert_not_called()
     background_tasks.add_task.assert_not_called()
 
 

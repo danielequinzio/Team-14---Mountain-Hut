@@ -16,7 +16,13 @@ from app.config import (
 )
 from app.models import Booking, BookingRequirementCreate, ResetData, Slot, User
 from app.services.booking import slot_end, slot_start
-from app.services.email_template import render_account_html, render_change_html, render_html, render_password_reset_html
+from app.services.email_template import (
+    render_account_html,
+    render_cancellation_html,
+    render_change_html,
+    render_html,
+    render_password_reset_html,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -271,3 +277,47 @@ def send_booking_change(change: BookingConfirmation) -> None:
             smtp.send_message(message)
     except (smtplib.SMTPException, OSError, ValueError):
         logger.exception("Change email %s not sent", change.reference)
+
+
+# ---------- MH-08: email for a cancelled booking ----------
+
+def compose_cancellation_email(cancellation: BookingConfirmation) -> EmailMessage:
+    lines = [
+        f"Hello {cancellation.hiker_name},",
+        "",
+        "your booking at the mountain hut has been cancelled. These are the details of the cancelled booking:",
+        "",
+        f"Booking reference: {cancellation.reference}",
+        f"Date: {cancellation.start:%d/%m/%Y}",
+        f"Time slot: {cancellation.start:%H:%M} - {cancellation.end:%H:%M}",
+        f"Party size: {cancellation.party_size}",
+        "",
+        "If you didn't cancel this booking, please contact the hut.",
+    ]
+    message = EmailMessage()
+    message["Subject"] = f"Booking cancelled {cancellation.reference}"
+    message["From"] = EMAIL_FROM
+    message["To"] = cancellation.recipient
+    message.set_content("\n".join(lines))
+    return message
+
+
+def send_booking_cancellation(cancellation: BookingConfirmation) -> None:
+    # runs after the cancellation is committed: a failure here must not undo it, so it is only logged
+    if not SMTP_HOST:
+        logger.warning("SMTP_HOST not set: cancellation email %s not sent", cancellation.reference)
+        return
+    try:
+        message = compose_cancellation_email(cancellation)
+        try:
+            message.add_alternative(render_cancellation_html(cancellation), subtype="html")
+        except Exception:  # the design must never stop the plain-text email from being sent
+            logger.exception("HTML version of cancellation %s not built: sending plain text only",
+                             cancellation.reference)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+    except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
+        logger.exception("Cancellation email %s not sent", cancellation.reference)

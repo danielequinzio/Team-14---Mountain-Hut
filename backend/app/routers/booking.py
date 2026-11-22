@@ -33,6 +33,7 @@ from app.services.notification import (
     build_confirmation,
     send_booking_change,
     send_booking_confirmation,
+    send_booking_cancellation,
 )
 from app.models.booking import BookingDetails, BookingTable
 from app.models.booking_requirement import BookingRequirementCreate
@@ -159,6 +160,7 @@ def get_my_bookings(
              result[booking_id] = BookingDetails(
                  id=booking_id,
                  party_size=party_size,
+                 slot_date=_hut_time(start_time).date(),
                  slot_time_start=_hut_time(start_time).time(),
                  slot_time_end=_hut_time(end_time).time(),
                  tables=[],
@@ -276,4 +278,45 @@ def update_booking(
         change = build_confirmation(db_user, new_slot, booking, requirements)
     # MH-06: outside the block, so the email leaves only after the commit
     background_tasks.add_task(send_booking_change, change)
-    return response
+    return response
+
+
+@router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_booking(
+    booking_id: int,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
+):
+    with booking_transaction(session):
+        db_user = get_user(session, user.id)
+        booking = session.exec(
+            select(Booking).where(
+                Booking.id == booking_id,
+                Booking.user_id == db_user.id,
+            )
+        ).first()
+        if booking is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
+
+        slot = session.get(Slot, booking.slot_id)
+        if slot is None:
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "Booking slot not found",
+            )
+        cancellation = build_confirmation(db_user, slot, booking)
+
+        release_tables(session, booking)
+
+        requirements = session.exec(
+            select(BookingRequirement).where(
+                BookingRequirement.booking_id == booking.id
+            )
+        ).all()
+        for requirement in requirements:
+            session.delete(requirement)
+
+        session.delete(booking)
+
+    background_tasks.add_task(send_booking_cancellation, cancellation)
