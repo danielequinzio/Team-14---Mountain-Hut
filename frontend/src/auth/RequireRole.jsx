@@ -24,6 +24,11 @@ export default function RequireRole({ roles, children }) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
+  // the password sent by email must be changed first: the login page asks for the new one
+  if (user.must_change_password) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
   if (roles && !roles.includes(user.role)) {
     return (
       <div className="au-page">

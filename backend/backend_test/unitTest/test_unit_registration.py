@@ -52,7 +52,7 @@ def test_register_created(client, mock_session):
                                                "notes": " vegetarian ", "emergency_contact": " +39 333 0 "})
 
     assert response.status_code == 201
-    assert response.json() == {"username": "mario.rossi", "role": "Hiker"}  # no hash in the answer
+    assert response.json() == {"username": "mario.rossi", "role": "Hiker", "must_change_password": False}  # no hash in the answer
     mock_session.add.assert_called_once()
     mock_session.commit.assert_called_once()
 

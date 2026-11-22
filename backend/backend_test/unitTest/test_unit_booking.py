@@ -18,12 +18,14 @@ from app.models import (
     Slot,
     SlotTable,
     Table,
+    User,
 )
 from app.routers.booking import (
     create_booking,
     delete_booking,
     get_my_bookings,
     update_booking,
+    create_booking_for_hiker,
 )
 import app.services.booking as booking_service  
 from app.services.booking import (
@@ -506,6 +508,40 @@ def test_create_booking_rejects_when_tables_are_unavailable(monkeypatch):
     assert exc.value.detail == "There are not enough seats for this party"
     background_tasks.add_task.assert_not_called()
 
+
+def test_create_booking_for_hiker_delegates_to_shared_logic(monkeypatch):
+    session = MagicMock()
+    background_tasks = MagicMock()
+    hiker = SimpleNamespace(id=12, role=Roles.HIKER)
+    data = BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3)
+    expected = {"id": 20}
+    session.get.return_value = hiker
+    shared_logic = MagicMock(return_value=expected)
+    monkeypatch.setattr("app.routers.booking._create_booking_for", shared_logic)
+
+    result = create_booking_for_hiker(12, data, session, MagicMock(), background_tasks)
+
+    assert result == expected
+    session.get.assert_called_once_with(User, 12)
+    shared_logic.assert_called_once_with(session, hiker, data, background_tasks)
+
+
+@pytest.mark.parametrize("user", [None, SimpleNamespace(id=12, role=Roles.EMPLOYEE)])
+def test_create_booking_for_hiker_rejects_missing_or_non_hiker(user):
+    session = MagicMock()
+    session.get.return_value = user
+
+    with pytest.raises(HTTPException) as exc:
+        create_booking_for_hiker(
+            12,
+            BookingCreate(date=date(2030, 1, 1), time=time(12, 0), party_size=3),
+            session,
+            MagicMock(),
+            MagicMock(),
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Hiker not found"
 
 def _update_booking_session(
     booking, slot, requirements=(), extra_exec_results=(), requirements_before_extra=True

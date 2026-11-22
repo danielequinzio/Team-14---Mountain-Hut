@@ -90,7 +90,7 @@ def test_user_stays_logged_in_after_change(logged_client):
     response = logged_client.get("/users/me")
 
     assert response.status_code == 200
-    assert response.json() == {"username": "anna.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "anna.rossi", "role": "Hiker", "must_change_password": False}
 
 
 def test_change_password_with_bearer_token(client, user):

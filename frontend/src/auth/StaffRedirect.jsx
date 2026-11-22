@@ -18,6 +18,11 @@ export default function StaffRedirect({ to, children }) {
     );
   }
 
+  // the password sent by email must be changed first: the login page asks for the new one
+  if (user?.must_change_password) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (isStaff(user)) {
     return <Navigate to={to} replace />;
   }
