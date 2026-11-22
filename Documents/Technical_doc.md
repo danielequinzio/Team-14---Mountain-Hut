@@ -12,11 +12,11 @@
   - [Architecture](#architecture)
   - [Tech stack](#tech-stack)
   - [Backend structure](#backend-structure)
-  - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table)
+  - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table), [`booking_requirement`](#booking_requirement), [`pwd_reset`](#pwd_reset)
 - [Backend EndPoint](#backend-endpoint)
   - [Authentication](#authentication)
-  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`GET /availability`](#get-availability), [`POST /booking`](#post-booking), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
-  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object), [`AvailabilityResponse`](#availabilityresponse-object), [`RegisterRequest`](#registerrequest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`TokenResponse`](#tokenresponse-object)
+  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`GET /availability`](#get-availability), [`POST /booking`](#post-booking), [`GET /booking`](#get-booking), [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`POST /auth/forgot-password`](#post-authforgot-password), [`POST /auth/reset-password`](#post-authreset-password), [`POST /auth/change-password`](#post-authchange-password), [`GET /profileCheck`](#get-profilecheck), [`POST /registerHiker`](#post-registerhiker), [`POST /registerGuest`](#post-registerguest), [`DELETE /guests/{guest_id}`](#delete-guestsguest_id), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
+  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingRequirementCreate`](#bookingrequirementcreate-object), [`BookingUpdate`](#bookingupdate-object), [`BookingResponse`](#bookingresponse-object), [`BookingDetails`](#bookingdetails-object), [`AvailabilityResponse`](#availabilityresponse-object), [`RegisterRequest`](#registerrequest-object), [`RegisterRequestEmployee`](#registerrequestemployee-object), [`Guest`](#guest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`UserBookingCreation`](#userbookingcreation-object), [`TokenResponse`](#tokenresponse-object), [`ResetPasswordRequest`](#resetpasswordrequest-object), [`ChangePasswordRequest`](#changepasswordrequest-object)
   - [Errors](#errors)
 
 ## Overview
@@ -104,7 +104,7 @@ app/
 
 ### Database
 
-This schema defines the overall structure of the project until user-story: #4; Other user-story may change database representation.
+This schema shows the database of `frontend/ui-v2`, which includes `dev`. Later user stories may change it.
 
 ```mermaid
 erDiagram
@@ -115,6 +115,8 @@ erDiagram
     TABLE ||--o{ SLOT_TABLE : "is offered in"
     BOOKING ||--o{ BOOKING_TABLE : "uses"
     SLOT_TABLE ||--o{ BOOKING_TABLE : "is used by"
+    BOOKING ||--o{ BOOKING_REQUIREMENT : "has"
+    USER ||--o{ PWD_RESET : "asks for"
 
     USER {
         int id PK
@@ -127,6 +129,8 @@ erDiagram
         string emergency_contact
         string password_hash
         string role
+        bool must_change_password
+        bool is_guest
     }
     TABLE {
         int id PK
@@ -159,26 +163,43 @@ erDiagram
         int slot_table_id FK
         int seats_booked
     }
+    BOOKING_REQUIREMENT {
+        int id PK
+        int booking_id FK
+        bool allergies
+        string description
+    }
+    PWD_RESET {
+        int id PK
+        int user_id FK
+        string token_hash UK
+        datetime expire_at
+        bool used
+    }
 ```
 
 Columns are `NOT NULL` unless marked as nullable.
 
 #### `user`
 
-A person with an account in the system.
+A person with an account in the system, or a guest added by the staff to put in a booking.
 
-| Column              | Type    | Constraints | Description                               |
-|---------------------|---------|-------------|-------------------------------------------|
-| `id`                | INTEGER | PK          | User identifier                           |
-| `username`          | VARCHAR |             | Username                                  |
-| `name`              | VARCHAR |             | First name                                |
-| `surname`           | VARCHAR |             | Last name                                 |
-| `email`             | VARCHAR | UNIQUE      | Email address                             |
-| `mobile_number`     | VARCHAR |             | Mobile number                             |
-| `notes`             | VARCHAR | nullable    | Free notes                                |
-| `emergency_contact` | VARCHAR | nullable    | Emergency contact                         |
-| `password_hash`     | VARCHAR |             | Password hash                             |
-| `role`              | VARCHAR |             | `Hiker`, `Warden` or `Employee`           |
+| Column                 | Type    | Constraints        | Description                               |
+|------------------------|---------|--------------------|-------------------------------------------|
+| `id`                   | INTEGER | PK                 | User identifier                           |
+| `username`             | VARCHAR |                    | Username                                  |
+| `name`                 | VARCHAR |                    | First name                                |
+| `surname`              | VARCHAR |                    | Last name                                 |
+| `email`                | VARCHAR | UNIQUE, nullable   | Email address. `NULL` for a guest         |
+| `mobile_number`        | VARCHAR |                    | Mobile number                             |
+| `notes`                | VARCHAR | nullable           | Free notes                                |
+| `emergency_contact`    | VARCHAR | nullable           | Emergency contact                         |
+| `password_hash`        | VARCHAR |                    | Password hash                             |
+| `role`                 | VARCHAR |                    | `Hiker`, `Warden` or `Employee`           |
+| `must_change_password` | BOOLEAN | default `0`        | `1` when the password was generated by [`POST /registerHiker`](#post-registerhiker) and has not been changed yet |
+| `is_guest`             | BOOLEAN | default `0`        | `1` for a guest created by [`POST /registerGuest`](#post-registerguest), who can't log in |
+
+`must_change_password`, `is_guest` and the nullable `email` are only on `frontend/ui-v2` (see [Routes](#routes)). Older databases get them at startup: `add_user_profile_columns` adds the two columns, and `make_user_email_nullable` rebuilds the table because SQLite can't change a column. Several guests can have a `NULL` email, since the unique index only applies to real emails.
 
 #### `table`
 
@@ -240,6 +261,42 @@ The seats a booking uses on one of the tables of its slot. A booking uses one or
 
 Each slot table appears at most once per booking: `UNIQUE (booking_id, slot_table_id)`.
 
+#### `booking_requirement`
+
+A need of the party of a booking, such as an allergy. A booking has zero or more of them. Defined in [`models/booking_requirement.py`](../backend/app/models/booking_requirement.py).
+
+| Column        | Type    | Constraints                   | Description                         |
+|---------------|---------|-------------------------------|-------------------------------------|
+| `id`          | INTEGER | PK                            | Identifier                          |
+| `booking_id`  | INTEGER | FK → [`booking.id`](#booking) | The booking                         |
+| `allergies`   | BOOLEAN | default `0`                   | `1` if the need is about an allergy |
+| `description` | VARCHAR | nullable                      | Free text                           |
+
+The rows are written from the `requirements` of [`POST /booking`](#post-booking), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id) and [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), and read by [`GET /booking`](#get-booking) and the emails. A `PATCH` that sends `requirements` deletes all the rows of the booking and writes the new ones. [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id) deletes them with the booking.
+
+#### `pwd_reset`
+
+A password reset link sent by [`POST /auth/forgot-password`](#post-authforgot-password). Defined in [`models/user.py`](../backend/app/models/user.py).
+
+| Column       | Type     | Constraints                 | Description                                        |
+|--------------|----------|-----------------------------|----------------------------------------------------|
+| `id`         | INTEGER  | PK                          | Identifier                                         |
+| `user_id`    | INTEGER  | FK → [`user.id`](#user)     | The user who asked for the reset                   |
+| `token_hash` | VARCHAR  | UNIQUE, indexed             | SHA-256 hash of the token in the link              |
+| `expire_at`  | DATETIME |                             | When the link stops working, in UTC                |
+| `used`       | BOOLEAN  | default `0`                 | `1` once the link can no longer be used            |
+
+Only the hash of the token is saved: the token itself is only in the email, so someone reading the database can't reset a password. [`POST /auth/reset-password`](#post-authreset-password) hashes the token it receives to find the row.
+
+A row is never deleted. `used` becomes `1` when:
+
+- the link is used by [`POST /auth/reset-password`](#post-authreset-password). All the other pending links of the user are marked as used too.
+- the user changes the password with [`POST /auth/change-password`](#post-authchange-password)
+
+An expired row keeps `used = 0`, but it is refused because of `expire_at`. SQLite returns `expire_at` without its time zone, so the code reads it as UTC.
+
+`booking_requirement` and `pwd_reset` are on `dev` and `frontend/ui-v2`, not on `main`. `SQLModel.metadata.create_all` creates them at startup in an existing database too.
+
 
 
 ## Backend EndPoint
@@ -265,6 +322,7 @@ The token is signed with `SECRET_KEY` (HS256) and contains:
 | `sub`      | The [`user`](#user) `id`, as a string          |
 | `username` | The username                                   |
 | `role`     | `Hiker`, `Warden` or `Employee`                |
+| `must_change_password` | `true` if the user must change the password before using the other routes (only on `frontend/ui-v2`) |
 | `exp`      | Expiry, 30 minutes after the login by default (`ACCESS_TOKEN_EXPIRE_MINUTES`) |
 
 The server keeps no list of sessions and trusts the content of a signed token until it expires. This means that:
@@ -275,30 +333,50 @@ The server keeps no list of sessions and trusts the content of a signed token un
 
 Routes limited to some roles use the `require_role` dependency, which answers `403` to any other role.
 
+**Forced password change** (only on `frontend/ui-v2`): a hiker created by the staff with [`POST /registerHiker`](#post-registerhiker) gets a password by email and has `must_change_password` set. Until the password is changed, `require_role` answers `403 Password change required` on every route that uses it. Only the routes that don't use `require_role` still work: [`GET /users/me`](#get-usersme), [`POST /auth/change-password`](#post-authchange-password), [`POST /logout`](#post-logout) and the public routes. [`POST /auth/change-password`](#post-authchange-password) clears the flag and sets a new `session` cookie, so the user can go on without logging in again. A client that uses the Bearer token must log in again to get a token without the flag.
+
 Passwords are stored as Argon2 hashes in `password_hash`, never in clear text.
 
 ### Routes
 
-All the routes of the backend, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py), [`routers/availability.py`](../backend/app/routers/availability.py), [`routers/auth.py`](../backend/app/routers/auth.py) and [`routers/tables.py`](../backend/app/routers/tables.py). Click a route for its details, or its errors for the list of errors it can return.
+All the routes of the backend, defined in [`routers/slot.py`](../backend/app/routers/slot.py), [`routers/booking.py`](../backend/app/routers/booking.py), [`routers/availability.py`](../backend/app/routers/availability.py), [`routers/auth.py`](../backend/app/routers/auth.py), [`routers/tables.py`](../backend/app/routers/tables.py) and `routers/user.py`. Click a route for its details, or its errors for the list of errors it can return.
 
-| Method | Route                                        | Login required           | Input                                                               | Success                                                       | Errors                                                                  |
-|--------|----------------------------------------------|--------------------------|---------------------------------------------------------------------|---------------------------------------------------------------|-------------------------------------------------------------------------|
-| GET    | [`/slot`](#get-slot)                         | No                       | -                                                                   | `200` list of [`SlotAvailability`](#slotavailability-object)  | None                                                                    |
-| GET    | [`/slot/{id}`](#get-slotid)                  | No                       | `id` in the path (int)                                              | `200` [`SlotDetail`](#slotdetail-object)                      | [`404`, `422`](#get-slotid-errors)                                      |
-| GET    | [`/availability`](#get-availability)         | No                       | Query: `date`, `time`, `party_size`                                 | `200` [`AvailabilityResponse`](#availabilityresponse-object)  | [`400`, `422`](#get-availability-errors)                                |
-| POST   | [`/booking`](#post-booking)                  | Yes, `Hiker` only        | [`BookingCreate`](#bookingcreate-object) body                       | `201` [`BookingResponse`](#bookingresponse-object)            | [`400`, `401`, `403`, `409`, `422`](#post-booking-errors)               |
-| POST   | [`/register`](#post-register)                | No                       | [`RegisterRequest`](#registerrequest-object) body                   | `201` [`UserPublic`](#userpublic-object)                      | [`409`, `422`](#post-register-errors)                                   |
-| POST   | [`/login`](#post-login)                      | No                       | [`LoginRequest`](#loginrequest-object) body                         | `200` [`UserPublic`](#userpublic-object) and the `session` cookie | [`401`, `422`](#post-login-errors)                                  |
-| POST   | [`/token`](#post-token)                      | No                       | Form data: `username` (the email), `password`                       | `200` [`TokenResponse`](#tokenresponse-object) and the `session` cookie | [`401`, `422`](#post-token-errors)                            |
-| POST   | [`/logout`](#post-logout)                    | No                       | -                                                                   | `204` with no body                                            | None                                                                    |
-| GET    | [`/users/me`](#get-usersme)                  | Yes, any role            | -                                                                   | `200` [`UserPublic`](#userpublic-object)                      | [`401`](#get-usersme-errors)                                            |
-| GET    | [`/tables`](#get-tables)                     | Yes, `Employee` or `Warden` | -                                                                | `200` list of [`Table`](#table-object)                        | [`401`, `403`](#get-tables-errors)                                      |
-| POST   | [`/tables`](#post-tables)                    | Yes, `Employee` or `Warden` | [`TableCreate`](#tablecreate-object) body                        | `201` [`Table`](#table-object)                                | [`401`, `403`, `409`, `422`](#post-tables-errors)                       |
-| GET    | [`/slots`](#get-slots)                       | Yes, `Employee` or `Warden` | Optional query: `date`, `from_date`, `to_date`                   | `200` list of [`Slot`](#slot-object)                          | [`400`, `401`, `403`, `422`](#get-slots-errors)                         |
-| GET    | [`/slots/{id}`](#get-slotsid)                | Yes, `Employee` or `Warden` | `id` in the path (int)                                           | `200` [`SlotDetail`](#slotdetail-object)                      | [`401`, `403`, `404`, `422`](#get-slotsid-errors)                       |
-| POST   | [`/slots`](#post-slots)                      | Yes, `Employee` or `Warden` | [`SlotCreate`](#slotcreate-object) body                          | `201` [`Slot`](#slot-object)                                  | [`401`, `403`, `422`](#post-slots-errors)                               |
-| POST   | [`/slots/{id}/tables`](#post-slotsidtables)  | Yes, `Employee` or `Warden` | `id` in the path, [`SlotTablesAdd`](#slottablesadd-object) body  | `200` [`SlotDetail`](#slotdetail-object)                      | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidtables-errors)  |
-| POST   | [`/slots/{id}/copy`](#post-slotsidcopy)      | Yes, `Employee` or `Warden` | `id` in the path, [`CopySlotRequest`](#copyslotrequest-object) body | `200` [`SlotDetail`](#slotdetail-object)                   | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidcopy-errors)    |
+Not every branch has all the routes. The last column of the table says where each route is:
+
+- **dev**: merged into `dev` (and so also in `frontend/ui-v2`)
+- **ui-v2**: only on `frontend/ui-v2` for now, which is `dev` plus the staff booking, guest and forced password change work. `routers/user.py` exists only there, and there [`GET /users/me`](#get-usersme) moves from `routers/auth.py` to `routers/user.py`.
+
+`main` has an older version of the backend, without the password and cancellation routes.
+
+| Method | Route                                                     | Login required              | Input                                                                   | Success                                                                 | Errors                                                                        | Branch |
+|--------|-----------------------------------------------------------|-----------------------------|-------------------------------------------------------------------------|-------------------------------------------------------------------------|-------------------------------------------------------------------------------|--------|
+| GET    | [`/slot`](#get-slot)                                      | No                          | -                                                                       | `200` list of [`SlotAvailability`](#slotavailability-object)            | None                                                                          | dev    |
+| GET    | [`/slot/{id}`](#get-slotid)                               | No                          | `id` in the path (int)                                                  | `200` [`SlotDetail`](#slotdetail-object)                                | [`404`, `422`](#get-slotid-errors)                                            | dev    |
+| GET    | [`/availability`](#get-availability)                      | No                          | Query: `date`, `time`, `party_size`                                     | `200` [`AvailabilityResponse`](#availabilityresponse-object)            | [`400`, `422`](#get-availability-errors)                                      | dev    |
+| POST   | [`/booking`](#post-booking)                               | Yes, `Hiker` only           | [`BookingCreate`](#bookingcreate-object) body                           | `201` [`BookingResponse`](#bookingresponse-object)                      | [`400`, `401`, `403`, `409`, `422`](#post-booking-errors)                     | dev    |
+| GET    | [`/booking`](#get-booking)                                | Yes, `Hiker` only           | -                                                                       | `200` list of [`BookingDetails`](#bookingdetails-object)                | [`401`, `403`](#get-booking-errors)                                           | dev    |
+| PATCH  | [`/booking/{booking_id}`](#patch-bookingbooking_id)       | Yes, `Hiker` only           | `booking_id` in the path, [`BookingUpdate`](#bookingupdate-object) body | `200` [`BookingResponse`](#bookingresponse-object)                      | [`400`, `401`, `403`, `404`, `409`, `422`](#patch-bookingbooking_id-errors)   | dev    |
+| DELETE | [`/booking/{booking_id}`](#delete-bookingbooking_id)      | Yes, `Hiker` only           | `booking_id` in the path (int)                                          | `204` with no body                                                      | [`401`, `403`, `404`, `422`](#delete-bookingbooking_id-errors)                | dev    |
+| POST   | [`/booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id) | Yes, `Employee` or `Warden` | `hiker_id` in the path, [`BookingCreate`](#bookingcreate-object) body   | `201` [`BookingResponse`](#bookingresponse-object)                      | [`400`, `401`, `403`, `404`, `409`, `422`](#post-bookinghikerhiker_id-errors) | ui-v2  |
+| POST   | [`/register`](#post-register)                             | No                          | [`RegisterRequest`](#registerrequest-object) body                       | `201` [`UserPublic`](#userpublic-object)                                | [`409`, `422`](#post-register-errors)                                         | dev    |
+| POST   | [`/login`](#post-login)                                   | No                          | [`LoginRequest`](#loginrequest-object) body                             | `200` [`UserPublic`](#userpublic-object) and the `session` cookie       | [`401`, `422`](#post-login-errors)                                            | dev    |
+| POST   | [`/token`](#post-token)                                   | No                          | Form data: `username` (the email), `password`                           | `200` [`TokenResponse`](#tokenresponse-object) and the `session` cookie | [`401`, `422`](#post-token-errors)                                            | dev    |
+| POST   | [`/logout`](#post-logout)                                 | No                          | -                                                                       | `204` with no body                                                      | None                                                                          | dev    |
+| GET    | [`/users/me`](#get-usersme)                               | Yes, any role               | -                                                                       | `200` [`UserPublic`](#userpublic-object)                                | [`401`](#get-usersme-errors)                                                  | dev    |
+| POST   | [`/auth/forgot-password`](#post-authforgot-password)      | No                          | Query: `user_email`                                                     | `201` with a message                                                    | [`422`](#post-authforgot-password-errors)                                     | dev    |
+| POST   | [`/auth/reset-password`](#post-authreset-password)        | No                          | [`ResetPasswordRequest`](#resetpasswordrequest-object) body             | `204` with no body                                                      | [`400`, `422`](#post-authreset-password-errors)                               | dev    |
+| POST   | [`/auth/change-password`](#post-authchange-password)      | Yes, any role               | [`ChangePasswordRequest`](#changepasswordrequest-object) body           | `204` with no body (and a new `session` cookie on ui-v2)                | [`400`, `401`, `422`](#post-authchange-password-errors)                       | dev    |
+| GET    | [`/profileCheck`](#get-profilecheck)                      | Yes, `Employee` or `Warden` | Query: `email`                                                          | `200` [`UserBookingCreation`](#userbookingcreation-object)              | [`401`, `403`, `404`, `422`](#get-profilecheck-errors)                        | ui-v2  |
+| POST   | [`/registerHiker`](#post-registerhiker)                   | Yes, `Employee` or `Warden` | [`RegisterRequestEmployee`](#registerrequestemployee-object) body       | `201` [`UserBookingCreation`](#userbookingcreation-object)              | [`401`, `403`, `409`, `422`](#post-registerhiker-errors)                      | ui-v2  |
+| POST   | [`/registerGuest`](#post-registerguest)                   | Yes, `Employee` or `Warden` | [`Guest`](#guest-object) body                                           | `201` [`UserBookingCreation`](#userbookingcreation-object)              | [`401`, `403`, `422`](#post-registerguest-errors)                             | ui-v2  |
+| DELETE | [`/guests/{guest_id}`](#delete-guestsguest_id)            | Yes, `Employee` or `Warden` | `guest_id` in the path (int)                                            | `204` with no body                                                      | [`401`, `403`, `404`, `409`, `422`](#delete-guestsguest_id-errors)            | ui-v2  |
+| GET    | [`/tables`](#get-tables)                                  | Yes, `Employee` or `Warden` | -                                                                       | `200` list of [`Table`](#table-object)                                  | [`401`, `403`](#get-tables-errors)                                            | dev    |
+| POST   | [`/tables`](#post-tables)                                 | Yes, `Employee` or `Warden` | [`TableCreate`](#tablecreate-object) body                               | `201` [`Table`](#table-object)                                          | [`401`, `403`, `409`, `422`](#post-tables-errors)                             | dev    |
+| GET    | [`/slots`](#get-slots)                                    | Yes, `Employee` or `Warden` | Optional query: `date`, `from_date`, `to_date`                          | `200` list of [`Slot`](#slot-object)                                    | [`400`, `401`, `403`, `422`](#get-slots-errors)                               | dev    |
+| GET    | [`/slots/{id}`](#get-slotsid)                             | Yes, `Employee` or `Warden` | `id` in the path (int)                                                  | `200` [`SlotDetail`](#slotdetail-object)                                | [`401`, `403`, `404`, `422`](#get-slotsid-errors)                             | dev    |
+| POST   | [`/slots`](#post-slots)                                   | Yes, `Employee` or `Warden` | [`SlotCreate`](#slotcreate-object) body                                 | `201` [`Slot`](#slot-object)                                            | [`401`, `403`, `422`](#post-slots-errors)                                     | dev    |
+| POST   | [`/slots/{id}/tables`](#post-slotsidtables)               | Yes, `Employee` or `Warden` | `id` in the path, [`SlotTablesAdd`](#slottablesadd-object) body         | `200` [`SlotDetail`](#slotdetail-object)                                | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidtables-errors)        | dev    |
+| POST   | [`/slots/{id}/copy`](#post-slotsidcopy)                   | Yes, `Employee` or `Warden` | `id` in the path, [`CopySlotRequest`](#copyslotrequest-object) body     | `200` [`SlotDetail`](#slotdetail-object)                                | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidcopy-errors)          | dev    |
 
 The `/slot` routes are public and are used by the hikers to choose a slot. The `/slots` routes are for the hut staff and show every slot, also the full, closed or past ones.
 
@@ -317,6 +395,27 @@ The `/slot` routes are public and are used by the hikers to choose a slot. The `
 4. Give the slot its tables, either by listing them with [`POST /slots/{id}/tables`](#post-slotsidtables) or by copying them from another slot with [`POST /slots/{id}/copy`](#post-slotsidcopy).
 
 A slot with no tables has no free seats, so it doesn't appear in [`GET /slot`](#get-slot) and hikers can't book it.
+
+**How a hiker manages their bookings**
+
+1. Log in as the `Hiker`.
+2. Call [`GET /booking`](#get-booking) to see the bookings, with their `id`.
+3. Change one with [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), at least 48 hours before its slot, or cancel it with [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id). Each change and cancellation is confirmed by email.
+
+**How the staff book for a hiker** (only on `frontend/ui-v2`), for example after a phone call
+
+1. Log in as `Employee` or `Warden`.
+2. Look for the hiker's account with [`GET /profileCheck`](#get-profilecheck) and the hiker's email.
+3. If there is none, create it: [`POST /registerHiker`](#post-registerhiker) makes an account and emails its password to the hiker, while [`POST /registerGuest`](#post-registerguest) adds a guest with no email and no login.
+4. Book with [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id), using the `id` from step 2 or 3.
+
+**How a user recovers a forgotten password**
+
+1. Call [`POST /auth/forgot-password`](#post-authforgot-password) with the email. If it is registered, the user gets an email with a link to `<FRONTEND_URL>/reset-password?token=<token>`.
+2. The frontend page reads the `token` from the link and sends it with the new password to [`POST /auth/reset-password`](#post-authreset-password), within 10 minutes (`PWD_RESET_EXPIRE_MINUTES`).
+3. Log in with the new password.
+
+A logged-in user who knows the current password uses [`POST /auth/change-password`](#post-authchange-password) instead.
 
 The Postman collection [`MH_E2E_slots.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_slots.postman_collection.json) runs the whole procedure as the warden: it creates a slot with tables 1 to 6, then creates four outdoor tables, copies the slot into a second one and adds the outdoor tables to it.
 
@@ -399,6 +498,59 @@ For example, a party of 11 with tables 3 and 4 fully free (6 seats each) gets 6 
 
 Use a newly registered hiker: the sample hikers already have a booking in every sample slot, so they always get a `409`. The Postman collection [`MH_E2E_booking.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_booking.postman_collection.json) runs the whole procedure.
 
+After the commit, a confirmation email (`Booking confirmation <reference>`) is sent to the hiker in the background. If it can't be sent, the error is only logged and the booking stays.
+
+#### `GET /booking`
+
+Returns the bookings of the logged-in hiker as a list of [`BookingDetails`](#bookingdetails-object), each with its tables and requirements. Past bookings are included, and the list has no set order.
+
+Only the hiker's own bookings are returned. A booking with no [`booking_table`](#booking_table) row would be left out, but every booking made through the API has at least one.
+
+On `dev` the route doesn't fill `slot_date`, which [`BookingDetails`](#bookingdetails-object) requires, so it fails with a `500` when the hiker has at least one booking. `frontend/ui-v2` fixes it.
+
+Try it: <http://127.0.0.1:8000/booking> (log in as a hiker first)
+
+#### `PATCH /booking/{booking_id}`
+
+Changes a booking of the logged-in hiker from a [`BookingUpdate`](#bookingupdate-object) and answers `200` with the updated [`BookingResponse`](#bookingresponse-object). All the fields of the body are optional:
+
+- `date` and `time` move the booking to another slot. They must be sent together.
+- `party_size` changes the number of people.
+- `requirements` replaces all the requirements of the booking. `[]` removes them all, and leaving the field out (or `null`) keeps the current ones.
+
+The request is refused when:
+
+- the booking doesn't exist or belongs to another hiker (both get the same `404`)
+- the booked slot starts in less than 48 hours
+- only one of `date` and `time` is sent
+- the new slot doesn't exist, starts in less than two hours or starts in less than 48 hours
+- the hiker already has another booking in the new slot
+- the slot doesn't have enough free seats for the party
+
+The errors are listed in [`PATCH /booking/{booking_id}` errors](#patch-bookingbooking_id-errors), in the order they are checked.
+
+The current seats are released before the new ones are assigned, with the rules of **How tables are assigned** in [`POST /booking`](#post-booking). The party can keep its own seats, but it may also get other tables, even when only the requirements change or the body is `{}`. Everything happens in one transaction, so a refused change keeps the booking as it was.
+
+After the commit, a `Booking changed <reference>` email is sent with the new details. The Postman collection `MH_E2E_change_booking.postman_collection.json` on `frontend/ui-v2` tests this route.
+
+#### `DELETE /booking/{booking_id}`
+
+Cancels a booking of the logged-in hiker and answers `204` with no body. The seats go back to the slot, and the booking and its requirements are deleted. A booking that doesn't exist or belongs to another hiker gets a [`404`](#delete-bookingbooking_id-errors).
+
+Unlike [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), there is no 48 hour limit: a booking can be cancelled at any time, also after its slot.
+
+After the commit, a `Booking cancelled <reference>` email is sent to the hiker.
+
+#### `POST /booking/hiker/{hiker_id}`
+
+> Only on `frontend/ui-v2`.
+
+Lets an `Employee` or a `Warden` book for a hiker, for example after a phone call. The body is a [`BookingCreate`](#bookingcreate-object) and the answer is a `201` with a [`BookingResponse`](#bookingresponse-object), like [`POST /booking`](#post-booking). The two routes share the same code, so the checks, the table assignment and the confirmation email are the same.
+
+`hiker_id` is the `id` of a [`user`](#user) with the `Hiker` role, found with [`GET /profileCheck`](#get-profilecheck) or created with [`POST /registerHiker`](#post-registerhiker) or [`POST /registerGuest`](#post-registerguest). Any other id gets a [`404`](#post-bookinghikerhiker_id-errors). For a guest no email is sent, because a guest has no address.
+
+The booking belongs to the hiker. The staff can't change or cancel it afterwards, because [`PATCH`](#patch-bookingbooking_id) and [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id) only accept the hiker who owns the booking.
+
 #### `POST /register`
 
 Creates a new account from a [`RegisterRequest`](#registerrequest-object) and answers `201` with a [`UserPublic`](#userpublic-object). It doesn't log the user in, so a [`POST /login`](#post-login) is needed afterwards.
@@ -442,11 +594,86 @@ It doesn't cancel the token: a client that kept a copy can use it as a Bearer to
 
 Returns the logged-in user as a [`UserPublic`](#userpublic-object). Any role can call it, so the client can use it to check who is logged in. It answers a [`401`](#get-usersme-errors) if there is no valid token.
 
-The answer is read from the token, not from the database, so it may be out of date. See [Authentication](#authentication).
+The answer is read from the token, not from the database, so it may be out of date. See [Authentication](#authentication). On `frontend/ui-v2` it also has `must_change_password`, and it keeps working while the password change is pending, so the frontend can send the user to the change-password page.
 
 Try it: <http://127.0.0.1:8000/users/me> (log in first)
 
 The Postman collection [`MH_E2E_auth.postman_collection.json`](../backend/backend_test/e2e/MH_E2E_auth.postman_collection.json) runs register, login, logout and `GET /users/me` in order.
+
+#### `POST /auth/forgot-password`
+
+Starts a password reset. The email is sent as the query parameter `user_email`, for example `/auth/forgot-password?user_email=anna.rossi@mail.example`, not in a body. It doesn't need a login, and the email is not case-sensitive.
+
+The answer is always a `201` with the same body, whether the email is registered or not, so it doesn't reveal which emails exist:
+
+```json
+{
+  "detail": "If the email is registered, a reset link has been sent"
+}
+```
+
+If the email is registered:
+
+1. A random token is created. Only its SHA-256 hash is saved, in the `pwd_reset` table, with an expiry 10 minutes later (`PWD_RESET_EXPIRE_MINUTES`).
+2. After the commit, a `Password reset` email with the link `<FRONTEND_URL>/reset-password?token=<token>` is sent in the background. If it can't be sent, the error is only logged.
+
+Asking again creates a new link, and the older links keep working until one of them is used or they expire.
+
+#### `POST /auth/reset-password`
+
+Sets a new password from the token of the reset email, sent in a [`ResetPasswordRequest`](#resetpasswordrequest-object), and answers `204` with no body. It doesn't need a login and it doesn't log the user in.
+
+An unknown, used or expired token gets the same [`400`](#post-authreset-password-errors), so the user has to ask for a new link. When the reset works:
+
+- every other pending link of the user stops working too
+- on `frontend/ui-v2`, `must_change_password` is cleared, because the user chose the password
+
+#### `POST /auth/change-password`
+
+Changes the password of the logged-in user from a [`ChangePasswordRequest`](#changepasswordrequest-object) and answers `204` with no body. Any role can call it.
+
+`current_password` must be right, or the answer is a [`400`](#post-authchange-password-errors). This stops someone from changing the password on a session left open. The new password is not compared with the old one, so it can be the same.
+
+When it works, every pending reset link of the user stops working. On `frontend/ui-v2` it also:
+
+- clears `must_change_password`
+- sets a new `session` cookie without the flag, so the other routes work right away (see [Authentication](#authentication))
+
+#### `GET /profileCheck`
+
+> Only on `frontend/ui-v2`.
+
+Lets the staff check whether a hiker has an account, from the query parameter `email`, for example `/profileCheck?email=anna.rossi@mail.example`. The answer is a `200` with a [`UserBookingCreation`](#userbookingcreation-object), whose `id` is the one to use in [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id).
+
+The email is trimmed and lowercased first. Only users with the `Hiker` role are found: a staff email gets a [`404`](#get-profilecheck-errors) like an unknown one. Guests are never found, because they have no email.
+
+#### `POST /registerHiker`
+
+> Only on `frontend/ui-v2`.
+
+Lets the staff create an account for a hiker from a [`RegisterRequestEmployee`](#registerrequestemployee-object), and answers `201` with a [`UserBookingCreation`](#userbookingcreation-object). It works like [`POST /register`](#post-register) (same `username`, lowercase email, trimmed fields, `409` for an email already used), except for the password:
+
+- the server generates a random password and saves only its hash
+- after the commit, a `Your Mountain Hut account` email with the account details, the password and the login link (`<FRONTEND_URL>/login`) is sent to the hiker. If it can't be sent, the error is only logged and the account stays.
+- `must_change_password` is set, so the hiker must change the password at the first login (see [Authentication](#authentication))
+
+#### `POST /registerGuest`
+
+> Only on `frontend/ui-v2`.
+
+Lets the staff add a hiker who has no account, only to put them in a booking. The body is a [`Guest`](#guest-object), and the answer is a `201` with a [`UserBookingCreation`](#userbookingcreation-object) that has `email: null` and `is_guest: true`.
+
+The guest is saved as a [`user`](#user) with the `Hiker` role, no email and `is_guest` set. Their `password_hash` holds the hash of a random password that is never shown, so nobody can log in as the guest. No email is sent.
+
+Each call creates a new guest: the server doesn't check whether the same person was already added.
+
+#### `DELETE /guests/{guest_id}`
+
+> Only on `frontend/ui-v2`.
+
+Lets the staff remove a guest created with [`POST /registerGuest`](#post-registerguest), and answers `204` with no body. Only guests can be removed: an id that is not a guest gets a [`404`](#delete-guestsguest_id-errors), so hikers with an account and staff are never touched.
+
+A guest who still has bookings gets a [`409`](#delete-guestsguest_id-errors). No route can cancel a guest's booking at the moment, because [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id) only accepts the hiker who owns the booking, and a guest can't log in. So a guest with bookings can't be removed through the API.
 
 #### `GET /tables`
 
@@ -530,7 +757,7 @@ If the source has no tables, nothing is copied and the answer is still a `200`.
 
 ### Objects
 
-The objects used by the routes, defined in [`models/table.py`](../backend/app/models/table.py), [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
+The objects used by the routes, defined in [`models/table.py`](../backend/app/models/table.py), [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/booking_requirement.py`](../backend/app/models/booking_requirement.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
 
 | Object                                         | Used by                                      | Built from                                     |
 |------------------------------------------------|----------------------------------------------|------------------------------------------------|
@@ -543,15 +770,23 @@ The objects used by the routes, defined in [`models/table.py`](../backend/app/mo
 | [`SlotAvailability`](#slotavailability-object) | Returned by [`GET /slot`](#get-slot)         | [`slot`](#slot), [`slot_table`](#slot_table), [`table`](#table) |
 | [`SlotDetail`](#slotdetail-object)             | Returned by [`GET /slot/{id}`](#get-slotid), [`GET /slots/{id}`](#get-slotsid), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy) | [`slot`](#slot) |
 | [`SlotTableInfo`](#slottableinfo-object)       | Inside [`SlotDetail`](#slotdetail-object)    | [`slot_table`](#slot_table), [`table`](#table) |
-| [`BookingCreate`](#bookingcreate-object)       | Body of [`POST /booking`](#post-booking)     | -                                              |
-| [`BookingResponse`](#bookingresponse-object)   | Returned by [`POST /booking`](#post-booking) | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table) |
+| [`BookingCreate`](#bookingcreate-object)       | Body of [`POST /booking`](#post-booking), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id) | -  |
+| [`BookingRequirementCreate`](#bookingrequirementcreate-object) | Inside [`BookingCreate`](#bookingcreate-object), [`BookingUpdate`](#bookingupdate-object), [`BookingDetails`](#bookingdetails-object) | [`booking_requirement`](#booking_requirement) |
+| [`BookingUpdate`](#bookingupdate-object)       | Body of [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id) | -                         |
+| [`BookingResponse`](#bookingresponse-object)   | Returned by [`POST /booking`](#post-booking), [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id) | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table) |
+| [`BookingDetails`](#bookingdetails-object)     | Returned by [`GET /booking`](#get-booking)   | [`booking`](#booking), [`booking_table`](#booking_table), [`slot`](#slot), [`table`](#table), [`booking_requirement`](#booking_requirement) |
 | [`AvailabilityResponse`](#availabilityresponse-object) | Returned by [`GET /availability`](#get-availability) | [`slot_table`](#slot_table), [`table`](#table) |
 | [`RegisterRequest`](#registerrequest-object)   | Body of [`POST /register`](#post-register)   | -                                              |
+| [`RegisterRequestEmployee`](#registerrequestemployee-object) | Body of [`POST /registerHiker`](#post-registerhiker) | -                            |
+| [`Guest`](#guest-object)                       | Body of [`POST /registerGuest`](#post-registerguest) | -                                      |
 | [`LoginRequest`](#loginrequest-object)         | Body of [`POST /login`](#post-login)         | -                                              |
 | [`UserPublic`](#userpublic-object)             | Returned by [`POST /register`](#post-register), [`POST /login`](#post-login), [`GET /users/me`](#get-usersme) | [`user`](#user), or the token for [`GET /users/me`](#get-usersme) |
+| [`UserBookingCreation`](#userbookingcreation-object) | Returned by [`GET /profileCheck`](#get-profilecheck), [`POST /registerHiker`](#post-registerhiker), [`POST /registerGuest`](#post-registerguest) | [`user`](#user) |
 | [`TokenResponse`](#tokenresponse-object)       | Returned by [`POST /token`](#post-token)     | The token                                      |
+| [`ResetPasswordRequest`](#resetpasswordrequest-object) | Body of [`POST /auth/reset-password`](#post-authreset-password) | -                    |
+| [`ChangePasswordRequest`](#changepasswordrequest-object) | Body of [`POST /auth/change-password`](#post-authchange-password) | -                |
 
-The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object), [`BookingResponse`](#bookingresponse-object) and the query of [`GET /availability`](#get-availability) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) and [`Slot`](#slot-object) use UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
+The routes don't use the same time zone. [`SlotAvailability`](#slotavailability-object), [`BookingCreate`](#bookingcreate-object), [`BookingUpdate`](#bookingupdate-object), [`BookingResponse`](#bookingresponse-object), [`BookingDetails`](#bookingdetails-object) and the query of [`GET /availability`](#get-availability) use the hut's local time (`Europe/Rome`). [`SlotDetail`](#slotdetail-object) and [`Slot`](#slot-object) use UTC, so the slot at `12:00:00` in `GET /slot` starts at `11:00:00Z` in `GET /slot/{id}` during winter time.
 
 #### `Table` object
 
@@ -713,25 +948,57 @@ One table offered in the slot, with how many of its seats are still free.
 
 #### `BookingCreate` object
 
-The body of [`POST /booking`](#post-booking).
+The body of [`POST /booking`](#post-booking) and [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id).
 
-| Field        | Type | Description                                                                |
-|--------------|------|----------------------------------------------------------------------------|
-| `date`       | date | Day of the slot, in the hut's local time                                   |
-| `time`       | time | Start of the slot, in the hut's local time (`12:00` and `12:00:00` both work) |
-| `party_size` | int  | Number of people, greater than `0`                                         |
+| Field          | Type | Required | Description                                                                |
+|----------------|------|----------|----------------------------------------------------------------------------|
+| `date`         | date | Yes      | Day of the slot, in the hut's local time                                   |
+| `time`         | time | Yes      | Start of the slot, in the hut's local time (`12:00` and `12:00:00` both work) |
+| `party_size`   | int  | Yes      | Number of people, greater than `0`                                         |
+| `requirements` | list of [`BookingRequirementCreate`](#bookingrequirementcreate-object) | No | Needs of the party, such as allergies. Empty by default. They are saved in the [`booking_requirement`](#booking_requirement) table and shown in the confirmation email |
 
 ```json
 {
   "date": "2026-10-31",
   "time": "13:30:00",
-  "party_size": 11
+  "party_size": 11,
+  "requirements": [
+    { "allergies": true, "description": "One person is allergic to nuts" }
+  ]
+}
+```
+
+#### `BookingRequirementCreate` object
+
+One need of the party.
+
+| Field         | Type           | Required | Description                                  |
+|---------------|----------------|----------|----------------------------------------------|
+| `allergies`   | bool           | No       | `true` if it is about an allergy. Default `false` |
+| `description` | string or null | No       | Free text                                    |
+
+#### `BookingUpdate` object
+
+The body of [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id). Every field is optional, and a field left out keeps its current value.
+
+| Field          | Type                                                              | Description                                                         |
+|----------------|-------------------------------------------------------------------|---------------------------------------------------------------------|
+| `date`         | date or null                                                      | Day of the new slot, in the hut's local time. Must be sent with `time` |
+| `time`         | time or null                                                      | Start of the new slot, in the hut's local time. Must be sent with `date` |
+| `party_size`   | int or null                                                       | New number of people, greater than `0`                              |
+| `requirements` | list of [`BookingRequirementCreate`](#bookingrequirementcreate-object) or null | Replaces all the requirements. `[]` removes them all     |
+
+```json
+{
+  "date": "2026-11-08",
+  "time": "12:00:00",
+  "party_size": 4
 }
 ```
 
 #### `BookingResponse` object
 
-The booking just created, with the tables assigned to the party. It is built by `booking_response` in [`services/booking.py`](../backend/app/services/booking.py), not by a model, so `/docs` doesn't show its fields.
+The booking just created or changed, with the tables assigned to the party. It doesn't contain the requirements. It is built by `booking_response` in [`services/booking.py`](../backend/app/services/booking.py), not by a model, so `/docs` doesn't show its fields.
 
 | Field             | Type          | Description                                      |
 |-------------------|---------------|--------------------------------------------------|
@@ -752,6 +1019,39 @@ The booking just created, with the tables assigned to the party. It is built by 
   "tables": [
     { "number": 3, "seats": 6 },
     { "number": 4, "seats": 5 }
+  ]
+}
+```
+
+#### `BookingDetails` object
+
+One booking of the hiker, as returned by [`GET /booking`](#get-booking). Unlike [`BookingResponse`](#bookingresponse-object), it has the end of the slot and the requirements.
+
+| Field             | Type                                                              | Description                                     |
+|-------------------|-------------------------------------------------------------------|-------------------------------------------------|
+| `id`              | int                                                               | Booking identifier, used by [`PATCH`](#patch-bookingbooking_id) and [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id) |
+| `party_size`      | int                                                               | Number of people                                |
+| `slot_date`       | date                                                              | Day of the slot, in the hut's local time        |
+| `slot_time_start` | time                                                              | Start of the slot, in the hut's local time      |
+| `slot_time_end`   | time                                                              | End of the slot, in the hut's local time        |
+| `tables`          | list                                                              | The tables assigned, one item per table         |
+| `tables[].number` | int                                                               | `number` of the [`table`](#table), not its `id` |
+| `tables[].seats`  | int                                                               | Seats assigned to the party on that table       |
+| `requirements`    | list of [`BookingRequirementCreate`](#bookingrequirementcreate-object) | Needs of the party, possibly empty         |
+
+```json
+{
+  "id": 11,
+  "party_size": 11,
+  "slot_date": "2026-10-31",
+  "slot_time_start": "13:30:00",
+  "slot_time_end": "15:00:00",
+  "tables": [
+    { "number": 3, "seats": 6 },
+    { "number": 4, "seats": 5 }
+  ],
+  "requirements": [
+    { "allergies": true, "description": "One person is allergic to nuts" }
   ]
 }
 ```
@@ -812,6 +1112,50 @@ The body of [`POST /register`](#post-register).
 }
 ```
 
+#### `RegisterRequestEmployee` object
+
+> Only on `frontend/ui-v2`.
+
+The body of [`POST /registerHiker`](#post-registerhiker). It is a [`RegisterRequest`](#registerrequest-object) without `password`, because the server generates it.
+
+| Field               | Type           | Required | Description                         |
+|---------------------|----------------|----------|-------------------------------------|
+| `name`              | string         | Yes      | First name, at least 1 character    |
+| `surname`           | string         | Yes      | Last name, at least 1 character     |
+| `email`             | string         | Yes      | A valid email address               |
+| `mobile_number`     | string         | Yes      | Mobile number, at least 1 character |
+| `notes`             | string or null | No       | Free notes                          |
+| `emergency_contact` | string or null | No       | Emergency contact                   |
+
+```json
+{
+  "name": "Mario",
+  "surname": "Verdi",
+  "email": "mario.verdi@mail.example",
+  "mobile_number": "+39 333 111 2222"
+}
+```
+
+#### `Guest` object
+
+> Only on `frontend/ui-v2`.
+
+The body of [`POST /registerGuest`](#post-registerguest). All the fields are required. Their length is not checked, so an empty string is accepted.
+
+| Field           | Type   | Description   |
+|-----------------|--------|---------------|
+| `name`          | string | First name    |
+| `surname`       | string | Last name     |
+| `mobile_number` | string | Mobile number |
+
+```json
+{
+  "name": "Lucia",
+  "surname": "Verdi",
+  "mobile_number": "+39 333 333 4444"
+}
+```
+
 #### `LoginRequest` object
 
 The body of [`POST /login`](#post-login).
@@ -836,11 +1180,35 @@ What the API shows about a user. It never contains the email, the id or the pass
 |------------|--------|---------------------------------|
 | `username` | string | Username                        |
 | `role`     | string | `Hiker`, `Warden` or `Employee` |
+| `must_change_password` | bool | `true` if the user must change the password first (only on `frontend/ui-v2`) |
 
 ```json
 {
   "username": "anna.rossi",
-  "role": "Hiker"
+  "role": "Hiker",
+  "must_change_password": false
+}
+```
+
+#### `UserBookingCreation` object
+
+> Only on `frontend/ui-v2`.
+
+What the staff routes show about a hiker they can book for.
+
+| Field      | Type           | Description                                                         |
+|------------|----------------|---------------------------------------------------------------------|
+| `id`       | int            | Id of the [`user`](#user), to use as `hiker_id` in [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id) |
+| `email`    | string or null | Email address. `null` for a guest                                   |
+| `role`     | string         | Always `Hiker` for these routes                                     |
+| `is_guest` | bool           | `true` for a guest, who has no account                              |
+
+```json
+{
+  "id": 5,
+  "email": "mario.verdi@mail.example",
+  "role": "Hiker",
+  "is_guest": false
 }
 ```
 
@@ -860,11 +1228,45 @@ The answer of [`POST /token`](#post-token). It is built directly in [`routers/au
 }
 ```
 
+#### `ResetPasswordRequest` object
+
+The body of [`POST /auth/reset-password`](#post-authreset-password).
+
+| Field          | Type   | Description                                         |
+|----------------|--------|-----------------------------------------------------|
+| `token`        | string | The `token` of the reset link, at least 1 character |
+| `new_password` | string | The new password, at least 8 characters             |
+
+```json
+{
+  "token": "<token from the email>",
+  "new_password": "a-new-long-password"
+}
+```
+
+#### `ChangePasswordRequest` object
+
+The body of [`POST /auth/change-password`](#post-authchange-password).
+
+| Field              | Type   | Description                                  |
+|--------------------|--------|----------------------------------------------|
+| `current_password` | string | The current password, at least 1 character   |
+| `new_password`     | string | The new password, at least 8 characters      |
+
+```json
+{
+  "current_password": "hiker",
+  "new_password": "a-new-long-password"
+}
+```
+
 ### Errors
 
 The errors each route can return, in the order they are checked: a request with several problems gets only the first error of its list.
 
-The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>" }`. For the `422`, `detail` is the list of the invalid fields and the message is written by FastAPI. Each `401` also has the header `WWW-Authenticate: Bearer`, except `User not found` on [`POST /booking`](#post-booking-errors).
+The `400`, `401`, `403`, `404` and `409` are returned as `{ "detail": "<message>" }`. For the `422`, `detail` is the list of the invalid fields and the message is written by FastAPI. Each `401` also has the header `WWW-Authenticate: Bearer`, except `User not found` on the `/booking` routes.
+
+On `frontend/ui-v2`, every route limited to some roles can also answer `403 Password change required` when the token has `must_change_password` (see [Authentication](#authentication)). It is checked just before `Not enough permissions` and is not repeated in the tables below.
 
 [`GET /slot`](#get-slot) and [`POST /logout`](#post-logout) never return an error.
 
@@ -899,6 +1301,58 @@ A party that doesn't fit is not an error: the answer is a `200` with `available:
 | `409` | `A booking already exists for this slot`                  | The hiker already has a booking for that slot                 |
 | `409` | `There are not enough seats for this party`               | The slot doesn't have enough free seats                       |
 
+#### `GET /booking` errors
+
+| Code  | Message                    | When                                             |
+|-------|----------------------------|--------------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request                |
+| `401` | `Invalid or expired token` | The cookie or token is not valid                 |
+| `403` | `Not enough permissions`   | The user is not a `Hiker`                        |
+| `401` | `User not found`           | The token is valid but its user no longer exists |
+
+#### `PATCH /booking/{booking_id}` errors
+
+| Code  | Message                                                          | When                                                               |
+|-------|------------------------------------------------------------------|--------------------------------------------------------------------|
+| `401` | `Not authenticated`                                              | No cookie or token in the request                                  |
+| `401` | `Invalid or expired token`                                       | The cookie or token is not valid                                   |
+| `403` | `Not enough permissions`                                         | The user is not a `Hiker`                                          |
+| `422` | Automatic                                                        | `booking_id` is not an integer, a field is not valid, or `party_size` is `0` or less |
+| `401` | `User not found`                                                 | The token is valid but its user no longer exists                   |
+| `404` | `Booking not found`                                              | No booking with that id, or it belongs to another hiker            |
+| `400` | `Booking changes must be made at least 48 hours before the slot` | The booked slot starts in less than 48 hours                       |
+| `400` | `Date and time must be changed together`                         | Only one of `date` and `time` is sent                              |
+| `400` | `Slot not available`                                             | No slot starts at the new `date` and `time`                        |
+| `400` | `Bookings are closed less than two hours before the slot`        | The new slot starts in less than two hours                         |
+| `400` | `Booking changes must be made at least 48 hours before the slot` | The new slot starts in less than 48 hours                          |
+| `409` | `A booking already exists for this slot`                         | The hiker already has another booking in the new slot              |
+| `409` | `There are not enough seats for this party`                      | The slot doesn't have enough free seats                            |
+
+#### `DELETE /booking/{booking_id}` errors
+
+| Code  | Message                    | When                                                    |
+|-------|----------------------------|---------------------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request                       |
+| `401` | `Invalid or expired token` | The cookie or token is not valid                        |
+| `403` | `Not enough permissions`   | The user is not a `Hiker`                               |
+| `422` | Automatic                  | `booking_id` is not an integer                          |
+| `401` | `User not found`           | The token is valid but its user no longer exists        |
+| `404` | `Booking not found`        | No booking with that id, or it belongs to another hiker |
+
+#### `POST /booking/hiker/{hiker_id}` errors
+
+| Code  | Message                                                   | When                                                          |
+|-------|-----------------------------------------------------------|---------------------------------------------------------------|
+| `401` | `Not authenticated`                                       | No cookie or token in the request                             |
+| `401` | `Invalid or expired token`                                | The cookie or token is not valid                              |
+| `403` | `Not enough permissions`                                  | The user is not an `Employee` or a `Warden`                   |
+| `422` | Automatic                                                 | `hiker_id` is not an integer, a field is missing or invalid, or `party_size` is `0` or less |
+| `404` | `Hiker not found`                                         | No user with that id, or the user is not a `Hiker`            |
+| `400` | `Slot not available`                                      | No slot starts at that `date` and `time`                      |
+| `400` | `Bookings are closed less than two hours before the slot` | The slot starts less than two hours from now                  |
+| `409` | `A booking already exists for this slot`                  | The hiker already has a booking for that slot                 |
+| `409` | `There are not enough seats for this party`               | The slot doesn't have enough free seats                       |
+
 #### `POST /register` errors
 
 | Code  | Message                    | When                                                                                     |
@@ -926,6 +1380,70 @@ A party that doesn't fit is not an error: the answer is a `200` with `available:
 |-------|----------------------------|-----------------------------------|
 | `401` | `Not authenticated`        | No cookie or token in the request |
 | `401` | `Invalid or expired token` | The cookie or token is not valid  |
+
+#### `POST /auth/forgot-password` errors
+
+An unknown email is not an error: the answer is the same `201`.
+
+| Code  | Message   | When                       |
+|-------|-----------|----------------------------|
+| `422` | Automatic | `user_email` is missing    |
+
+#### `POST /auth/reset-password` errors
+
+| Code  | Message                         | When                                                        |
+|-------|---------------------------------|-------------------------------------------------------------|
+| `422` | Automatic                       | A field is missing, `token` is empty, or `new_password` is shorter than 8 characters |
+| `400` | `Invalid or expired reset link` | The token is unknown, already used or expired, or its user no longer exists |
+
+#### `POST /auth/change-password` errors
+
+| Code  | Message                      | When                                                        |
+|-------|------------------------------|-------------------------------------------------------------|
+| `401` | `Not authenticated`          | No cookie or token in the request                           |
+| `401` | `Invalid or expired token`   | The cookie or token is not valid                            |
+| `422` | Automatic                    | A field is missing, `current_password` is empty, or `new_password` is shorter than 8 characters |
+| `400` | `Current password is wrong`  | `current_password` is wrong, or the user no longer exists   |
+
+#### `GET /profileCheck` errors
+
+| Code  | Message                    | When                                        |
+|-------|----------------------------|---------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request           |
+| `401` | `Invalid or expired token` | The cookie or token is not valid            |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden` |
+| `422` | Automatic                  | `email` is missing                          |
+| `404` | `hiker not found`          | No `Hiker` has that email                   |
+
+#### `POST /registerHiker` errors
+
+| Code  | Message                    | When                                                         |
+|-------|----------------------------|--------------------------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request                            |
+| `401` | `Invalid or expired token` | The cookie or token is not valid                             |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden`                  |
+| `422` | Automatic                  | A required field is missing or empty, or the email is not valid |
+| `409` | `Email already registered` | An account already uses that email                           |
+
+#### `POST /registerGuest` errors
+
+| Code  | Message                    | When                                        |
+|-------|----------------------------|---------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request           |
+| `401` | `Invalid or expired token` | The cookie or token is not valid            |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden` |
+| `422` | Automatic                  | A field is missing                          |
+
+#### `DELETE /guests/{guest_id}` errors
+
+| Code  | Message                    | When                                        |
+|-------|----------------------------|---------------------------------------------|
+| `401` | `Not authenticated`        | No cookie or token in the request           |
+| `401` | `Invalid or expired token` | The cookie or token is not valid            |
+| `403` | `Not enough permissions`   | The user is not an `Employee` or a `Warden` |
+| `422` | Automatic                  | `guest_id` is not an integer                |
+| `404` | `guest not found`          | No user with that id, or the user is not a guest |
+| `409` | `guest still has bookings` | The guest still has at least one booking    |
 
 #### `GET /tables` errors
 
