@@ -7,8 +7,20 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import app.services.notification as notification
-from app.services.email_template import format_long_date, render_html
-from app.services.notification import BookingConfirmation, compose_email, send_booking_confirmation
+from app.services.email_template import (
+    format_long_date,
+    render_account_html,
+    render_cancellation_html,
+    render_change_html,
+    render_html,
+    render_password_reset_html,
+)
+from app.services.notification import (
+    AccountCreated,
+    BookingConfirmation,
+    compose_email,
+    send_booking_confirmation,
+)
 
 HUT_TIMEZONE = ZoneInfo("Europe/Rome")
 
@@ -149,3 +161,62 @@ def test_plain_text_is_still_sent_when_the_html_cannot_be_built(smtp, confirmati
     assert sent.get_content_type() == "text/plain"
     assert "BK-000042" in sent.get_content()
     assert "HTML version of BK-000042 not built" in caplog.text
+
+
+def test_account_html_contains_details_and_is_escaped():
+    account = AccountCreated(
+        recipient="anna@example.com",
+        name="<Anna>",
+        surname="Rossi",
+        username="anna.rossi",
+        mobile_number="+39 333",
+        password="<temp-pass>",
+    )
+
+    html = render_account_html(account, "https://example.test/login?a=1&b=2")
+
+    assert "Welcome, &lt;Anna&gt; Rossi." in html
+    assert "anna@example.com" in html
+    assert "&lt;temp-pass&gt;" in html
+    assert "https://example.test/login?a=1&amp;b=2" in html
+    assert "<script>" not in html
+
+
+def test_change_html_contains_new_details_and_requirements(confirmation):
+    changed = BookingConfirmation(
+        **{
+            **confirmation.__dict__,
+            "start": datetime(2030, 1, 2, 15, 0, tzinfo=HUT_TIMEZONE),
+            "end": datetime(2030, 1, 2, 16, 30, tzinfo=HUT_TIMEZONE),
+            "requirements": "Vegan meal",
+        }
+    )
+
+    html = render_change_html(changed)
+
+    assert "Booking changed" in html
+    assert "Wednesday, 2 January 2030" in html
+    assert "15:00 &ndash; 16:30" in html
+    assert "Party requirements" in html
+    assert "Vegan meal" in html
+
+
+def test_password_reset_html_contains_link_and_expiry():
+    expiry = datetime(2030, 2, 3, 14, 30)
+
+    html = render_password_reset_html("https://example.test/reset?token=a&b=2", expiry)
+
+    assert "Reset your password" in html
+    assert "https://example.test/reset?token=a&amp;b=2" in html
+    assert "03/02/2030 14:30 UTC" in html
+
+
+def test_cancellation_html_contains_reference_and_date(confirmation):
+    cancelled = with_requirements(confirmation, "Vegetarian meal")
+    html = render_cancellation_html(cancelled)
+
+    assert "Booking cancelled" in html
+    assert "BK-000042" in html
+    assert "Tuesday, 1 January 2030" in html
+    assert "Party requirements" in html
+    assert "Vegetarian meal" in html

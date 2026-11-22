@@ -151,51 +151,6 @@
   color: #f1a7a7;
 }
 
-/* quick pick of the open days */
-.av-days {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 16px;
-  color: #cbd5e1;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.av-days > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.av-days > span {
-  padding-top: 8px;
-  white-space: nowrap;
-}
-
-.av-days button {
-  flex: 0 0 auto;
-  padding: 7px 12px;
-  border: 1px solid #64748b;
-  border-radius: 999px;
-  background: #1c2635;
-  color: #cbd5e1;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  cursor: pointer;
-}
-
-.av-days button:hover,
-.av-days button.selected {
-  border-color: #e7b96a;
-  color: #e7b96a;
-}
-
 /* answer */
 .av-answer {
   margin-top: 26px;
@@ -360,12 +315,6 @@
   .av-search {
     grid-template-columns: 1fr;
     padding: 16px;
-  }
-
-  .av-days {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
   }
 
   .av-next {

@@ -449,9 +449,6 @@ export default function ReserveForHiker() {
                       Create a profile first: a full hiker with an account, or a quick guest with
                       just a name.
                     </p>
-                    <Link to="/staff/create-hiker" className="rh-btn rh-btn--primary">
-                      Create a hiker
-                    </Link>
                   </div>
                 )}
               </form>
@@ -483,14 +480,14 @@ export default function ReserveForHiker() {
               {hiker?.isGuest ? (
                 <button
                   type="button"
-                  className="rh-btn rh-btn--ghost"
+                  className="rh-btn rh-btn--danger"
                   onClick={cancelAndLeave}
                   disabled={leaving}
                 >
                   Cancel
                 </button>
               ) : (
-                <Link to="/staff/slots" className="rh-btn rh-btn--ghost">
+                <Link to="/staff/slots" className="rh-btn rh-btn--danger">
                   Cancel
                 </Link>
               )}

@@ -483,6 +483,17 @@
   background: #f0c77f;
 }
 
+.rh-btn--danger {
+  border: 1px solid #8f3338;
+  background: #8f3338;
+  color: #fff;
+}
+
+.rh-btn--danger:hover:not(:disabled) {
+  border-color: #7f2d32;
+  background: #7f2d32;
+}
+
 .rh-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;

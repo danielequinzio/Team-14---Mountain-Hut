@@ -26,14 +26,6 @@ function formatDate(dateKey) {
   });
 }
 
-function formatShortDate(dateKey) {
-  return new Date(`${dateKey}T00:00:00`).toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
 function formatTime(dateTime) {
   if (!dateTime) return "";
   const time = dateTime.includes("T") ? dateTime.split("T")[1] : dateTime;
@@ -121,14 +113,6 @@ export default function Availability() {
       cancelled = true;
     };
   }, []);
-
-  const openDates = useMemo(
-    () =>
-      Object.keys(slotsByDate)
-        .filter((key) => key >= todayKey && slotsByDate[key].length > 0)
-        .sort(),
-    [slotsByDate, todayKey]
-  );
 
   const slotsOfDate = useMemo(
     () =>
@@ -341,24 +325,6 @@ export default function Availability() {
           <p className="av-error" role="alert">
             {slotsError}
           </p>
-        )}
-
-        {openDates.length > 0 && (
-          <div className="av-days">
-            <span>Open days</span>
-            <div>
-              {openDates.slice(0, 10).map((key) => (
-                <button
-                  type="button"
-                  key={key}
-                  className={key === date ? "selected" : ""}
-                  onClick={() => changeDate(key)}
-                >
-                  {formatShortDate(key)}
-                </button>
-              ))}
-            </div>
-          </div>
         )}
 
         <section className="av-answer" aria-live="polite">
