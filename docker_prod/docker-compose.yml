@@ -1,0 +1,46 @@
+# Runs the published images from Docker Hub: nothing is built here.
+#   docker compose pull     # download the latest images
+#   docker compose up -d    # start
+# The images are multi-arch (amd64 + arm64): Docker picks the right one for this machine.
+
+services:
+  backend:
+    image: maaari401/mountain-hut-14:backend
+    pull_policy: always   # check Docker Hub for a newer image on every `up`
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/db_data/MountainHut.db   # inside the db_data volume
+      SECRET_KEY: dev-only-secret-key-change-me-in-production
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      SEED_DATA: "true"   # "true" = fill an empty db with sample data on startup
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      SESSION_COOKIE_SECURE: "false"
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: "mountainhut14@gmail.com"
+      # SMTP_PASSWORD is not here: it's loaded from secrets.txt by the command below
+      EMAIL_FROM: "Mountain Hut <mountainhut14@gmail.com>"
+      PWD_RESET_EXPIRE_MINUTES: 15
+      FRONTEND_URL: http://localhost:5173
+    secrets:
+      - smtp_password   # mounted at /run/secrets/smtp_password
+    # $$ = literal $ for the container shell (a single $ would be expanded by compose)
+    command: sh -c 'export SMTP_PASSWORD="$$(cat /run/secrets/smtp_password)" && exec fastapi run app/main.py --port 8000'
+    volumes:
+      - ./data/db:/app/db_data   # sqlite db survives container restarts/updates
+    restart: unless-stopped
+
+  frontend:
+    # VITE_API_BASE_URL (http://localhost:8000) was baked in when the image was built
+    image: maaari401/mountain-hut-14:frontend
+    pull_policy: always
+    ports:
+      - "5173:80"   # nginx listens on 80 inside the container
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+secrets:
+  smtp_password:
+    file: ./secrets.txt   # local only: gitignored, never committed

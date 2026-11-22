@@ -1,5 +1,6 @@
 # re-export every model, so the rest of the code can write `from app.models import Booking`
-from app.models.auth import LoginRequest, RegisterRequest
+from app.models.auth import ChangePasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest
+from app.models.auth import LoginRequest, RegisterRequest, ResetPasswordRequest, RegisterRequestEmployee
 from app.models.booking import (
     AvailabilityResponse,
     Booking,
@@ -8,9 +9,10 @@ from app.models.booking import (
     BookingUpdate,
     TableSeats,
 )
+from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
 from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
-from app.models.user import CurrentUser, Roles, User, UserPublic
+from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset, UserBookingCreation, Guest
 
 __all__ = [
     "AvailabilityResponse",
@@ -18,9 +20,14 @@ __all__ = [
     "BookingCreate",
     "BookingTable",
     "BookingUpdate",
+    "ChangePasswordRequest",
+    "BookingRequirement",
+    "BookingRequirementCreate",
     "CurrentUser",
     "LoginRequest",
     "RegisterRequest",
+    "ResetData",
+    "ResetPasswordRequest",
     "Roles",
     "Slot",
     "SlotAvailability",
@@ -35,4 +42,8 @@ __all__ = [
     "CopySlotRequest",
     "User",
     "UserPublic",
+    "pwd_reset",
+    "UserBookingCreation",
+    "RegisterRequestEmployee",
+    "Guest",
 ]

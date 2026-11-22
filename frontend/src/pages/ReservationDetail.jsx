@@ -41,29 +41,26 @@ export default function ReservationSummaryPage() {
   }
 
   const { booking, date, start, end, partySize } = state;
+  // Booking.jsx passes the requirements through React Router state.
+  // Fall back to the API response in case the backend also returns them.
+  const requirements = Array.isArray(state.requirements)
+    ? state.requirements
+    : Array.isArray(booking?.requirements)
+      ? booking.requirements
+      : [];
 
   const tables = booking?.tables ?? [];
 
   return (
     <div className="app-shell">
       <NavBar />
-
       <main className="summary-page">
         <div className="summary-intro">
           <span className="eyebrow">Reservation confirmed</span>
-
           <h1>You're all set.</h1>
-
-          <p>Your table has been successfully reserved.</p>
         </div>
-
+        <div className="success-icon">✓</div>
         <section className="summary-card card">
-          <div className="success-icon">✓</div>
-
-          <div className="card-label">
-            Reservation successful
-          </div>
-
           <h2>Your reservation</h2>
 
           <div className="reservation-details">
@@ -110,6 +107,32 @@ export default function ReservationSummaryPage() {
               Reservation #{booking.id}
             </div>
           )}
+
+          <section className="confirmed-requirements" aria-labelledby="confirmed-requirements-title">
+            <h3 id="confirmed-requirements-title">Party requirements</h3>
+
+            {requirements.length > 0 ? (
+              <div className="confirmed-requirements-list">
+                {requirements.map((requirement, index) => (
+                  <article className="confirmed-requirement" key={index}>
+                    <div className="confirmed-requirement-heading">
+                      <strong>Requirement {index + 1}</strong>
+                      {requirement.allergies ? (
+                        <span className="allergy-status">Allergy flagged</span>
+                      ) : (
+                        <span className="dietary-status">Dietary requirement</span>
+                      )}
+                    </div>
+                    <p>{requirement.description}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="no-requirements">
+                No special dietary requirements or allergies were added.
+              </p>
+            )}
+          </section>
 
           <div className="arrival-note">
             <span className="arrival-icon">⌁</span>

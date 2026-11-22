@@ -89,6 +89,25 @@ export function register(data) {
   return postJson("/register", data);
 }
 
+// POST /auth/reset-password -> 204. No login needed: the one-time token from the
+// emailed link proves who the user is. It does NOT log the user in.
+export function resetPassword(token, newPassword) {
+  return postJson("/auth/reset-password", {
+    token,
+    new_password: newPassword,
+  });
+}
+
+
+// POST /auth/change-password -> 204. The server also sends a new session cookie,
+// without the must_change_password flag.
+export function changePassword(currentPassword, newPassword) {
+  return postJson("/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}
+
 // POST /logout -> 204. Removes the session cookie.
 export function logout() {
   return request("/logout", { method: "POST" });

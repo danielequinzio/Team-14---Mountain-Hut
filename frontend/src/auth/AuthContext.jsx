@@ -11,7 +11,7 @@ import * as authApi from "./authApi";
 const AuthContext = createContext(null);
 
 // Keeps track of who is logged in, for the whole app.
-//   user    -> { username, role } or null
+//   user    -> { username, role, must_change_password } or null
 //   loading -> true until the first GET /users/me has answered
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -44,6 +44,14 @@ export function AuthProvider({ children }) {
     return me;
   }, []);
 
+  // After the change the server sends a new cookie: GET /users/me reads the cleared flag.
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    await authApi.changePassword(currentPassword, newPassword);
+    const me = await authApi.getMe();
+    setUser(me);
+    return me;
+  }, []);
+
   // Registering does not log the user in: the caller sends them to /login.
   const register = useCallback((data) => authApi.register(data), []);
 
@@ -56,8 +64,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout }),
-    [user, loading, login, register, logout]
+    () => ({ user, loading, login, register, logout, changePassword }),
+    [user, loading, login, register, logout, changePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

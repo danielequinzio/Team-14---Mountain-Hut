@@ -25,10 +25,11 @@ def verify_password(password: str, hashed: str) -> bool:
     return password_hash.verify(password, hashed)
 
 
-def create_token(user_id: int, username: str, role: str) -> str:
+def create_token(user_id: int, username: str, role: str, must_change_password: bool = False) -> str:
     # sub = who the token belongs to (a string, as JWT requires), exp = when it stops being accepted
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "username": username, "role": role, "exp": expire}
+    payload = {"sub": str(user_id), "username": username, "role": role,
+               "must_change_password": must_change_password, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -46,7 +47,9 @@ def get_current_user(
         )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  # also checks exp
-        return CurrentUser(id=int(payload["sub"]), username=payload["username"], role=payload["role"])
+        return CurrentUser(id=int(payload["sub"]), username=payload["username"], role=payload["role"],
+                           # tokens created before the flag existed don't have it
+                           must_change_password=payload.get("must_change_password", False))
     except (jwt.InvalidTokenError, KeyError, ValueError):  # ValueError: an old token, with a username as sub
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
@@ -58,6 +61,10 @@ def get_current_user(
 def require_role(*roles: str):
     # builds a dependency that lets in only logged-in users with one of the roles
     def checker(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        # a password sent by email must be changed first: until then only /users/me,
+        # /auth/change-password and /logout answer (they don't use require_role)
+        if user.must_change_password:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Password change required")
         if user.role not in roles:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not enough permissions")
         return user

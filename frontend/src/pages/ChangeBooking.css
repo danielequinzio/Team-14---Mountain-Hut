@@ -1,0 +1,586 @@
+/* MH-06 Change Booking page. Own layout (prefix cb-), same dark colors as the
+   rest of the app. */
+
+.cb-page {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0 72px;
+  color: #e6edf3;
+}
+
+.cb-header h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(28px, 5vw, 38px);
+}
+
+.cb-header p,
+.cb-note {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cb-eyebrow {
+  color: #e7b96a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* current booking "ticket" */
+.cb-ticket {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 28px 0 20px;
+  padding: 18px 20px;
+  border: 1px solid #64748b;
+  border-left: 4px solid #e7b96a;
+  border-radius: 14px;
+  background: #161e29;
+}
+
+.cb-ticket-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cb-ticket-label {
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cb-ticket-time {
+  font-size: 22px;
+}
+
+.cb-ticket-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #cbd5e1;
+  font-size: 14px;
+  text-align: right;
+}
+
+/* the three change rows */
+.cb-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cb-row {
+  border: 1px solid #64748b;
+  border-radius: 14px;
+  background: #161e29;
+  overflow: hidden;
+}
+
+.cb-row.changed {
+  border-color: #e7b96a;
+}
+
+.cb-row-head {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cb-row-title {
+  font-weight: 700;
+}
+
+.cb-row-value {
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.cb-row.changed .cb-row-value {
+  color: #e7b96a;
+}
+
+.cb-row-action {
+  color: #e7b96a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cb-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 20px 20px;
+  border-top: 1px solid #64748b;
+  padding-top: 18px;
+}
+
+/* date chips and time pills */
+.cb-dates {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 6px;
+  overflow-x: auto;
+}
+
+.cb-date {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  padding: 10px 8px;
+  border: 1px solid #64748b;
+  border-radius: 12px;
+  background: #1c2635;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cb-date strong {
+  color: #e6edf3;
+  font-size: 20px;
+}
+
+.cb-date.selected {
+  border-color: #e7b96a;
+  background: #2a2417;
+}
+
+.cb-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cb-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid #64748b;
+  border-radius: 999px;
+  background: #1c2635;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cb-slot strong {
+  color: #e6edf3;
+  font-size: 14px;
+}
+
+.cb-slot.selected {
+  border-color: #e7b96a;
+  background: #2a2417;
+}
+
+/* guests */
+.cb-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cb-stepper button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #64748b;
+  border-radius: 12px;
+  background: #1c2635;
+  color: #e6edf3;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.cb-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cb-stepper input {
+  width: 84px;
+  height: 42px;
+  border: 1px solid #64748b;
+  border-radius: 12px;
+  background: #1c2635;
+  color: #e6edf3;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* party size: no browser arrows inside the box, the - and + buttons are enough */
+.cb-stepper input::-webkit-inner-spin-button,
+.cb-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cb-stepper input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* requirements */
+.cb-req {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.cb-req-text {
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #64748b;
+  border-radius: 10px;
+  background: #1c2635;
+  color: #e6edf3;
+  font: inherit;
+  font-size: 14px;
+}
+
+.cb-req-remove,
+.cb-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cb-req-remove {
+  color: #f2adad;
+}
+
+.cb-link {
+  align-self: flex-start;
+  color: #e7b96a;
+  text-decoration: underline;
+}
+
+/* before -> after */
+.cb-review {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #64748b;
+  border-radius: 14px;
+  background: #1c2635;
+}
+
+.cb-review-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cb-review-title h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.cb-review-title .cb-note {
+  margin-top: 2px;
+}
+
+.cb-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cb-diff li {
+  display: grid;
+  grid-template-columns: 110px auto auto 1fr;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.cb-diff li > span:first-child {
+  color: #cbd5e1;
+}
+
+.cb-from {
+  color: #cbd5e1;
+  text-decoration: line-through;
+}
+
+.cb-arrow {
+  color: #e7b96a;
+}
+
+.cb-to {
+  color: #e6edf3;
+}
+
+.cb-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #5b2d2d;
+  border-radius: 10px;
+  background: #2a1717;
+  color: #f1a7a7;
+  font-size: 14px;
+}
+
+.cb-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* both buttons share one size */
+.cb-btn {
+  box-sizing: border-box;
+  width: 140px;
+  height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.cb-btn--cancel {
+  border: 1px solid #64748b;
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.cb-btn--cancel:hover {
+  border-color: #e7b96a;
+  color: #e7b96a;
+}
+
+.cb-btn--save {
+  border: 1px solid #e7b96a;
+  background: #e7b96a;
+  color: #0d1117;
+}
+
+.cb-btn--save:hover:not(:disabled) {
+  background: #f0c77f;
+}
+
+.cb-btn--save:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* success */
+.cb-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.cb-done h1 {
+  margin: 0;
+}
+
+.cb-done p {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.cb-done-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid #3c5a46;
+  border-radius: 50%;
+  background: #1a2a20;
+  color: #8fcf9f;
+  font-size: 24px;
+}
+
+.cb-done-list {
+  width: 100%;
+  max-width: 440px;
+  margin: 18px 0;
+}
+
+.cb-done-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #64748b;
+}
+
+.cb-done-list dt {
+  color: #cbd5e1;
+}
+
+.cb-done-list dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.cb-done-reqs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cb-done-reqs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.cb-done-tag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid #5b4a2a;
+  border-radius: 999px;
+  background: #221c10;
+  color: #e7b96a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .cb-page {
+    padding-top: 28px;
+  }
+
+  .cb-row-head {
+    grid-template-columns: 1fr auto;
+  }
+
+  .cb-row-value {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .cb-ticket-side {
+    text-align: left;
+  }
+
+  .cb-diff li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .cb-actions {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+
+  .cb-btn {
+    width: 100%;
+  }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.cb-header p,
+.cb-note {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+.cb-done p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cb-actions {
+  gap: 12px;
+}
+
+/* ---------- Change Booking polish ---------- */
+
+/* slightly larger row values, "Change" links and ticket details */
+.cb-row-value,
+.cb-ticket-side {
+  font-size: 15px;
+}
+
+.cb-row-action {
+  font-size: 14px;
+}
+
+/* show that the whole row is clickable */
+.cb-row-head:hover {
+  background: #1c2635;
+}
+
+.cb-row-head:hover .cb-row-action {
+  text-decoration: underline;
+}
+
+/* visible keyboard focus: draw the ring inside the row so it isn't cut off */
+.cb-row-head:focus-visible {
+  outline-offset: -3px !important;
+  border-radius: 14px;
+}
+
+/* disabled Save: neutral instead of muddy gold */
+.cb-btn--save:disabled {
+  opacity: 1;
+  border-color: #64748b;
+  background: #1c2635;
+  color: #8193ab;
+}

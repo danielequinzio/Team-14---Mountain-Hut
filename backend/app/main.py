@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
@@ -8,8 +8,17 @@ from sqlalchemy import inspect
 from sqlmodel import Session, SQLModel, select
 
 from app.database import engine, transaction
-from app.models import Booking, BookingTable, Roles, Slot, SlotTable, Table, User
-from app.routers import auth, availability, slot, booking, tables
+from app.models import (
+    Booking,
+    BookingRequirement,
+    BookingTable,
+    Roles,
+    Slot,
+    SlotTable,
+    Table,
+    User,
+)
+from app.routers import auth, availability, slot, booking, tables, user
 from app.config import CORS_ORIGINS, DATA_SEED
 from app.services.auth import hash_password
 
@@ -21,6 +30,7 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
     add_slot_table_occupied_seats()
     add_user_profile_columns()
+    make_user_email_nullable()  # after add_user_profile_columns: the copy needs every column
 
     # add some sample data the first time the db is created
     with Session(engine) as session:
@@ -55,22 +65,27 @@ TABLES = [
 ]
 
 SLOTS = [
-    # start, end (tomorrow); every slot offers all the tables
-    (time(12, 0), time(13, 30)),
-    (time(13, 30), time(15, 0)),
-    (time(19, 0), time(20, 30)),
+    # date, start, end; every slot offers all the tables
+    (date(2026, 11, 23), time(20, 0), time(21, 30)),
+    (date(2026, 11, 24), time(19, 30), time(21, 0)),
+    (date(2026, 11, 24), time(21, 0), time(22, 30)),
+    (date(2026, 11, 25), time(20, 0), time(21, 30)),
+    (date(2026, 11, 26), time(20, 30), time(22, 0)),
+    (date(2026, 11, 27), time(19, 0), time(20, 30)),
+    (date(2026, 11, 28), time(20, 0), time(21, 30)),
+    (date(2026, 11, 29), time(20, 0), time(21, 30)),
 ]
 
 BOOKINGS = [
-    # username, slot index, party size, [(table number, seats booked)]
-    ("anna.rossi", 0, 4, [(1, 4)]),
-    ("paolo.bianchi", 0, 2, [(6, 2)]),
-    ("paolo.bianchi", 0, 5, [(4, 5)]),
-    ("anna.rossi", 1, 10, [(5, 8), (7, 2)]),  # a group split over two tables
-    ("paolo.bianchi", 1, 3, [(2, 3)]),
-    ("anna.rossi", 2, 6, [(3, 6)]),
-    ("paolo.bianchi", 2, 2, [(6, 2)]),
-    ("anna.rossi", 2, 4, [(8, 4)]),
+    # username, slot index, party size, [(table number, seats booked)], requirements
+    ("anna.rossi", 0, 4, [(1, 4)], [(True, "1 peanut allergy"), (False, "1 vegan")]),
+    ("paolo.bianchi", 1, 2, [(6, 2)], []),
+    ("paolo.bianchi", 2, 5, [(4, 5)], [(False, "2 vegetarians")]),
+    ("anna.rossi", 3, 10, [(5, 8), (7, 2)], []),  # a group split over two tables
+    ("paolo.bianchi", 4, 3, [(2, 3)], [(True, "1 shellfish allergy")]),
+    ("anna.rossi", 5, 6, [(3, 6)], []),
+    ("paolo.bianchi", 6, 2, [(6, 2)], []),
+    ("anna.rossi", 7, 4, [(8, 4)], [(False, "2 vegetarians")]),
 ]
 
 
@@ -136,6 +151,8 @@ def add_user_profile_columns(): # pragma: no cover
         "mobile_number": "VARCHAR",
         "notes": "VARCHAR",
         "emergency_contact": "VARCHAR",
+        "must_change_password": "BOOLEAN NOT NULL DEFAULT 0",
+        "is_guest": "BOOLEAN NOT NULL DEFAULT 0",  # existing users all have an account
     }
     with engine.begin() as connection:
         for column_name, column_type in missing_columns.items():
@@ -145,52 +162,46 @@ def add_user_profile_columns(): # pragma: no cover
                 )
 
 
-def add_slot_table_occupied_seats(): # pragma: no cover
+def make_user_email_nullable(): # pragma: no cover
+    # guests give no email, but older dbs have email NOT NULL; sqlite can't alter a column,
+    # so the table is rebuilt with the same rows and a nullable email
     inspector = inspect(engine)
-    if not inspector.has_table("slot_table"):
+    if not inspector.has_table("user"):
         return
-    columns = {column["name"] for column in inspector.get_columns("slot_table")}
-    if "occupied_seats" in columns:
+    email = next(column for column in inspector.get_columns("user") if column["name"] == "email")
+    if email["nullable"]:
         return
 
+    columns = (
+        "id, username, name, surname, email, mobile_number, notes, emergency_contact, "
+        "password_hash, role, must_change_password, is_guest"
+    )
     with engine.begin() as connection:
-        connection.exec_driver_sql(
-            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
-        )
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
         connection.exec_driver_sql(
             """
-            UPDATE slot_table
-            SET occupied_seats = COALESCE((
-                SELECT SUM(seats_booked)
-                FROM booking_table
-                WHERE booking_table.slot_table_id = slot_table.id
-            ), 0)
+            CREATE TABLE user_new (
+                id INTEGER NOT NULL PRIMARY KEY,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                surname VARCHAR NOT NULL,
+                email VARCHAR,
+                mobile_number VARCHAR,
+                notes VARCHAR,
+                emergency_contact VARCHAR,
+                password_hash VARCHAR NOT NULL,
+                role VARCHAR NOT NULL,
+                must_change_password BOOLEAN NOT NULL DEFAULT 0,
+                is_guest BOOLEAN NOT NULL DEFAULT 0
+            )
             """
         )
-
-
-def add_slot_table_occupied_seats(): # pragma: no cover
-    inspector = inspect(engine)
-    if not inspector.has_table("slot_table"):
-        return
-    columns = {column["name"] for column in inspector.get_columns("slot_table")}
-    if "occupied_seats" in columns:
-        return
-
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            'ALTER TABLE "slot_table" ADD COLUMN occupied_seats INTEGER NOT NULL DEFAULT 0'
-        )
-        connection.exec_driver_sql(
-            """
-            UPDATE slot_table
-            SET occupied_seats = COALESCE((
-                SELECT SUM(seats_booked)
-                FROM booking_table
-                WHERE booking_table.slot_table_id = slot_table.id
-            ), 0)
-            """
-        )
+        connection.exec_driver_sql(f"INSERT INTO user_new ({columns}) SELECT {columns} FROM user")
+        connection.exec_driver_sql('DROP TABLE "user"')
+        connection.exec_driver_sql("ALTER TABLE user_new RENAME TO user")
+        # several NULL emails are allowed by a unique index: only real emails must be unique
+        connection.exec_driver_sql("CREATE UNIQUE INDEX user_email ON user (email)")
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 def add_slot_table_occupied_seats(): # pragma: no cover
@@ -237,17 +248,16 @@ def seeding(session: Session): # pragma: no cover
 
         # the db wants timezone-aware datetimes: slot times are in the hut's local time
         hut_tz = ZoneInfo("Europe/Rome")
-        tomorrow = date.today() + timedelta(days=1)
-        slots = [Slot(start_time=datetime.combine(tomorrow, start, hut_tz),
-                      end_time=datetime.combine(tomorrow, end, hut_tz),
+        slots = [Slot(start_time=datetime.combine(slot_date, start, hut_tz),
+                      end_time=datetime.combine(slot_date, end, hut_tz),
                       created_by=users["luca.bonetti"].id)
-                 for start, end in SLOTS]
+                 for slot_date, start, end in SLOTS]
         session.add_all(slots)
         session.flush()
 
         occupied_seats = {(i, number): 0
                           for i in range(len(slots)) for number in tables}
-        for _, i, party_size, assignments in BOOKINGS:
+        for _, i, party_size, assignments, _ in BOOKINGS:
             assigned_seats = sum(seats for _, seats in assignments)
             if assigned_seats != party_size:
                 raise ValueError(
@@ -272,13 +282,23 @@ def seeding(session: Session): # pragma: no cover
         session.add_all(slot_tables.values())
         session.flush()
 
-        for username, i, party_size, seats in BOOKINGS:
+        for username, i, party_size, seats, requirements in BOOKINGS:
             booking = Booking(user_id=users[username].id, slot_id=slots[i].id, party_size=party_size)
             session.add(booking)
             session.flush()
             session.add_all([BookingTable(booking_id=booking.id, slot_table_id=slot_tables[i, number].id,
                                           seats_booked=seats_booked)
                              for number, seats_booked in seats])
+            session.add_all(
+                [
+                    BookingRequirement(
+                        booking_id=booking.id,
+                        allergies=allergies,
+                        description=description,
+                    )
+                    for allergies, description in requirements
+                ]
+            )
 
 
 app = FastAPI(lifespan=lifespan)
@@ -297,6 +317,10 @@ app.include_router(tables.router)
 app.include_router(auth.router)
 app.include_router(booking.router)
 app.include_router(availability.router)
+
+app.include_router(user.router)
+
+
 """
 app.include_router(tickets.router)
 app.include_router(services.router)

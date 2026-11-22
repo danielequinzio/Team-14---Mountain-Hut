@@ -1,0 +1,1116 @@
+{
+ "info": {
+  "name": "Mountain Hut - E2E staff booking",
+  "description": "End-to-end scenarios for an employee booking on behalf of a hiker, run against the real running server:\n1. the hiker has an account: find it by email and book;\n2. the email is not registered: create the account and book;\n3. the email is not registered: add a temporary guest and book.\n\nThe employee is the seeded giulia.ferrero@rifugio.example / employee, and the bookings need open slots, so start the server on a freshly seeded db. For example, from the backend folder:\n\n    DATABASE_URL=sqlite:////tmp/mh_e2e.db SEED_DATA=true fastapi dev app/main.py\n\nThen run the collection in order with the Collection Runner or:\n\n    newman run MH_E2E_staff_booking.postman_collection.json\n\nEvery run uses new emails and books one seat per scenario, so it can be repeated on the same db until the slots fill up.\nThe account created by the employee must change its password at the first login: that is covered by the auth tests, since the generated password only travels by email.\nChange `baseUrl` in the collection variables if the server is not on localhost:8000.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  {
+   "key": "baseUrl",
+   "value": "http://localhost:8000"
+  },
+  {
+   "key": "employeeEmail",
+   "value": "giulia.ferrero@rifugio.example"
+  },
+  {
+   "key": "employeePassword",
+   "value": "employee"
+  },
+  {
+   "key": "hikerEmail",
+   "value": ""
+  },
+  {
+   "key": "hikerPassword",
+   "value": ""
+  },
+  {
+   "key": "newHikerEmail",
+   "value": ""
+  },
+  {
+   "key": "guestEmail",
+   "value": ""
+  },
+  {
+   "key": "slotDate",
+   "value": ""
+  },
+  {
+   "key": "slotTime",
+   "value": ""
+  },
+  {
+   "key": "hikerId",
+   "value": ""
+  },
+  {
+   "key": "newHikerId",
+   "value": ""
+  },
+  {
+   "key": "guestId",
+   "value": ""
+  },
+  {
+   "key": "hikerBookingId",
+   "value": ""
+  },
+  {
+   "key": "newHikerBookingId",
+   "value": ""
+  },
+  {
+   "key": "guestBookingId",
+   "value": ""
+  }
+ ],
+ "item": [
+  {
+   "name": "00 - Setup",
+   "description": "A hiker with an account, the employee session and a slot with free seats.",
+   "item": [
+    {
+     "name": "1. A hiker registers an account",
+     "event": [
+      {
+       "listen": "prerequest",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "// unique emails per run, so the collection can be repeated on the same db",
+         "const run = Date.now();",
+         "pm.collectionVariables.set(\"hikerEmail\", `hiker.${run}@mail.example`);",
+         "pm.collectionVariables.set(\"hikerPassword\", \"password\");",
+         "pm.collectionVariables.set(\"newHikerEmail\", `new.hiker.${run}@mail.example`);",
+         "pm.collectionVariables.set(\"guestEmail\", `guest.${run}@mail.example`);"
+        ]
+       }
+      },
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (account created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/register",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "register"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Anna\",\n  \"surname\": \"Neri\",\n  \"email\": \"{{hikerEmail}}\",\n  \"mobile_number\": \"+39 333 111 2222\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{hikerPassword}}\"\n}"
+      }
+     }
+    },
+    {
+     "name": "2. Checking a hiker without logging in is refused",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 401\", () => {",
+         "    pm.response.to.have.status(401);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{hikerEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{hikerEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "3. Employee logs in",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 200\", () => {",
+         "    pm.response.to.have.status(200);",
+         "});",
+         "",
+         "pm.test(\"Logged in as an employee who doesn't have to change the password\", () => {",
+         "    const user = pm.response.json();",
+         "    pm.expect(user.role).to.eql(\"Employee\");",
+         "    pm.expect(user.must_change_password).to.eql(false);",
+         "});",
+         "",
+         "pm.test(\"Session cookie is set\", () => {",
+         "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/login",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "login"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{employeeEmail}}\",\n  \"password\": \"{{employeePassword}}\"\n}"
+      }
+     }
+    },
+    {
+     "name": "4. Employee picks a slot with free seats",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 200\", () => {",
+         "    pm.response.to.have.status(200);",
+         "});",
+         "",
+         "const slots = pm.response.json();",
+         "// three bookings of one person each: one per scenario",
+         "const slot = Array.isArray(slots) ? slots.find((s) => s.available_seats >= 3) : undefined;",
+         "",
+         "pm.test(\"A slot has at least 3 free seats (a db from a previous day has none: reseed it)\", () => {",
+         "    pm.expect(slot).to.not.be.undefined;",
+         "});",
+         "",
+         "// nothing below can work without a slot",
+         "if (!slot) {",
+         "    postman.setNextRequest(null);",
+         "    return;",
+         "}",
+         "",
+         "pm.collectionVariables.set(\"slotDate\", slot.date);",
+         "pm.collectionVariables.set(\"slotTime\", slot.time);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/slot",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "slot"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "01 - Hiker with an account: the staff books for them",
+   "description": "Story: a hiker phones the hut; the employee finds their account by email and books a table for them.",
+   "item": [
+    {
+     "name": "1. Employee finds the hiker by email",
+     "event": [
+      {
+       "listen": "prerequest",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "// typed in upper case: the server normalizes the email before looking for it",
+         "pm.variables.set(\"typedEmail\", pm.collectionVariables.get(\"hikerEmail\").toUpperCase());"
+        ]
+       }
+      },
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 200\", () => {",
+         "    pm.response.to.have.status(200);",
+         "});",
+         "",
+         "const hiker = pm.response.json();",
+         "",
+         "pm.test(\"The hiker has an account, not a guest one\", () => {",
+         "    pm.expect(hiker.id).to.be.a(\"number\");",
+         "    pm.expect(hiker.email).to.eql(pm.collectionVariables.get(\"hikerEmail\"));",
+         "    pm.expect(hiker.role).to.eql(\"Hiker\");",
+         "    pm.expect(hiker.is_guest).to.eql(false);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"hikerId\", hiker.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{typedEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{typedEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "2. Employee books a table for the hiker",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (booking created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});",
+         "",
+         "const booking = pm.response.json();",
+         "",
+         "pm.test(\"The booking is for the chosen slot and party\", () => {",
+         "    pm.expect(booking.id).to.be.a(\"number\");",
+         "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotDate\"));",
+         "    pm.expect(booking.party_size).to.eql(1);",
+         "});",
+         "",
+         "pm.test(\"The party got seats on at least one table\", () => {",
+         "    pm.expect(booking.tables).to.be.an(\"array\").that.is.not.empty;",
+         "    const seats = booking.tables.reduce((sum, t) => sum + t.seats, 0);",
+         "    pm.expect(seats).to.eql(1);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"hikerBookingId\", booking.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/{{hikerId}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "{{hikerId}}"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    },
+    {
+     "name": "3. A second booking of the same slot is refused",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 409\", () => {",
+         "    pm.response.to.have.status(409);",
+         "});",
+         "",
+         "pm.test(\"The employee is told the hiker already booked\", () => {",
+         "    pm.expect(pm.response.json().detail).to.eql(\"A booking already exists for this slot\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/{{hikerId}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "{{hikerId}}"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    },
+    {
+     "name": "4. Booking for a hiker that doesn't exist is refused",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 404\", () => {",
+         "    pm.response.to.have.status(404);",
+         "});",
+         "",
+         "pm.test(\"The employee is told the hiker was not found\", () => {",
+         "    pm.expect(pm.response.json().detail).to.eql(\"Hiker not found\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/999999999",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "999999999"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "02 - Email not found: the staff creates an account and books",
+   "description": "Story: the email is not registered; the employee creates the account (the password goes by email) and books for the new hiker.",
+   "item": [
+    {
+     "name": "1. Employee looks for an email that is not registered",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 404\", () => {",
+         "    pm.response.to.have.status(404);",
+         "});",
+         "",
+         "pm.test(\"The employee is told the hiker was not found\", () => {",
+         "    pm.expect(pm.response.json().detail).to.eql(\"hiker not found\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{newHikerEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{newHikerEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "2. A badly formed email is refused",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 422\", () => {",
+         "    pm.response.to.have.status(422);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerHiker",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerHiker"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Marco\",\n  \"surname\": \"Gialli\",\n  \"email\": \"not-an-email\",\n  \"mobile_number\": \"+39 333 222 3333\"\n}"
+      }
+     }
+    },
+    {
+     "name": "3. Employee creates the account",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (account created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});",
+         "",
+         "const hiker = pm.response.json();",
+         "",
+         "pm.test(\"The new hiker has an account, not a guest one\", () => {",
+         "    pm.expect(hiker.id).to.be.a(\"number\");",
+         "    pm.expect(hiker.email).to.eql(pm.collectionVariables.get(\"newHikerEmail\"));",
+         "    pm.expect(hiker.role).to.eql(\"Hiker\");",
+         "    pm.expect(hiker.is_guest).to.eql(false);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"newHikerId\", hiker.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerHiker",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerHiker"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Marco\",\n  \"surname\": \"Gialli\",\n  \"email\": \"{{newHikerEmail}}\",\n  \"mobile_number\": \"+39 333 222 3333\",\n  \"notes\": \"Gluten free\",\n  \"emergency_contact\": \"\"\n}"
+      }
+     }
+    },
+    {
+     "name": "4. The same email can't be registered twice",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 409\", () => {",
+         "    pm.response.to.have.status(409);",
+         "});",
+         "",
+         "pm.test(\"The employee is told the email is taken\", () => {",
+         "    pm.expect(pm.response.json().detail).to.eql(\"Email already registered\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerHiker",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerHiker"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Marco\",\n  \"surname\": \"Gialli\",\n  \"email\": \"{{newHikerEmail}}\",\n  \"mobile_number\": \"+39 333 222 3333\"\n}"
+      }
+     }
+    },
+    {
+     "name": "5. The new hiker is now found by email",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 200\", () => {",
+         "    pm.response.to.have.status(200);",
+         "});",
+         "",
+         "pm.test(\"It is the account just created\", () => {",
+         "    pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"newHikerId\")));",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{newHikerEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{newHikerEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "6. Employee books a table for the new hiker",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (booking created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});",
+         "",
+         "const booking = pm.response.json();",
+         "",
+         "pm.test(\"The booking is for the chosen slot and party\", () => {",
+         "    pm.expect(booking.id).to.be.a(\"number\");",
+         "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotDate\"));",
+         "    pm.expect(booking.party_size).to.eql(1);",
+         "});",
+         "",
+         "pm.test(\"The party got seats on at least one table\", () => {",
+         "    pm.expect(booking.tables).to.be.an(\"array\").that.is.not.empty;",
+         "    const seats = booking.tables.reduce((sum, t) => sum + t.seats, 0);",
+         "    pm.expect(seats).to.eql(1);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"newHikerBookingId\", booking.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/{{newHikerId}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "{{newHikerId}}"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "03 - Email not found: the staff adds a guest and books",
+   "description": "Story: the hiker has no account and doesn't want one; the employee adds a temporary guest (no email, no login) and books for them.",
+   "item": [
+    {
+     "name": "1. Employee looks for an email that is not registered",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 404\", () => {",
+         "    pm.response.to.have.status(404);",
+         "});",
+         "",
+         "pm.test(\"The employee is told the hiker was not found\", () => {",
+         "    pm.expect(pm.response.json().detail).to.eql(\"hiker not found\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{guestEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{guestEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "2. Employee adds a guest",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (guest created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});",
+         "",
+         "const guest = pm.response.json();",
+         "",
+         "pm.test(\"The guest is a hiker without email\", () => {",
+         "    pm.expect(guest.id).to.be.a(\"number\");",
+         "    pm.expect(guest.email).to.be.null;",
+         "    pm.expect(guest.role).to.eql(\"Hiker\");",
+         "    pm.expect(guest.is_guest).to.eql(true);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"guestId\", guest.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerGuest",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerGuest"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Sara\",\n  \"surname\": \"Blu\",\n  \"mobile_number\": \"+39 333 333 4444\"\n}"
+      }
+     }
+    },
+    {
+     "name": "3. The guest is still not found by email",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 404\", () => {",
+         "    pm.response.to.have.status(404);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{guestEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{guestEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "4. Employee books a table for the guest",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 201 (booking created)\", () => {",
+         "    pm.response.to.have.status(201);",
+         "});",
+         "",
+         "const booking = pm.response.json();",
+         "",
+         "pm.test(\"The booking is for the chosen slot and party\", () => {",
+         "    pm.expect(booking.id).to.be.a(\"number\");",
+         "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotDate\"));",
+         "    pm.expect(booking.party_size).to.eql(1);",
+         "});",
+         "",
+         "pm.test(\"The party got seats on at least one table\", () => {",
+         "    pm.expect(booking.tables).to.be.an(\"array\").that.is.not.empty;",
+         "    const seats = booking.tables.reduce((sum, t) => sum + t.seats, 0);",
+         "    pm.expect(seats).to.eql(1);",
+         "});",
+         "",
+         "pm.collectionVariables.set(\"guestBookingId\", booking.id);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/{{guestId}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "{{guestId}}"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "04 - A hiker can't use the staff endpoints",
+   "item": [
+    {
+     "name": "1. Hiker logs in",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 200\", () => {",
+         "    pm.response.to.have.status(200);",
+         "});",
+         "",
+         "pm.test(\"Logged in as a hiker\", () => {",
+         "    pm.expect(pm.response.json().role).to.eql(\"Hiker\");",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/login",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "login"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{hikerEmail}}\",\n  \"password\": \"{{hikerPassword}}\"\n}"
+      }
+     }
+    },
+    {
+     "name": "2. Hiker can't check a profile",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 403\", () => {",
+         "    pm.response.to.have.status(403);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profileCheck?email={{hikerEmail}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profileCheck"
+       ],
+       "query": [
+        {
+         "key": "email",
+         "value": "{{hikerEmail}}"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "name": "3. Hiker can't create an account for someone else",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 403\", () => {",
+         "    pm.response.to.have.status(403);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerHiker",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerHiker"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Luigi\",\n  \"surname\": \"Viola\",\n  \"email\": \"luigi.viola@mail.example\",\n  \"mobile_number\": \"+39 333 444 5555\"\n}"
+      }
+     }
+    },
+    {
+     "name": "4. Hiker can't add a guest",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 403\", () => {",
+         "    pm.response.to.have.status(403);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/registerGuest",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "registerGuest"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"name\": \"Luigi\",\n  \"surname\": \"Viola\",\n  \"mobile_number\": \"+39 333 444 5555\"\n}"
+      }
+     }
+    },
+    {
+     "name": "5. Hiker can't book for another hiker",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test(\"Status is 403\", () => {",
+         "    pm.response.to.have.status(403);",
+         "});"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/booking/hiker/{{guestId}}",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "booking",
+        "hiker",
+        "{{guestId}}"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 1\n}"
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

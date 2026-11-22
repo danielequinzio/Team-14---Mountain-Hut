@@ -52,7 +52,7 @@ def test_login_success(client, mock_session, fake_user):
     response = client.post("/login", json={"email": "Anna.Rossi@Mail.Example", "password": PASSWORD})
 
     assert response.status_code == 200
-    assert response.json() == {"username": "anna.rossi", "role": "Hiker"}
+    assert response.json() == {"username": "anna.rossi", "role": "Hiker", "must_change_password": False}
     assert "session" in response.cookies  # session cookie with the token
     assert "httponly" in response.headers["set-cookie"].lower()
     mock_session.exec.assert_called_once()

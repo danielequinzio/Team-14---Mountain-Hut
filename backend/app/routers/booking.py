@@ -7,31 +7,48 @@ from app.database import SessionDep, booking_transaction
 from app.models import (
     Booking,
     BookingCreate,
+    BookingRequirement,
+    BookingUpdate,
     CurrentUser,
     Roles,
+    Slot,
+    SlotTable,
+    Table,
+    TableSeats,
+    User,
 )
 from app.services.auth import require_role
 from app.services.booking import (
+    _hut_time,
     assign_tables,
     booking_response,
+    ensure_change_allowed,
     find_slot,
     get_user,
+    release_tables,
 )
 
-from app.services.notification import build_confirmation, send_booking_confirmation
+from app.services.user import EmployeeOrWarden
+from app.services.notification import (
+    build_confirmation,
+    send_booking_change,
+    send_booking_confirmation,
+    send_booking_cancellation,
+)
+from app.models.booking import BookingDetails, BookingTable
+from app.models.booking_requirement import BookingRequirementCreate
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_booking(
-    data: BookingCreate,
+def _create_booking_for(
     session: SessionDep,
-    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    db_user: User,
+    data: BookingCreate,
     background_tasks: BackgroundTasks,
 ):
+    """Shared logic: book `data` for `db_user` and queue the confirmation email."""
     with booking_transaction(session):
-        db_user = get_user(session, user.id)
         slot = find_slot(session, data.date, data.time)
         if session.exec(
             select(Booking).where(
@@ -54,12 +71,48 @@ def create_booking(
                 status.HTTP_409_CONFLICT,
                 "There are not enough seats for this party",
             )
+        session.add_all(
+            [
+                BookingRequirement(
+                    booking_id=booking.id,
+                    allergies=requirement.allergies,
+                    description=requirement.description,
+                )
+                for requirement in data.requirements
+            ]
+        )
         response = booking_response(session, booking)
-        confirmation = build_confirmation(db_user, slot, booking)
-
+        confirmation = build_confirmation(db_user, slot, booking, data.requirements)
     # fuori dal blocco: l'email parte solo dopo il commit
     background_tasks.add_task(send_booking_confirmation, confirmation)
     return response
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_booking(
+    data: BookingCreate,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
+):
+    db_user = get_user(session, user.id)
+    return _create_booking_for(session, db_user, data, background_tasks)
+
+
+@router.post("/hiker/{hiker_id}", status_code=status.HTTP_201_CREATED)
+def create_booking_for_hiker(
+    hiker_id: int,
+    data: BookingCreate,
+    session: SessionDep,
+    user: EmployeeOrWarden,
+    background_tasks: BackgroundTasks,
+):
+    """Employee/warden books on behalf of a hiker (e.g. a phone reservation)."""
+    hiker = session.get(User, hiker_id)
+    if hiker is None or hiker.role != Roles.HIKER:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Hiker not found")
+    return _create_booking_for(session, hiker, data, background_tasks)
+
 
 # Probably not needed for the frontend at the moment, because this is sent via email
 # @router.get("")
@@ -73,40 +126,198 @@ def create_booking(
 #     ).all()
 #     return [booking_response(session, booking) for booking in bookings]
 
+@router.get("")
+def get_my_bookings(
+     session: SessionDep,
+     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    ):
+     db_user = get_user(session, user.id)
 
-# Not needed for now, but could be useful for a booking cancellation story:
-# @router.patch("/{booking_id}")
-# def update_booking(
-#     booking_id: int,
-#     data: BookingUpdate,
-#     session: SessionDep,
-#     user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
-# ):
-#     with booking_transaction(session):
-#         db_user = get_user(session, user.id)
-#         booking = session.exec(
-#             select(Booking).where(
-#                 Booking.id == booking_id,
-#                 Booking.user_id == db_user.id,
-#             )
-#         ).first()
-#         if booking is None:
-#             raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
-#
-#         slot = session.get(Slot, booking.slot_id)
-#         if slot is None:
-#             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Booking slot not found")
-#         if datetime.now(HUT_TIMEZONE) > slot_start(slot) - timedelta(hours=2):
-#             raise HTTPException(
-#                 status.HTTP_400_BAD_REQUEST,
-#                 "Bookings are closed less than two hours before the slot",
-#             )
-#
-#         release_tables(session, booking)
-#         booking.party_size = data.party_size
-#         if assign_tables(session, booking) is None:
-#             raise HTTPException(
-#                 status.HTTP_409_CONFLICT,
-#                 "There are not enough seats for this party",
-#             )
-#         return booking_response(session, booking)
+     bookings = session.exec(
+        select(
+            Booking.id,
+            Booking.party_size,
+            Slot.start_time,
+            Slot.end_time,
+            Table.number,
+            BookingTable.seats_booked,
+        )
+        .join(Slot, Slot.id == Booking.slot_id)
+        .join(BookingTable, BookingTable.booking_id == Booking.id)
+        .join(
+            SlotTable,
+            (SlotTable.id == BookingTable.slot_table_id)
+            & (SlotTable.slot_id == Slot.id),
+        )
+        .join(Table, Table.id == SlotTable.table_id)
+        .where(Booking.user_id == db_user.id)
+     ).all()
+
+     # one row per (booking, table): group the rows by booking id
+     result: dict[int, BookingDetails] = {}
+     for booking_id, party_size, start_time, end_time, number, seats in bookings:
+         if booking_id not in result:
+             result[booking_id] = BookingDetails(
+                 id=booking_id,
+                 party_size=party_size,
+                 slot_date=_hut_time(start_time).date(),
+                 slot_time_start=_hut_time(start_time).time(),
+                 slot_time_end=_hut_time(end_time).time(),
+                 tables=[],
+             )
+         result[booking_id].tables.append(TableSeats(number=number, seats=seats))
+
+     # requirements are fetched separately so they are not repeated once per table
+     requirements = session.exec(
+         select(BookingRequirement).where(
+             BookingRequirement.booking_id.in_(list(result.keys()))
+         )
+     ).all()
+     for requirement in requirements:
+         result[requirement.booking_id].requirements.append(
+             BookingRequirementCreate(
+                 allergies=requirement.allergies,
+                 description=requirement.description,
+             )
+         )
+
+     return list(result.values())
+
+
+@router.patch("/{booking_id}")
+def update_booking(
+    booking_id: int,
+    data: BookingUpdate,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks, 
+):
+    with booking_transaction(session):
+        db_user = get_user(session, user.id)
+        booking = session.exec(
+            select(Booking).where(
+                Booking.id == booking_id,
+                Booking.user_id == db_user.id,
+            )
+        ).first()
+        if booking is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
+
+        original_slot = session.get(Slot, booking.slot_id)
+        if original_slot is None:
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "Booking slot not found",
+            )
+        ensure_change_allowed(original_slot)
+
+        if (data.date is None) != (data.time is None):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Date and time must be changed together",
+            )
+
+        new_slot = original_slot
+        if data.date is not None and data.time is not None:
+            new_slot = find_slot(session, data.date, data.time)
+            ensure_change_allowed(new_slot)
+
+        if new_slot.id != booking.slot_id and session.exec(
+            select(Booking).where(
+                Booking.user_id == db_user.id,
+                Booking.slot_id == new_slot.id,
+                Booking.id != booking.id,
+            )
+        ).first():
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "A booking already exists for this slot",
+            )
+
+        release_tables(session, booking)
+        booking.slot_id = new_slot.id
+        if data.party_size is not None:
+            booking.party_size = data.party_size
+        if assign_tables(session, booking) is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "There are not enough seats for this party",
+            )
+
+        if data.requirements is not None:
+            old_requirements = session.exec(
+                select(BookingRequirement).where(
+                    BookingRequirement.booking_id == booking.id
+                )
+            ).all()
+            for requirement in old_requirements:
+                session.delete(requirement)
+            session.flush()
+            session.add_all(
+                [
+                    BookingRequirement(
+                        booking_id=booking.id,
+                        allergies=requirement.allergies,
+                        description=requirement.description,
+                    )
+                    for requirement in data.requirements
+                ]
+            )
+
+         # MH-06: requirements shown in the email (the new ones, or the stored ones)
+        requirements = data.requirements
+        if requirements is None:
+            requirements = [
+                BookingRequirementCreate(allergies=r.allergies, description=r.description)
+                for r in session.exec(
+                    select(BookingRequirement).where(BookingRequirement.booking_id == booking.id)
+                ).all()
+            ]
+
+        response = booking_response(session, booking)
+        change = build_confirmation(db_user, new_slot, booking, requirements)
+    # MH-06: outside the block, so the email leaves only after the commit
+    background_tasks.add_task(send_booking_change, change)
+    return response
+
+
+@router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_booking(
+    booking_id: int,
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER))],
+    background_tasks: BackgroundTasks,
+):
+    with booking_transaction(session):
+        db_user = get_user(session, user.id)
+        booking = session.exec(
+            select(Booking).where(
+                Booking.id == booking_id,
+                Booking.user_id == db_user.id,
+            )
+        ).first()
+        if booking is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Booking not found")
+
+        slot = session.get(Slot, booking.slot_id)
+        if slot is None:
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "Booking slot not found",
+            )
+        requirements = session.exec(
+            select(BookingRequirement).where(
+                BookingRequirement.booking_id == booking.id
+            )
+        ).all()
+        
+        cancellation = build_confirmation(db_user, slot, booking, requirements)
+
+        release_tables(session, booking)
+
+        for requirement in requirements:
+            session.delete(requirement)
+
+        session.delete(booking)
+
+    background_tasks.add_task(send_booking_cancellation, cancellation)

@@ -1,38 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { createBooking, getAvailability } from "../api";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { checkAvailability, getAvailability } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { isHiker, isStaff } from "../auth/roles";
 import { hut } from "../content/hutInfo";
-import "./landing.css"; // provides the .lp-btn styles used by the auth buttons
+import "./landing.css"; // header and the .lp-btn styles
+import "./Availability.css";
 
-const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+// MH-04: anyone (no login) checks if a party fits at a given date and time.
+// The page is a small search form. The answer comes from GET /availability and
+// no other slots are suggested: the visitor just checks another date or time.
 
 function toDateKey(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-function getCalendarDays(monthDate) {
-  const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const mondayIndex = (first.getDay() + 6) % 7;
-
-  const start = new Date(first);
-  start.setDate(first.getDate() - mondayIndex);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    return day;
-  });
-}
-
-function monthLabel(date) {
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
 }
 
 function formatDate(dateKey) {
@@ -43,28 +26,38 @@ function formatDate(dateKey) {
   });
 }
 
+function formatTime(dateTime) {
+  if (!dateTime) return "";
+  const time = dateTime.includes("T") ? dateTime.split("T")[1] : dateTime;
+  return time.slice(0, 5);
+}
+
 function formatSlot(slot) {
   return `${formatTime(slot.start)} – ${formatTime(slot.end)}`;
 }
 
-function formatTime(dateTime) {
-  if (!dateTime) return "";
+function guestsLabel(count) {
+  return `${count} ${count === 1 ? "guest" : "guests"}`;
+}
 
-  // Extract the time portion from an ISO date
-  const time = dateTime.includes("T") ? dateTime.split("T")[1] : dateTime;
-
-  // Remove timezone information and seconds
-  return time.slice(0, 5);
+// The backend messages, in plain words.
+function friendlyError(message) {
+  if (/closed less than two hours/i.test(message)) {
+    return "Bookings for this slot are already closed: they close two hours before it starts.";
+  }
+  if (/slot not available/i.test(message)) {
+    return "There is no time slot at that date and time.";
+  }
+  return message || "Could not check availability. Please try again.";
 }
 
 export default function Availability() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading, logout } = useAuth();
 
-  // A visitor who logs in or registers from this page comes back here with the
-  // date, time and party size they had chosen in the address
-  // (?date=2026-11-06&time=12:00:00&party=3).
+  // Coming back from login or register, the page opens with the date, time and
+  // party size the visitor had chosen (?date=2026-11-25&time=19:00:00&party=4)
+  // and checks again.
   const wanted = useMemo(() => {
     const query = new URLSearchParams(location.search);
     const date = query.get("date");
@@ -85,200 +78,147 @@ export default function Availability() {
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
+  const todayKey = toDateKey(today);
 
-  const [month, setMonth] = useState(() => {
-    if (wanted.date) {
-      const [year, monthNumber] = wanted.date.split("-").map(Number);
-      return new Date(year, monthNumber - 1, 1);
-    }
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
-  const [availability, setAvailability] = useState({});
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
-  const [partySize, setPartySize] = useState(1);
-  const [booking, setBooking] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [slotsByDate, setSlotsByDate] = useState({});
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const [slotsError, setSlotsError] = useState("");
 
-  const calendarDays = useMemo(() => getCalendarDays(month), [month]);
+  const [date, setDate] = useState(wanted.date ?? "");
+  const [time, setTime] = useState(wanted.time ?? "");
+  const [guests, setGuests] = useState(wanted.party ? String(wanted.party) : "1");
 
-  const monthRange = useMemo(() => {
-    const from = toDateKey(new Date(month.getFullYear(), month.getMonth(), 1));
-    const to = toDateKey(
-      new Date(month.getFullYear(), month.getMonth() + 1, 0)
-    );
-    return { from, to };
-  }, [month]);
+  const [checking, setChecking] = useState(false);
+  const [formError, setFormError] = useState("");
+  // what the last check was for, and what the backend answered
+  const [result, setResult] = useState(null); // { date, time, slot, guests, available, tables }
+  const [checkError, setCheckError] = useState("");
 
+  // the open time slots by date: they tell which times can be chosen
   useEffect(() => {
     let cancelled = false;
-
-    async function loadMonth() {
-      setLoading(true);
-      setError("");
-
+    async function load() {
       try {
-        const dates = await getAvailability(monthRange.from, monthRange.to);
+        const all = await getAvailability();
         if (cancelled) return;
-
-        let mapped;
-
-        if (Array.isArray(dates)) {
-          mapped = Object.fromEntries(
-            dates.map((item) => [item.date, item.slots ?? []])
-          );
-        } else if (dates && typeof dates === "object") {
-          mapped = Object.fromEntries(
-            Object.entries(dates).map(([date, slots]) => [
-              date,
-              Array.isArray(slots) ? slots : [],
-            ])
-          );
-        } else {
-          throw new Error("Availability response has an unexpected format.");
-        }
-
-        setAvailability(mapped);
-
-        // first load after coming back from login: select the remembered date,
-        // slot and party size (capped at the seats that are still left)
-        if (!restored.current && wanted.date) {
-          restored.current = true;
-          const slots = mapped[wanted.date] ?? [];
-          const notPast = new Date(`${wanted.date}T00:00:00`) >= today;
-          if (notPast && slots.length > 0) {
-            setSelectedDate(wanted.date);
-            const index = wanted.time
-              ? slots.findIndex((slot) => slot.time === wanted.time)
-              : -1;
-            if (index >= 0) {
-              setSelectedSlotIndex(String(index));
-              if (wanted.party) {
-                setPartySize(
-                  Math.max(1, Math.min(wanted.party, slots[index].availableSeats))
-                );
-              }
-            }
-          }
-        }
-
-        if (
-          selectedDate &&
-          !Object.prototype.hasOwnProperty.call(mapped, selectedDate)
-        ) {
-          setSelectedDate(null);
-          setSelectedSlotIndex("");
-          setPartySize(1);
-        }
+        setSlotsByDate(all && typeof all === "object" && !Array.isArray(all) ? all : {});
       } catch (err) {
-        if (!cancelled) {
-          setError(err.message || "Could not load availability.");
-          setAvailability({});
-        }
+        if (!cancelled) setSlotsError(err.message || "Could not load the time slots.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSlotsLoading(false);
       }
     }
-
-    loadMonth();
-
+    load();
     return () => {
       cancelled = true;
     };
-  }, [monthRange.from, monthRange.to]);
+  }, []);
 
-  const selectedSlots = selectedDate ? availability[selectedDate] ?? [] : [];
+  const slotsOfDate = useMemo(
+    () =>
+      [...(slotsByDate[date] ?? [])].sort((a, b) =>
+        String(a.start).localeCompare(String(b.start))
+      ),
+    [slotsByDate, date]
+  );
 
-  const selectedSlot =
-    selectedSlotIndex === "" ? null : selectedSlots[Number(selectedSlotIndex)];
+  const guestCount = Number(guests);
+  const guestsValid = /^\d+$/.test(guests.trim()) && guestCount >= 1;
 
-  // where login and register send the visitor back to, with the current choice
-  const returnPath = selectedDate
-    ? `/availability?date=${encodeURIComponent(selectedDate)}${
-        selectedSlot?.time
-          ? `&time=${encodeURIComponent(selectedSlot.time)}&party=${partySize}`
-          : ""
-      }`
-    : "/availability";
-
-  function isPast(day) {
-    return day < today;
-  }
-
-  function isCurrentMonth(day) {
-    return day.getMonth() === month.getMonth();
-  }
-
-  function hasAvailability(day) {
-    const key = toDateKey(day);
-    return (
-      Object.prototype.hasOwnProperty.call(availability, key) &&
-      availability[key].length > 0
-    );
-  }
-
-  function selectDate(day) {
-    const key = toDateKey(day);
-
-    if (isPast(day) || !isCurrentMonth(day) || !hasAvailability(day)) {
-      return;
+  // after the slots load, run the check the visitor had asked for before login
+  useEffect(() => {
+    if (restored.current || slotsLoading) return;
+    restored.current = true;
+    if (wanted.date && wanted.time && wanted.party && wanted.date >= todayKey) {
+      runCheck(wanted.date, wanted.time, wanted.party);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotsLoading]);
 
-    setSelectedDate(key);
-    setSelectedSlotIndex("");
-    setPartySize(1);
+  // a changed field makes the old answer stale
+  function clearAnswer() {
+    setResult(null);
+    setCheckError("");
+    setFormError("");
   }
 
-  function changeMonth(offset) {
-    setMonth(
-      (current) =>
-        new Date(current.getFullYear(), current.getMonth() + offset, 1)
-    );
-    setSelectedDate(null);
-    setSelectedSlotIndex("");
-    setPartySize(1);
+  function changeDate(value) {
+    setDate(value);
+    setTime("");
+    clearAnswer();
   }
 
-  async function confirmBooking() {
-    if (!user || !selectedDate || !selectedSlot || booking) return;
-    setBooking(true);
-    setError("");
+  function changeTime(value) {
+    setTime(value);
+    clearAnswer();
+  }
+
+  function changeGuests(value) {
+    setGuests(value);
+    clearAnswer();
+  }
+
+  async function runCheck(checkDate, checkTime, checkGuests) {
+    setChecking(true);
+    setResult(null);
+    setCheckError("");
     try {
-      const result = await createBooking({
-        date: selectedDate,
-        time: selectedSlot.time, // hut-local HH:MM:SS, which is what POST /booking expects
-        partySize,
+      const answer = await checkAvailability({
+        date: checkDate,
+        time: checkTime,
+        partySize: checkGuests,
       });
-      navigate("/reservation-detail", {
-        state: {
-          booking: result,
-          date: selectedDate,
-          start: selectedSlot.start,
-          end: selectedSlot.end,
-          partySize,
-          availableSeats: selectedSlot.availableSeats,
-        },
+      const slot = (slotsByDate[checkDate] ?? []).find((item) => item.time === checkTime);
+      setResult({
+        date: checkDate,
+        time: checkTime,
+        slot: slot ?? null,
+        guests: checkGuests,
+        available: Boolean(answer.available),
+        tables: answer.tables ?? [],
       });
     } catch (err) {
-      setError(err.message || "Could not create reservation.");
+      setCheckError(friendlyError(err.message));
     } finally {
-      setBooking(false);
+      setChecking(false);
     }
   }
+
+  function submit(event) {
+    event.preventDefault();
+    if (checking) return;
+    setFormError("");
+    if (!date) return setFormError("Choose a date.");
+    if (date < todayKey) return setFormError("Choose today or a later date.");
+    if (!time) return setFormError("Choose a time.");
+    if (!guestsValid) return setFormError("Enter how many guests, at least 1.");
+    runCheck(date, time, guestCount);
+  }
+
+  // login and register bring the visitor back here with the same search
+  const returnPath =
+    date && time && guestsValid
+      ? `/availability?date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&party=${guestCount}`
+      : "/availability";
+
+  const split = result?.tables.map((table) => table.seats).join(" + ");
+
+  // A logged-in hiker books directly: the Booking page opens with the date, time
+  // and guests already chosen when they come with them (?date&time&party).
+  if (authLoading) return <div className="lp" />;
+  if (isHiker(user)) return <Navigate to={`/booking${location.search}`} replace />;
 
   return (
     <div className="lp">
       <header className="lp-nav">
         <Link to="/" className="lp-brand" aria-label={`${hut.name} home`}>
-            <span className="lp-brand-mark">▲</span>
-            <span>
+          <span className="lp-brand-mark">▲</span>
+          <span>
             <strong>{hut.name}</strong>
             <small>Mountain hut</small>
-            </span>
+          </span>
         </Link>
 
-        {/* Top right: auth buttons from Landing (replaces "Signed in as HIKER") */}
         <div className="lp-nav-actions">
           {!authLoading && user && (
             <>
@@ -286,11 +226,7 @@ export default function Availability() {
                 <strong>{user.username}</strong>
                 <small>{user.role}</small>
               </span>
-              <button
-                type="button"
-                className="lp-btn lp-btn--ghost"
-                onClick={logout}
-              >
+              <button type="button" className="lp-btn lp-btn--ghost" onClick={logout}>
                 Log out
               </button>
             </>
@@ -308,237 +244,160 @@ export default function Availability() {
         </div>
       </header>
 
-      <main className="main-content">
-        <div className="intro">
-          <div>
-            <span className="eyebrow">TABLE RESERVATION</span>
-            <h1>Reserve your table</h1>
-            <p>
-              Choose a date, select an available time, and tell us how many
-              guests will be joining you.
-            </p>
-          </div>
-        </div>
+      <main className="av-page">
+        <header className="av-head">
+          <span className="av-eyebrow">Check availability</span>
+          <h1>Is there a table for you?</h1>
+          <p>Pick a date, a time and the number of guests. No login needed.</p>
+        </header>
 
-        <section className="booking-layout">
-          <div className="panel calendar-panel">
-            <div className="panel-heading">
-              <div>
-                <span className="step">01</span>
-                <h2>Choose a date</h2>
-              </div>
-              <span className="hint">Available dates are highlighted</span>
-            </div>
+        <form className="av-search" onSubmit={submit} noValidate>
+          <label className="av-field">
+            <span>Date</span>
+            <input
+              type="date"
+              value={date}
+              min={todayKey}
+              onChange={(event) => changeDate(event.target.value)}
+            />
+          </label>
 
-            <div className="calendar">
-              <div className="calendar-header">
-                <button
-                  type="button"
-                  className="month-button"
-                  onClick={() => changeMonth(-1)}
-                  aria-label="Previous month"
-                >
-                  ‹
-                </button>
+          <label className="av-field">
+            <span>Time</span>
+            <select
+              value={time}
+              onChange={(event) => changeTime(event.target.value)}
+              disabled={!date || slotsOfDate.length === 0}
+            >
+              <option value="">
+                {!date ? "Pick a date first" : slotsOfDate.length === 0 ? "No slots" : "Choose a time"}
+              </option>
+              {slotsOfDate.map((slot) => (
+                <option key={slot.id ?? slot.time} value={slot.time}>
+                  {formatSlot(slot)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-                <div className="month-title">{monthLabel(month)}</div>
-
-                <button
-                  type="button"
-                  className="month-button"
-                  onClick={() => changeMonth(1)}
-                  aria-label="Next month"
-                >
-                  ›
-                </button>
-              </div>
-
-              <div className="weekdays">
-                {WEEKDAYS.map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-
-              <div className="calendar-grid">
-                {calendarDays.map((day) => {
-                  const key = toDateKey(day);
-                  const currentMonth = isCurrentMonth(day);
-                  const available =
-                    currentMonth && !isPast(day) && hasAvailability(day);
-                  const selected = selectedDate === key;
-
-                  return (
-                    <button
-                      type="button"
-                      key={key}
-                      className={[
-                        "day",
-                        !currentMonth ? "outside-month" : "",
-                        available ? "available" : "unavailable",
-                        selected ? "selected" : "",
-                      ].join(" ")}
-                      disabled={!available || loading}
-                      onClick={() => selectDate(day)}
-                    >
-                      <span>{day.getDate()}</span>
-                      {available && !selected && <i />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="calendar-legend">
-                <span>
-                  <i className="legend-dot" /> Available
-                </span>
-                <span>
-                  <i className="legend-dot muted" /> Unavailable
-                </span>
-              </div>
+          <div className="av-field">
+            <span id="av-guests-label">Guests</span>
+            <div className="av-stepper" role="group" aria-labelledby="av-guests-label">
+              <button
+                type="button"
+                aria-label="One guest less"
+                disabled={!guestsValid || guestCount <= 1}
+                onClick={() => changeGuests(String(Math.max(1, guestCount - 1)))}
+              >
+                −
+              </button>
+              <input
+                inputMode="numeric"
+                value={guests}
+                onChange={(event) => changeGuests(event.target.value)}
+                aria-label="Number of guests"
+              />
+              <button
+                type="button"
+                aria-label="One guest more"
+                disabled={guestsValid && guestCount >= 99}
+                onClick={() => changeGuests(String((guestsValid ? guestCount : 0) + 1))}
+              >
+                +
+              </button>
             </div>
           </div>
 
-          <div className="panel details-panel">
-            <div className="panel-heading">
-              <div>
-                <span className="step">02</span>
-                <h2>Choose a time</h2>
-              </div>
-            </div>
+          <button type="submit" className="av-check" disabled={checking}>
+            {checking ? "Checking…" : "Check availability"}
+          </button>
+        </form>
 
-            {selectedDate ? (
-              <>
-                <div className="selected-date">
-                  <span className="calendar-icon">▣</span>
+        {date && !slotsLoading && slotsOfDate.length === 0 && !slotsError && (
+          <p className="av-note">There are no time slots on {formatDate(date)}. Try another date.</p>
+        )}
+        {formError && (
+          <p className="av-error" role="alert">
+            {formError}
+          </p>
+        )}
+        {slotsError && (
+          <p className="av-error" role="alert">
+            {slotsError}
+          </p>
+        )}
+
+        <section className="av-answer" aria-live="polite">
+          {checkError && (
+            <div className="av-card av-card--error" role="alert">
+              <strong>We could not check this</strong>
+              <p>{checkError}</p>
+            </div>
+          )}
+
+          {result && result.available && (
+            <div className="av-card av-card--yes">
+              <span className="av-badge">Available</span>
+              <h2>There is room for {guestsLabel(result.guests)}</h2>
+              <p className="av-when">
+                {formatDate(result.date)}
+                {result.slot ? ` · ${formatSlot(result.slot)}` : ` · ${formatTime(result.time)}`}
+              </p>
+
+              <div className="av-seating">
+                <span>
+                  {result.tables.length === 1 ? "Seated at one table" : `Seated at ${result.tables.length} tables`}
+                </span>
+                <strong>{split} seats</strong>
+                <ul>
+                  {result.tables.map((table) => (
+                    <li key={table.number}>
+                      Table {table.number}
+                      <b>{table.seats} {table.seats === 1 ? "seat" : "seats"}</b>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {authLoading ? null : !user ? (
+                <div className="av-next">
+                  <p>Log in or register to book it.</p>
                   <div>
-                    <span>Selected date</span>
-                    <strong>{formatDate(selectedDate)}</strong>
+                    <Link to="/login" state={{ from: returnPath }} className="lp-btn lp-btn--ghost">
+                      Log in
+                    </Link>
+                    <Link to="/register" state={{ from: returnPath }} className="lp-btn lp-btn--primary">
+                      Register
+                    </Link>
                   </div>
                 </div>
-
-                <div className="slot-list">
-                  {selectedSlots.map((slot, index) => {
-                    const selected = String(index) === selectedSlotIndex;
-
-                    return (
-                      <button
-                        type="button"
-                        key={`${slot.start}-${slot.end}-${index}`}
-                        className={`slot-card ${selected ? "selected" : ""}`}
-                        onClick={() => {
-                          setSelectedSlotIndex(String(index));
-                          setPartySize((current) =>
-                            Math.min(Math.max(current, 1), slot.availableSeats)
-                          );
-                        }}
-                      >
-                        <span className="slot-time">{formatSlot(slot)}</span>
-                        <span className="slot-seats">
-                          {slot.availableSeats}{" "}
-                          {slot.availableSeats === 1 ? "seat" : "seats"} left
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-icon">01</div>
-                <strong>Select an available date</strong>
-                <p>Your available time slots will appear here.</p>
-              </div>
-            )}
-
-            <div className="party-section">
-              <div className="panel-heading compact">
-                <div>
-                  <span className="step">03</span>
-                  <h2>Party size</h2>
-                </div>
-              </div>
-
-              <div className="party-control">
-                <button
-                  type="button"
-                  disabled={!selectedSlot || partySize <= 1}
-                  onClick={() => setPartySize((value) => Math.max(1, value - 1))}
-                  aria-label="Decrease party size"
-                >
-                  −
-                </button>
-
-                <div className="party-number">
-                  <strong>{partySize}</strong>
-                  <span>{partySize === 1 ? "guest" : "guests"}</span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    !selectedSlot ||
-                    partySize >= (selectedSlot?.availableSeats ?? 1)
-                  }
-                  onClick={() =>
-                    setPartySize((value) =>
-                      Math.min(value + 1, selectedSlot?.availableSeats ?? value)
-                    )
-                  }
-                  aria-label="Increase party size"
-                >
-                  +
-                </button>
-              </div>
-
-              {selectedSlot && (
-                <p className="capacity">
-                  Maximum {selectedSlot.availableSeats}{" "}
-                  {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
-                  this time slot.
-                </p>
+              ) : (
+                isStaff(user) && (
+                  <div className="av-next">
+                    <p>To book it for a hiker, use “Reserve for hiker”.</p>
+                    <div>
+                      <Link to="/staff/reserve" className="lp-btn lp-btn--primary">
+                        Reserve for hiker
+                      </Link>
+                    </div>
+                  </div>
+                )
               )}
             </div>
-
-            {error && <div className="error">{error}</div>}
-          </div>
-        </section>
-
-        <div className="booking-footer">
-          <div className="summary">
-            <span>Your selection</span>
-            {!authLoading && !user && (
-              <strong>Please Log in or register to make a reservation.</strong>
-            )}
-            <strong>
-              {selectedDate && selectedSlot
-                ? `${formatDate(selectedDate)} · ${formatSlot(selectedSlot)}`
-                : "Selected date and time will appear here."}
-            </strong>
-          </div>
-
-          {/* Bottom right: auth buttons from Landing take the place of the
-              confirm button until the visitor is signed in. */}
-          {!authLoading && !user ? (
-            <div className="lp-nav-actions">
-              <Link to="/login" state={{ from: returnPath }} className="lp-btn lp-btn--ghost">
-                Log in
-              </Link>
-              <Link to="/register" state={{ from: returnPath }} className="lp-btn lp-btn--primary">
-                Register
-              </Link>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="confirm-button"
-              disabled={!selectedDate || !selectedSlot || booking}
-              onClick={confirmBooking}
-            >
-              {booking ? "Confirming..." : "Confirm reservation"}
-              {!booking && <span>→</span>}
-            </button>
           )}
-        </div>
+
+          {result && !result.available && (
+            <div className="av-card av-card--no">
+              <span className="av-badge av-badge--no">Not available</span>
+              <h2>No room for {guestsLabel(result.guests)} at this time</h2>
+              <p className="av-when">
+                {formatDate(result.date)}
+                {result.slot ? ` · ${formatSlot(result.slot)}` : ` · ${formatTime(result.time)}`}
+              </p>
+              <p className="av-hint">Check a different time or date above.</p>
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
