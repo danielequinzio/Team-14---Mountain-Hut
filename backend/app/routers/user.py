@@ -17,7 +17,7 @@ from sqlmodel import select
 
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, PWD_RESET_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, RegisterRequestEmployee
+from app.models import Booking, CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, RegisterRequestEmployee
 from app.services.auth import create_token, get_current_user, hash_password, verify_password
 from app.services.notification import build_account_created, send_account_created, send_pwd_reset
 
@@ -110,4 +110,20 @@ def create_guest_profile(user: EmployeeOrWarden,
     session.refresh(guest_user)
     # no email at all: the guest gave none, so neither an account email nor booking confirmations are sent
     return guest_user
+
+
+@router.delete("/guests/{guest_id}", status_code=204)
+def remove_guest(user: EmployeeOrWarden, session: SessionDep, guest_id: int):
+    """Remove a guest added by the staff. Only guests: hikers with an account and staff are never touched."""
+    guest = session.get(User, guest_id)
+    if not guest or not guest.is_guest:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "guest not found")
+
+    # the bookings point to the guest: the staff must cancel them first
+    if session.exec(select(Booking).where(Booking.user_id == guest_id)).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, "guest still has bookings")
+
+    session.delete(guest)
+    session.commit()
+    return Response(status_code=204)
 
