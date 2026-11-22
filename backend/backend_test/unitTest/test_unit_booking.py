@@ -25,6 +25,7 @@ from app.routers.booking import (
     delete_booking,
     get_my_bookings,
     update_booking,
+    create_booking_for_hiker,
 )
 import app.services.booking as booking_service  
 from app.services.booking import (
