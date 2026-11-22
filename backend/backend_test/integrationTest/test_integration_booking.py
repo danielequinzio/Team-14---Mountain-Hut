@@ -532,6 +532,7 @@ def test_booking_is_listed_with_slot_times_in_hut_time(as_hiker, hiker, lunch, a
     assert response.json() == [{
         "id": booking_id,
         "party_size": 3,
+        "slot_date": tomorrow().isoformat(),
         "slot_time_start": "12:00:00",
         "slot_time_end": "13:30:00",
         "tables": [{"number": 2, "seats": 3}],

@@ -174,6 +174,65 @@ export async function getAvailability() {
   return availability;
 }
 
+/**
+ * Ask the backend to email a password-reset link.
+ * The backend accepts user_email as a query parameter and deliberately
+ * returns the same message whether or not the address belongs to an account.
+ */
+export async function requestPasswordReset(email) {
+  const query = new URLSearchParams({ user_email: email.trim().toLowerCase() });
+  return request(`/auth/forgot-password?${query.toString()}`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Complete a password reset using the one-time token from the email link.
+ * ResetPasswordRequest expects { token, new_password }.
+ */
+export async function resetPassword(token, newPassword) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+    }),
+  });
+}
+
+// ----------------------------------
+// CHECK AVAILABILITY (public, books nothing)
+// ----------------------------------
+
+// GET /availability?date&time&party_size -> { available, tables: [{ number, seats }] }
+// "time" is the slot start as hut-local HH:MM:SS. The backend answers 400 when
+// there is no slot at that date and time, or when it starts in less than two hours.
+export async function checkAvailability({ date, time, partySize }) {
+  if (USE_MOCK_DATA) {
+    const slot = (mockAvailability[date] || []).find((item) => item.start === time);
+    if (!slot) throw new Error("Slot not available");
+    const fits = partySize <= slot.availableSeats;
+    return { available: fits, tables: fits ? [{ number: 1, seats: partySize }] : [] };
+  }
+
+  const query = new URLSearchParams({ date, time, party_size: String(partySize) });
+  const response = await fetch(`${API_BASE_URL}/availability?${query.toString()}`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(", ")
+      : data?.detail;
+    throw new Error(message || "Could not check availability.");
+  }
+
+  return data;
+}
+
 // ----------------------------------
 // CREATE BOOKING
 // ----------------------------------
@@ -464,4 +523,164 @@ export async function createEmployeeSlot({ date, start, end, tables, sourceSlotI
 
 export function getMyBookings() {
   return request("/booking");
+}
+
+// ----------------------------------
+// CHANGE BOOKING (MH-06)
+// ----------------------------------
+
+// PATCH /booking/{id}. Send only what changes:
+//   date + time  -> move to another slot (the backend wants them together)
+//   partySize    -> new number of guests
+//   requirements -> the new complete list (it replaces the old one)
+export async function updateBooking(bookingId, { date, time, partySize, requirements } = {}) {
+  const body = {};
+  if (date !== undefined && time !== undefined) {
+    body.date = date;
+    body.time = time;
+  }
+  if (partySize !== undefined) {
+    body.party_size = partySize;
+  }
+  if (requirements !== undefined) {
+    body.requirements = requirements.map((requirement) => ({
+      allergies: Boolean(requirement.allergies),
+      description: requirement.description,
+    }));
+  }
+
+  const response = await fetch(`${API_BASE_URL}/booking/${bookingId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    // FastAPI validation errors (422) return detail as an array of objects
+    const message = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(", ")
+      : data?.detail;
+
+    throw new Error(message || "Could not change the booking.");
+  }
+
+  return data;
+}
+
+// ----------------------------------
+// STAFF: HIKER PROFILES (MH-07)
+// ----------------------------------
+
+// POST with a JSON body for the staff pages. The backend explains 409/404 with
+// a text and invalid fields (422) with a list: both become one readable message.
+async function staffRequest(path, body, fallbackMessage) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message = Array.isArray(detail)
+      ? detail.map((item) => item.msg).join(", ")
+      : detail;
+    throw new Error(message || fallbackMessage);
+  }
+  return data;
+}
+
+// POST /registerHiker: a hiker with an account. The temporary password is only
+// sent to the hiker's email, never returned.
+export function registerHiker({ name, surname, email, mobileNumber, notes, emergencyContact }) {
+  return staffRequest(
+    "/registerHiker",
+    {
+      name,
+      surname,
+      email,
+      mobile_number: mobileNumber,
+      notes: notes || null,
+      emergency_contact: emergencyContact || null,
+    },
+    "Could not create the hiker."
+  );
+}
+
+// POST /registerGuest: a hiker without an account (no email, cannot log in).
+export function registerGuest({ name, surname, mobileNumber }) {
+  return staffRequest(
+    "/registerGuest",
+    { name, surname, mobile_number: mobileNumber },
+    "Could not create the guest."
+  );
+}
+
+// DELETE /guests/{id}: staff remove a guest they just created (only a guest with
+// no bookings: the backend answers 404 for anyone else and 409 if it has bookings).
+export async function deleteGuest(guestId) {
+  const response = await fetch(`${API_BASE_URL}/guests/${encodeURIComponent(guestId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (response.ok) return; // 204, no body
+  const data = await response.json().catch(() => null);
+  const detail = data?.detail;
+  const message = Array.isArray(detail) ? detail.map((item) => item.msg).join(", ") : detail;
+  throw new Error(message || "Could not remove the guest.");
+}
+
+// GET /profileCheck?email=: staff look a hiker up by email. Returns the profile
+// ({ id, email, role, is_guest }) or null when nobody has that email (404).
+export async function findHikerByEmail(email) {
+  const response = await fetch(
+    `${API_BASE_URL}/profileCheck?email=${encodeURIComponent(email)}`,
+    { credentials: "include" }
+  );
+  if (response.status === 404) return null;
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message = Array.isArray(detail) ? detail.map((item) => item.msg).join(", ") : detail;
+    throw new Error(message || "Could not look the hiker up.");
+  }
+  return data;
+}
+
+// POST /booking/hiker/{id}: staff book a table on behalf of a hiker or guest.
+export function bookForHiker(hikerId, { date, time, partySize, requirements = [] }) {
+  return staffRequest(
+    `/booking/hiker/${hikerId}`,
+    {
+      date,
+      time,
+      party_size: partySize,
+      requirements: requirements.map((requirement) => ({
+        allergies: Boolean(requirement.allergies),
+        description: requirement.description,
+      })),
+    },
+    "Could not create the reservation."
+  );
+}
+
+// ----------------------------------
+// CANCEL BOOKING (MH-08)
+// ----------------------------------
+
+// DELETE /booking/{id}: the backend answers 204 and emails the cancellation
+export async function cancelBooking(bookingId) {
+  if (USE_MOCK_DATA) {
+    throw new Error("Booking cancellation requires the FastAPI backend.");
+  }
+
+  return request(`/booking/${encodeURIComponent(bookingId)}`, {
+    method: "DELETE",
+  });
 }

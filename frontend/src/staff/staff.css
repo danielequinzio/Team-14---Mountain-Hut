@@ -24,7 +24,7 @@
 
 .st-lead {
   margin: 10px 0 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.7;
 }
@@ -38,18 +38,18 @@
 
 .st-date input {
   padding: 10px 12px;
-  border: 1px solid #293644;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d1117;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 13px;
   color-scheme: dark;
 }
 
 .st-date input:focus-visible {
-  outline: 2px solid #6db7ff;
-  outline-offset: 1px;
+  outline: 2px solid #e7b96a;
+  outline-offset: 3px;
 }
 
 .st-controls .au-btn:disabled {
@@ -76,9 +76,9 @@
 
 .st-state {
   padding: 28px;
-  border: 1px dashed #293644;
+  border: 1px dashed #64748b;
   border-radius: 14px;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.7;
   text-align: center;
@@ -89,7 +89,7 @@
 }
 
 .st-state strong {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .st-state--error {
@@ -118,15 +118,15 @@
 
 .st-summary > div {
   padding: 16px 18px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 14px;
-  background: #111821;
+  background: #161e29;
 }
 
 .st-summary dt,
 .st-figures dt {
-  color: #758294;
-  font-size: 11px;
+  color: #cbd5e1;
+  font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -150,9 +150,9 @@
 
 .st-slot {
   padding: clamp(18px, 3vw, 24px);
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 16px;
-  background: #111821;
+  background: #161e29;
 }
 
 .st-slot-head {
@@ -170,7 +170,7 @@
 
 .st-meta {
   margin: 4px 0 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 13px;
 }
 
@@ -198,13 +198,13 @@
 .st-badge--full {
   border-color: rgba(200, 86, 79, 0.45);
   background: rgba(200, 86, 79, 0.12);
-  color: #f0958f;
+  color: #f6aea8;
 }
 
 .st-badge--muted {
-  border-color: #334151;
-  background: #151d27;
-  color: #9ba9b8;
+  border-color: #64748b;
+  background: #1c2635;
+  color: #cbd5e1;
 }
 
 .st-bar,
@@ -212,7 +212,7 @@
   display: block;
   overflow: hidden;
   border-radius: 999px;
-  background: #1c2632;
+  background: #1c2635;
 }
 
 .st-bar {
@@ -242,17 +242,17 @@
 
 .st-hint {
   margin: 16px 0 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 13px;
 }
 
 .st-toggle {
   margin-top: 16px;
   padding: 8px 14px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #111821;
-  color: #c5d0dc;
+  background: #161e29;
+  color: #e6edf3;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -260,12 +260,12 @@
 }
 
 .st-toggle:hover {
-  border-color: #4a5b6f;
-  background: #151d27;
+  border-color: #8193ab;
+  background: #1c2635;
 }
 
 .st-toggle:focus-visible {
-  outline: 2px solid #6db7ff;
+  outline: 2px solid #e7b96a;
   outline-offset: 3px;
 }
 
@@ -284,7 +284,7 @@
   display: grid;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 12px;
   background: #0d1117;
   font-size: 13px;
@@ -295,14 +295,14 @@
 }
 
 .st-table > div:first-child span {
-  color: #758294;
+  color: #cbd5e1;
   font-size: 12px;
 }
 
 .st-table-seats {
   display: grid;
   gap: 6px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 12px;
 }
 
@@ -328,4 +328,52 @@
   .st-date input {
     width: 100%;
   }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.st-lead {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+.st-state p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- Staff Slots polish ---------- */
+
+/* toolbar: 12px gaps, actions pushed to the right as their own group */
+.st-controls {
+  gap: 12px;
+}
+
+.st-controls > a[href="/staff/reserve"] {
+  margin-left: auto;
+}
+
+/* bigger, easier-to-hit day arrows */
+.st-controls button[aria-label="Previous day"],
+.st-controls button[aria-label="Next day"] {
+  min-width: 44px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* visible bar track so the gold fill reads as a proportion */
+.st-bar,
+.st-seat-bar {
+  background: #243042;
+  box-shadow: inset 0 0 0 1px #64748b;
+}
+
+/* "Show tables" at full touch-target size */
+.st-toggle {
+  min-height: 44px;
+  font-size: 14px;
 }

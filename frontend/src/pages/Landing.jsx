@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { isStaff , isHiker } from "../auth/roles";
+import { isStaff, isHiker } from "../auth/roles";
 import { hut } from "../content/hutInfo";
 import "./landing.css";
 
@@ -35,8 +35,10 @@ export default function Landing() {
   // The employee and the warden manage the slots; everyone else books a table.
   // Without this, staff would have no link back to their page from the home page.
   const staff = isStaff(user);
-  const hiker = isHiker(user);
-  const mainLink = staff ? "/staff/slots" : hiker ? "/booking" : "/availability";
+  // A logged-in hiker books directly; a visitor first checks availability.
+  const hikerLoggedIn = !loading && isHiker(user);
+  const mainLink = staff ? "/staff/slots" : hikerLoggedIn ? "/booking" : "/availability";
+  const mainLabel = staff ? "Manage slots" : hikerLoggedIn ? "Book a table" : "Check availability";
 
   useEffect(() => {
     document.title = `${hut.name} · Mountain Hut`;
@@ -89,17 +91,6 @@ export default function Landing() {
               </Link>
             </>
           )}
-          <Link to={mainLink} className="lp-btn lp-btn--primary">
-            {staff ? "Manage slots" : hiker ? "View Bookings" : "Book a table"}
-          </Link>
-          {!loading && user && (
-            <Link
-              to={staff ? "/staff/slots" : "/booking"}
-              className="lp-btn lp-btn--primary"
-            >
-              {staff ? "Manage slots" : "Book a table"}
-            </Link>
-          )}
         </div>
       </header>
 
@@ -111,7 +102,7 @@ export default function Landing() {
             <p>{hut.tagline}</p>
             <div className="lp-hero-actions">
               <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
-                {staff ? "Manage slots" : hiker ? "Book a table" : "Check availability"}
+                {mainLabel}
               </Link>
               {!loading && !user && (
                 <Link
@@ -120,7 +111,6 @@ export default function Landing() {
                 >
                   Create an account
                 </Link>
-                
               )}
               {!loading && isHiker(user) && (
                 <Link
@@ -129,7 +119,6 @@ export default function Landing() {
                 >
                   View Bookings
                 </Link>
-                
               )}
             </div>
           </div>
@@ -240,7 +229,7 @@ export default function Landing() {
               </p>
             </div>
             <Link to={mainLink} className="lp-btn lp-btn--primary lp-btn--large">
-              {staff ? "Manage slots" : hiker ? "View Bookings" : "Check availability"}
+              {mainLabel}
             </Link>
           </div>
         </section>

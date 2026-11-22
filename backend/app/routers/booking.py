@@ -160,6 +160,7 @@ def get_my_bookings(
              result[booking_id] = BookingDetails(
                  id=booking_id,
                  party_size=party_size,
+                 slot_date=_hut_time(start_time).date(),
                  slot_time_start=_hut_time(start_time).time(),
                  slot_time_end=_hut_time(end_time).time(),
                  tables=[],

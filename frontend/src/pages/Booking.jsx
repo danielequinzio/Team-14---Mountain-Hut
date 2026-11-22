@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
 import { createBooking, getAvailability } from "../api";
 
@@ -59,15 +59,37 @@ function formatTime(dateTime) {
 
 export default function Booking() {
   const navigate = useNavigate();
+  const location = useLocation();
   const today = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
-  
-  const [month, setMonth] = useState(
-      () => new Date(today.getFullYear(), today.getMonth(), 1)
-  );
+
+  // The Check availability page sends the hiker here with the date, time and
+  // party size already chosen (?date=2026-11-25&time=19:00:00&party=4).
+  const wanted = useMemo(() => {
+    const query = new URLSearchParams(location.search);
+    const date = query.get("date");
+    const time = query.get("time");
+    const party = query.get("party");
+    return {
+      date: /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date : null,
+      time: /^\d{2}:\d{2}:\d{2}$/.test(time ?? "") ? time : null,
+      party: /^[1-9]\d*$/.test(party ?? "") ? Number(party) : null,
+    };
+    // read once, when the page opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const restored = useRef(false);
+
+  const [month, setMonth] = useState(() => {
+    if (wanted.date) {
+      const [year, monthNumber] = wanted.date.split("-").map(Number);
+      return new Date(year, monthNumber - 1, 1);
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
@@ -118,6 +140,28 @@ export default function Booking() {
         }
         
         setAvailability(mapped);
+
+        // first load, coming from Check availability: select the chosen date,
+        // slot and party size (capped at the seats that are still left)
+        if (!restored.current && wanted.date) {
+          restored.current = true;
+          const slots = mapped[wanted.date] ?? [];
+          const notPast = new Date(`${wanted.date}T00:00:00`) >= today;
+          if (notPast && slots.length > 0) {
+            setSelectedDate(wanted.date);
+            const index = wanted.time
+              ? slots.findIndex((slot) => slot.time === wanted.time)
+              : -1;
+            if (index >= 0) {
+              setSelectedSlotIndex(String(index));
+              if (wanted.party) {
+                setPartySizeInput(
+                  String(Math.max(1, Math.min(wanted.party, slots[index].availableSeats)))
+                );
+              }
+            }
+          }
+        }
         
         if (
             selectedDate &&
@@ -558,17 +602,7 @@ export default function Booking() {
                     can prepare suitable meals safely.
                   </p>
                 </div>
-                
-                <div className={`requirements-capacity ${
-                    assignedRequirementPeople > partySize ? "over-limit" : ""
-                }`}>
-                  {assignedRequirementPeople > partySize
-                      ? `${assignedRequirementPeople} people assigned to requirements, but the party size is ${partySize}. Reduce the quantities.`
-                      : `${remainingRequirementPeople} of ${partySize} ${
-                          partySize === 1 ? "person" : "people"
-                      } not yet assigned to a requirement.`}
-                </div>
-                
+
                 {requirements.length === 0 ? (
                     <p className="requirements-empty">
                       No special requirements added. You can continue without adding any.
