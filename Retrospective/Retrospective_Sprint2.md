@@ -61,19 +61,19 @@ $$
 ## QUALITY MEASURES 
 
 - Unit Testing:
-  - Total hours estimated: 6h
-  - Total hours spent: 6h 15m
-  - Nr of automated unit test cases:  127 tests
-  - Coverage (if available): 100%
+  - Total hours estimated: 6h 05m
+  - Total hours spent: 6h 05m
+  - Nr of automated unit test cases:  xxx tests
+  - Coverage (if available): xxx%
 - Integration testing:
-  - Total hours estimated: 5h
-  - Total hours spent: 5h
+  - Total hours estimated: 8h 15m
+  - Total hours spent: 8h 25m
 - E2E testing:
-  - Total hours estimated: 3h
-  - Total hours spent: 3h 17m
+  - Total hours estimated: 4h 30m
+  - Total hours spent: 4h 30m
 - Code review: 
-  - Total hours estimated: 5h 40m
-  - Total hours spent: 4h 50m
+  - Total hours estimated: 3h 30m
+  - Total hours spent: 3h 30m
 
 
 ## ASSESSMENT
@@ -101,6 +101,7 @@ $$
 
   - Improve communication between frontend and backend developers, using our meetings and group chat to keep each other updated and work better together.
   - Agree on a clear Git workflow (branch naming and merging rules) and stick to it, so we avoid confusion caused by too many branches.
+  - Respect the internal deadlines we set for ourselves, so we have enough time left for final fixes, documentation and deployment.
 
 - One thing you are proud of as a Team!!
 
