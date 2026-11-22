@@ -41,6 +41,7 @@ TOTAL TASKS: 60
 > place technical tasks corresponding to story `#0` and leave out story points (not applicable in this case)
 
 - Hours per task  <span style="color:red">per person</span>  (average, standard deviation)
+
 |        Member         |   Mean     |    StDev    |
 |-----------------------|------------|-------------|
 | Daniele Iacono        |  1h 10m    |    45m      |
@@ -53,7 +54,7 @@ TOTAL TASKS: 60
 
 $$
 \frac{\sum_i estimation_{task_i}}{\sum_i spent_{task_i}} - 1
-= -0.0062 \rightarrow -6.2 \%
+= -0.0062 \rightarrow -6.2 %
 $$  
 
 
