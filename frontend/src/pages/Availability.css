@@ -5,7 +5,7 @@
   width: min(760px, calc(100% - 32px));
   margin: 0 auto;
   padding: 56px 0 80px;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .av-head {
@@ -28,7 +28,7 @@
 
 .av-head p {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 15px;
 }
 
@@ -38,9 +38,9 @@
   grid-template-columns: 1.3fr 1.4fr 1fr;
   gap: 14px;
   padding: 20px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 18px;
-  background: #111821;
+  background: #161e29;
 }
 
 .av-field {
@@ -48,7 +48,7 @@
   flex-direction: column;
   gap: 7px;
   min-width: 0;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -61,10 +61,10 @@
   width: 100%;
   height: 46px;
   padding: 0 12px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d141c;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 15px;
   text-transform: none;
@@ -97,10 +97,10 @@
 
 .av-stepper button {
   height: 46px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #151d27;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font-size: 20px;
   cursor: pointer;
 }
@@ -116,7 +116,7 @@
   border: 1px solid #e7b96a;
   border-radius: 11px;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
   font: inherit;
   font-size: 15px;
   font-weight: 800;
@@ -140,7 +140,7 @@
 }
 
 .av-note {
-  color: #9ba9b8;
+  color: #cbd5e1;
 }
 
 .av-error {
@@ -157,7 +157,7 @@
   align-items: flex-start;
   gap: 12px;
   margin-top: 16px;
-  color: #6c7a89;
+  color: #cbd5e1;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -178,10 +178,10 @@
 .av-days button {
   flex: 0 0 auto;
   padding: 7px 12px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 999px;
-  background: #151d27;
-  color: #9ba9b8;
+  background: #1c2635;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -203,9 +203,9 @@
 
 .av-card {
   padding: 24px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 18px;
-  background: #111821;
+  background: #161e29;
 }
 
 .av-card h2 {
@@ -219,12 +219,12 @@
 
 .av-card--yes {
   border-color: #3c5a46;
-  background: #121c17;
+  background: #161e29;
 }
 
 .av-card--no {
   border-color: #5b4a2a;
-  background: #1a160e;
+  background: #161e29;
 }
 
 .av-card--error {
@@ -244,7 +244,7 @@
   border-radius: 999px;
   background: #1a2a20;
   color: #8fcf9f;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -256,13 +256,13 @@
 }
 
 .av-when {
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 15px;
 }
 
 .av-hint {
   margin-top: 12px !important;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -270,12 +270,12 @@
   margin-top: 18px;
   padding: 16px;
   border-radius: 12px;
-  background: #0d141c;
+  background: #1c2635;
 }
 
 .av-seating > span {
   display: block;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -303,15 +303,15 @@
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #111821;
-  color: #c0c8d2;
+  background: #161e29;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
 .av-seating li b {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .av-next {
@@ -326,7 +326,7 @@
 }
 
 .av-next p {
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -341,7 +341,7 @@
   border: 1px solid #e7b96a;
   border-radius: 11px;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
   font: inherit;
   font-size: 14px;
   font-weight: 800;
@@ -380,4 +380,20 @@
   .av-card h2 {
     font-size: 21px;
   }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.av-head p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.av-note,
+.av-next p {
+  font-size: 16px;
+  line-height: 1.6;
 }

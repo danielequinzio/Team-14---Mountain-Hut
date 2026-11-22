@@ -2,7 +2,7 @@
 .cancel-booking-page {
   min-height: calc(100vh - 72px);
   padding: 48px 24px 72px;
-  color: #f4f0e8;
+  color: #e6edf3;
 }
 .cancel-booking-container {
   width: min(900px, 100%);
@@ -19,21 +19,21 @@
 .cancel-booking-heading { margin-bottom: 28px; }
 .cancel-booking-eyebrow, .cancel-booking-label {
   display: block;
-  color: #9aa8b8;
-  font-size: 0.72rem;
+  color: #cbd5e1;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.13em;
 }
 .cancel-booking-heading h1 {
   margin: 8px 0;
-  color: #f7f4ed;
+  color: #e6edf3;
   font-size: clamp(2rem, 4vw, 2.7rem);
 }
-.cancel-booking-heading p { color: #aeb9c7; margin: 0; }
+.cancel-booking-heading p { color: #cbd5e1; margin: 0; }
 .cancel-booking-card, .cancel-booking-message, .cancel-booking-warning {
-  border: 1px solid rgba(176, 190, 207, 0.18);
+  border: 1px solid #8193ab;
   border-radius: 18px;
-  background: #172536;
+  background: #1c2635;
   padding: 28px;
   box-shadow: 0 14px 40px rgba(0,0,0,0.16);
 }
@@ -43,11 +43,11 @@
   align-items: center;
   gap: 16px;
   padding-bottom: 22px;
-  border-bottom: 1px solid rgba(176,190,207,0.16);
+  border-bottom: 1px solid #8193ab;
 }
 .cancel-booking-card-header h2 {
   margin: 6px 0 0;
-  color: #fff;
+  color: #e6edf3;
   font-size: 1.45rem;
 }
 .cancel-booking-status {
@@ -55,7 +55,7 @@
   padding: 7px 12px;
   color: #e5c77e;
   background: rgba(212, 171, 83, 0.12);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 .cancel-booking-details {
@@ -67,14 +67,14 @@
 .cancel-booking-details strong {
   display: block;
   margin-top: 7px;
-  color: #f4f0e8;
+  color: #e6edf3;
   font-size: 1rem;
   overflow-wrap: anywhere;
 }
 .cancel-booking-full-width { grid-column: 1 / -1; }
 .cancel-booking-requirements {
   padding-top: 20px;
-  border-top: 1px solid rgba(176,190,207,0.16);
+  border-top: 1px solid #8193ab;
 }
 .cancel-booking-requirement {
   margin-top: 12px;
@@ -83,14 +83,14 @@
   background: rgba(255,255,255,0.045);
 }
 .cancel-booking-requirement strong { color: #e8d29b; }
-.cancel-booking-requirement p { margin: 6px 0 0; color: #c0cad5; }
+.cancel-booking-requirement p { margin: 6px 0 0; color: #cbd5e1; }
 .cancel-booking-warning {
   margin-top: 20px;
   border-color: rgba(213, 91, 91, 0.32);
   background: rgba(113, 42, 46, 0.16);
 }
 .cancel-booking-warning strong { color: #f4d9d5; }
-.cancel-booking-warning p { color: #b9c2ce; margin: 8px 0 0; line-height: 1.6; }
+.cancel-booking-warning p { color: #cbd5e1; margin: 8px 0 0; line-height: 1.6; }
 .cancel-booking-actions, .cancel-booking-modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -112,22 +112,22 @@
   cursor: pointer;
 }
 .cancel-booking-secondary {
-  color: #e5eaf0;
-  background: #26384b;
-  border-color: rgba(190,205,220,0.2);
+  color: #e6edf3;
+  background: #243042;
+  border-color: #8193ab;
 }
-.cancel-booking-secondary:hover { background: #31475d; }
+.cancel-booking-secondary:hover { background: #243042; }
 .cancel-booking-danger {
   color: #fff;
-  background: #a83e43;
+  background: #8f3338;
 }
-.cancel-booking-danger:hover { background: #bd4a4f; }
+.cancel-booking-danger:hover { background: #7f2d32; }
 .cancel-booking-danger:disabled, .cancel-booking-secondary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.cancel-booking-message { color: #c5ced8; line-height: 1.6; }
-.cancel-booking-message h2 { color: #fff; }
+.cancel-booking-message { color: #e6edf3; line-height: 1.6; }
+.cancel-booking-message h2 { color: #e6edf3; }
 .cancel-booking-message .cancel-booking-secondary { margin-top: 12px; }
 .cancel-booking-error, .cancel-booking-inline-error { color: #ffb7b7; }
 .cancel-booking-inline-error { margin: 18px 0 0; }
@@ -146,8 +146,8 @@
   padding: 30px;
   border: 1px solid rgba(220, 190, 125, 0.25);
   border-radius: 18px;
-  background: #172536;
-  color: #eef1f4;
+  background: #1c2635;
+  color: #e6edf3;
   text-align: center;
   box-shadow: 0 24px 80px rgba(0,0,0,0.42);
 }
@@ -163,8 +163,8 @@
   font-size: 1.4rem;
   font-weight: 800;
 }
-.cancel-booking-modal h2 { margin: 0 0 10px; color: #fff; }
-.cancel-booking-modal p { color: #b9c4d0; line-height: 1.6; }
+.cancel-booking-modal h2 { margin: 0 0 10px; color: #e6edf3; }
+.cancel-booking-modal p { color: #cbd5e1; line-height: 1.6; }
 .cancel-booking-modal-actions { justify-content: center; flex-wrap: wrap; }
 @media (max-width: 600px) {
   .cancel-booking-page { padding: 30px 16px 52px; }
@@ -174,4 +174,48 @@
   .cancel-booking-full-width { grid-column: auto; }
   .cancel-booking-actions { flex-direction: column-reverse; align-items: stretch; }
   .cancel-booking-actions > * { width: 100%; }
+}
+
+/* ---------- Cancel Booking polish ---------- */
+
+/* card matches the rest of the app */
+.cancel-booking-card,
+.cancel-booking-message {
+  border-color: #64748b;
+  background: #161e29;
+}
+
+.cancel-booking-card-header,
+.cancel-booking-requirements {
+  border-color: #64748b;
+}
+
+/* gold eyebrow like every other page */
+.cancel-booking-eyebrow {
+  color: #e7b96a;
+}
+
+/* brand gold for the back link */
+.cancel-booking-back {
+  color: #e7b96a;
+}
+
+.cancel-booking-back:hover {
+  color: #f0c77f;
+}
+
+/* even spacing inside the card (only when the details are the last block) */
+.cancel-booking-details:last-child {
+  padding-bottom: 0;
+}
+
+/* "Keep booking" styled like the other secondary buttons, with a real hover */
+.cancel-booking-secondary {
+  background: #1c2635;
+  border-color: #64748b;
+}
+
+.cancel-booking-secondary:hover {
+  background: #243042;
+  border-color: #8193ab;
 }

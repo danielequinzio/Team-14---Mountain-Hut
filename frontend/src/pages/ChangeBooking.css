@@ -5,7 +5,7 @@
   width: min(760px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0 72px;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .cb-header h1 {
@@ -16,7 +16,7 @@
 .cb-header p,
 .cb-note {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -38,10 +38,10 @@
   flex-wrap: wrap;
   margin: 28px 0 20px;
   padding: 18px 20px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-left: 4px solid #e7b96a;
   border-radius: 14px;
-  background: #111821;
+  background: #161e29;
 }
 
 .cb-ticket-main {
@@ -51,8 +51,8 @@
 }
 
 .cb-ticket-label {
-  color: #8593a3;
-  font-size: 11px;
+  color: #cbd5e1;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -66,7 +66,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
   text-align: right;
 }
@@ -79,9 +79,9 @@
 }
 
 .cb-row {
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 14px;
-  background: #111821;
+  background: #161e29;
   overflow: hidden;
 }
 
@@ -109,7 +109,7 @@
 }
 
 .cb-row-value {
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -128,7 +128,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 4px 20px 20px;
-  border-top: 1px solid #202a35;
+  border-top: 1px solid #64748b;
   padding-top: 18px;
 }
 
@@ -148,17 +148,17 @@
   gap: 2px;
   min-width: 64px;
   padding: 10px 8px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #151d27;
-  color: #9ba9b8;
+  background: #1c2635;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .cb-date strong {
-  color: #e9eef5;
+  color: #e6edf3;
   font-size: 20px;
 }
 
@@ -178,17 +178,17 @@
   flex-direction: column;
   gap: 2px;
   padding: 10px 14px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 999px;
-  background: #151d27;
-  color: #9ba9b8;
+  background: #1c2635;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .cb-slot strong {
-  color: #e9eef5;
+  color: #e6edf3;
   font-size: 14px;
 }
 
@@ -207,10 +207,10 @@
 .cb-stepper button {
   width: 42px;
   height: 42px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #151d27;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font-size: 20px;
   cursor: pointer;
 }
@@ -223,14 +223,26 @@
 .cb-stepper input {
   width: 84px;
   height: 42px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #0d141c;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 18px;
   font-weight: 700;
   text-align: center;
+}
+
+/* party size: no browser arrows inside the box, the - and + buttons are enough */
+.cb-stepper input::-webkit-inner-spin-button,
+.cb-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cb-stepper input {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* requirements */
@@ -245,7 +257,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -254,10 +266,10 @@
   min-width: 0;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d141c;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 14px;
 }
@@ -274,7 +286,7 @@
 }
 
 .cb-req-remove {
-  color: #e48a8a;
+  color: #f2adad;
 }
 
 .cb-link {
@@ -287,9 +299,9 @@
 .cb-review {
   margin-top: 24px;
   padding: 20px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 14px;
-  background: #151d27;
+  background: #1c2635;
 }
 
 .cb-review-bar {
@@ -327,11 +339,11 @@
 }
 
 .cb-diff li > span:first-child {
-  color: #8593a3;
+  color: #cbd5e1;
 }
 
 .cb-from {
-  color: #8593a3;
+  color: #cbd5e1;
   text-decoration: line-through;
 }
 
@@ -340,7 +352,7 @@
 }
 
 .cb-to {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .cb-error {
@@ -375,9 +387,9 @@
 }
 
 .cb-btn--cancel {
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   background: transparent;
-  color: #c0c8d2;
+  color: #cbd5e1;
 }
 
 .cb-btn--cancel:hover {
@@ -388,7 +400,7 @@
 .cb-btn--save {
   border: 1px solid #e7b96a;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
 }
 
 .cb-btn--save:hover:not(:disabled) {
@@ -415,7 +427,7 @@
 
 .cb-done p {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
 }
 
 .cb-done-icon {
@@ -441,11 +453,11 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid #202a35;
+  border-bottom: 1px solid #64748b;
 }
 
 .cb-done-list dt {
-  color: #8593a3;
+  color: #cbd5e1;
 }
 
 .cb-done-list dd {
@@ -478,7 +490,7 @@
   border-radius: 999px;
   background: #221c10;
   color: #e7b96a;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -515,4 +527,60 @@
   .cb-btn {
     width: 100%;
   }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.cb-header p,
+.cb-note {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+.cb-done p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cb-actions {
+  gap: 12px;
+}
+
+/* ---------- Change Booking polish ---------- */
+
+/* slightly larger row values, "Change" links and ticket details */
+.cb-row-value,
+.cb-ticket-side {
+  font-size: 15px;
+}
+
+.cb-row-action {
+  font-size: 14px;
+}
+
+/* show that the whole row is clickable */
+.cb-row-head:hover {
+  background: #1c2635;
+}
+
+.cb-row-head:hover .cb-row-action {
+  text-decoration: underline;
+}
+
+/* visible keyboard focus: draw the ring inside the row so it isn't cut off */
+.cb-row-head:focus-visible {
+  outline-offset: -3px !important;
+  border-radius: 14px;
+}
+
+/* disabled Save: neutral instead of muddy gold */
+.cb-btn--save:disabled {
+  opacity: 1;
+  border-color: #64748b;
+  background: #1c2635;
+  color: #8193ab;
 }

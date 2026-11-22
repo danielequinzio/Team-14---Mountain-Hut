@@ -3,7 +3,7 @@
 
 .au-page {
   min-height: 100vh;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .au-page a,
@@ -24,10 +24,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-bottom: 1px solid #202a35;
+  border-bottom: 1px solid #64748b;
   background: rgba(13, 17, 23, 0.88);
   backdrop-filter: blur(12px);
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .au-brand {
@@ -43,7 +43,7 @@
   place-items: center;
   border-radius: 9px;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
   font-size: 14px;
 }
 
@@ -58,8 +58,8 @@
 .au-user small {
   display: block;
   margin-top: 1px;
-  color: #758294;
-  font-size: 10px;
+  color: #cbd5e1;
+  font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -68,12 +68,12 @@
   display: flex;
   gap: clamp(14px, 2.4vw, 30px);
   font-size: 13px;
-  color: #9ba9b8;
+  color: #cbd5e1;
 }
 
 .au-links a:hover,
 .au-links a.active {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .au-nav-actions {
@@ -93,10 +93,10 @@
   height: 36px;
   display: grid;
   place-items: center;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 50%;
-  background: #151d27;
-  color: #c5d0dc;
+  background: #1c2635;
+  color: #e6edf3;
   font-size: 13px;
   font-weight: 700;
 }
@@ -120,7 +120,7 @@
 
 .au-btn--primary {
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
 }
 
 .au-btn--primary:hover {
@@ -128,19 +128,19 @@
 }
 
 .au-btn--ghost {
-  border-color: #334151;
-  background: #111821;
-  color: #c5d0dc;
+  border-color: #64748b;
+  background: #161e29;
+  color: #e6edf3;
 }
 
 .au-btn--ghost:hover {
-  border-color: #4a5b6f;
-  background: #151d27;
+  border-color: #8193ab;
+  background: #1c2635;
 }
 
 .au-btn:focus-visible,
 .au-nav a:focus-visible {
-  outline: 2px solid #6db7ff;
+  outline: 2px solid #e7b96a;
   outline-offset: 3px;
   border-radius: 6px;
 }
@@ -151,7 +151,7 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -159,7 +159,7 @@
   display: block;
   margin-bottom: 10px;
   color: #e7b96a;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -180,13 +180,13 @@
 
 .au-denied p {
   margin: 0 0 26px;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 15px;
   line-height: 1.7;
 }
 
 .au-denied strong {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 /* ---------- Small screens ---------- */
@@ -222,7 +222,7 @@
   width: min(460px, 100%);
   margin: 0 auto;
   padding: clamp(24px, 4vw, 36px);
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 18px;
   background:
     radial-gradient(circle at 100% 0%, rgba(231, 185, 106, 0.1), transparent 45%),
@@ -242,7 +242,7 @@
 
 .au-subtitle {
   margin: 10px 0 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.7;
 }
@@ -268,13 +268,13 @@
 .au-field label {
   display: block;
   margin-bottom: 7px;
-  color: #c5d0dc;
+  color: #e6edf3;
   font-size: 13px;
   font-weight: 600;
 }
 
 .au-optional {
-  color: #68788a;
+  color: #cbd5e1;
   font-weight: 400;
 }
 
@@ -286,10 +286,10 @@
 .au-control textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #293644;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d1117;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 14px;
 }
@@ -301,13 +301,13 @@
 
 .au-control input::placeholder,
 .au-control textarea::placeholder {
-  color: #5b6a7b;
+  color: #cbd5e1;
 }
 
 .au-control input:focus-visible,
 .au-control textarea:focus-visible {
-  outline: 2px solid #6db7ff;
-  outline-offset: 1px;
+  outline: 2px solid #e7b96a;
+  outline-offset: 3px;
   border-color: transparent;
 }
 
@@ -331,7 +331,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -339,24 +339,24 @@
 }
 
 .au-show:hover {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .au-show:focus-visible {
-  outline: 2px solid #6db7ff;
-  outline-offset: 1px;
+  outline: 2px solid #e7b96a;
+  outline-offset: 3px;
 }
 
 .au-hint {
   margin: 6px 0 0;
-  color: #68788a;
+  color: #cbd5e1;
   font-size: 12px;
   line-height: 1.5;
 }
 
 .au-field-error {
   margin: 6px 0 0;
-  color: #f08a82;
+  color: #f6aea8;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -395,7 +395,7 @@
 
 .au-switch {
   margin: 22px 0 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 13px;
   text-align: center;
 }
@@ -422,4 +422,33 @@
 
 .au-link:hover {
   text-decoration: underline;
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.au-subtitle,
+.au-denied p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+.au-btn {
+  min-height: 44px;
+}
+
+.au-nav-actions {
+  gap: 12px;
+}
+
+/* gold link-buttons: always dark text (the ".au-page a" / ".au-nav a" rules
+   above would make it light) */
+.au-page a.au-btn--primary,
+.au-nav a.au-btn--primary {
+  color: #0d1117;
+}
+
+/* navbar links a little larger, closer to the 16px body text */
+.au-links {
+  font-size: 14px;
 }

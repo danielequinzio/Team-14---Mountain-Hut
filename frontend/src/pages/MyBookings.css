@@ -2,7 +2,7 @@
 .my-bookings-page {
   min-height: calc(100vh - 72px);
   padding: 64px 24px 88px;
-  color: #edf2f8;
+  color: #e6edf3;
   background:
     radial-gradient(circle at 82% 8%, rgba(38, 55, 72, 0.22), transparent 32%),
     #0d1219;
@@ -27,7 +27,7 @@
 
 .my-bookings-heading h1 {
   margin: 0;
-  color: #f1f4f8;
+  color: #e6edf3;
   font-size: clamp(34px, 5vw, 48px);
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -35,7 +35,7 @@
 
 .my-bookings-heading > p:last-child {
   margin: 8px 0 0;
-  color: #8ea1b7;
+  color: #cbd5e1;
   font-size: 16px;
 }
 
@@ -60,8 +60,8 @@
 
 .my-bookings-list-heading span,
 .my-booking-label {
-  color: #71869f;
-  font-size: 11px;
+  color: #cbd5e1;
+  font-size: 13px;
   font-weight: 750;
   letter-spacing: 0.12em;
 }
@@ -69,9 +69,9 @@
 .my-booking-card,
 .my-bookings-empty,
 .my-bookings-message {
-  border: 1px solid #263544;
+  border: 1px solid #64748b;
   border-radius: 18px;
-  background: #131a23;
+  background: #161e29;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
@@ -110,7 +110,7 @@
 
 .my-booking-date h3 {
   margin: 4px 0 0;
-  color: #f1f4f8;
+  color: #e6edf3;
   font-size: 18px;
   font-weight: 750;
 }
@@ -128,7 +128,7 @@
 }
 
 .my-booking-details strong {
-  color: #e8edf4;
+  color: #e6edf3;
   font-size: 15px;
 }
 
@@ -160,25 +160,25 @@
 
 .my-bookings-primary-button,
 .my-bookings-primary-link {
-  color: #171717;
+  color: #0d1117;
   background: #e9b85f;
 }
 
 .my-bookings-primary-button:hover,
 .my-bookings-primary-link:hover {
-  color: #171717;
+  color: #0d1117;
   background: #f0c879;
 }
 
 .my-bookings-secondary-button {
-  color: #e5ebf2;
-  border-color: #304153;
-  background: #151e28;
+  color: #e6edf3;
+  border-color: #64748b;
+  background: #1c2635;
 }
 
 .my-bookings-secondary-button:hover {
-  border-color: #71869f;
-  background: #1a2632;
+  border-color: #8193ab;
+  background: #1c2635;
 }
 
 .my-bookings-danger-button {
@@ -205,7 +205,7 @@
 }
 
 .my-booking-edit label {
-  color: #8ea1b7;
+  color: #cbd5e1;
   font-size: 12px;
   font-weight: 700;
 }
@@ -213,11 +213,11 @@
 .my-booking-edit input {
   width: 100%;
   min-height: 42px;
-  border: 1px solid #304153;
+  border: 1px solid #64748b;
   border-radius: 10px;
   padding: 0 12px;
-  color: #f1f4f8;
-  background: #0d141c;
+  color: #e6edf3;
+  background: #1c2635;
   font: inherit;
 }
 
@@ -243,7 +243,7 @@
 .my-bookings-empty p,
 .my-bookings-message p {
   margin: 0;
-  color: #8ea1b7;
+  color: #cbd5e1;
 }
 
 .my-bookings-error {
@@ -286,7 +286,7 @@
 
 .my-booking-requirements p {
   margin: 0;
-  color: #c5d0dc;
+  color: #e6edf3;
   font-size: 14px;
 }
 
@@ -305,7 +305,7 @@
 
 .my-booking-requirement {
   padding: 12px 14px;
-  border: 1px solid rgba(139, 157, 181, 0.22);
+  border: 1px solid #8193ab;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.025);
 }
@@ -319,7 +319,7 @@
 }
 
 .my-booking-requirement-heading strong {
-  color: #f4f6fb;
+  color: #e6edf3;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -331,7 +331,7 @@
   width: fit-content;
   padding: 5px 10px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.2;
   font-weight: 700;
 }
@@ -350,6 +350,66 @@
 
 .my-booking-requirement-description {
   margin: 8px 0 0;
-  color: #c7d2e2;
+  color: #e6edf3;
   line-height: 1.5;
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.my-bookings-heading > p:last-child {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+}
+
+.my-booking-requirements p {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.my-bookings-empty p,
+.my-bookings-message p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.my-bookings-primary-link {
+  min-height: 44px;
+}
+
+.my-booking-actions {
+  gap: 12px;
+}
+
+/* larger labels: keep the five booking details on one row on wide screens */
+@media (min-width: 761px) {
+  .my-booking-details {
+    column-gap: 36px;
+  }
+}
+
+/* ---------- My Bookings polish ---------- */
+
+/* quieter labels so the values stand out */
+.my-booking-label {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* all five details always on one row on wide screens; a long list of
+   tables wraps inside its own column */
+@media (min-width: 761px) {
+  .my-booking-details {
+    display: grid;
+    grid-template-columns: auto auto auto auto minmax(0, 1fr);
+    column-gap: 36px;
+  }
+}
+
+/* Edit / Cancel in the same spot on every card (top, next to the title) */
+.my-booking-card {
+  align-items: flex-start;
 }

@@ -5,7 +5,7 @@
   width: min(600px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0 72px;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .ch-header {
@@ -20,7 +20,7 @@
 
 .ch-header p {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -34,9 +34,9 @@
 
 .ch-card {
   padding: 22px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 16px;
-  background: #111821;
+  background: #161e29;
 }
 
 /* hiker / guest switch */
@@ -46,7 +46,7 @@
   gap: 6px;
   padding: 5px;
   border-radius: 12px;
-  background: #0d141c;
+  background: #1c2635;
 }
 
 .ch-switch button {
@@ -57,14 +57,14 @@
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
-  color: #8593a3;
+  color: #cbd5e1;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .ch-switch button strong {
-  color: #c0c8d2;
+  color: #cbd5e1;
   font-size: 15px;
 }
 
@@ -99,13 +99,13 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 13px;
   font-weight: 600;
 }
 
 .ch-field small {
-  color: #6c7a89;
+  color: #cbd5e1;
   font-weight: 400;
 }
 
@@ -114,10 +114,10 @@
   box-sizing: border-box;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d141c;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 15px;
 }
@@ -146,8 +146,8 @@
 .ch-hint {
   margin: 0;
   padding: 10px 12px;
-  border-left: 3px solid #334151;
-  color: #8593a3;
+  border-left: 3px solid #64748b;
+  color: #cbd5e1;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -190,9 +190,9 @@
 }
 
 .ch-btn--ghost {
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   background: transparent;
-  color: #c0c8d2;
+  color: #cbd5e1;
 }
 
 .ch-btn--ghost:hover {
@@ -203,7 +203,7 @@
 .ch-btn--primary {
   border: 1px solid #e7b96a;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
 }
 
 .ch-btn--primary:hover:not(:disabled) {
@@ -251,11 +251,11 @@
   justify-content: space-between;
   gap: 16px;
   padding: 11px 0;
-  border-bottom: 1px solid #202a35;
+  border-bottom: 1px solid #64748b;
 }
 
 .ch-done-list dt {
-  color: #8593a3;
+  color: #cbd5e1;
 }
 
 .ch-done-list dd {
@@ -267,7 +267,7 @@
 
 .ch-done-note {
   margin: 8px 0 12px;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -289,4 +289,31 @@
   .ch-btn {
     width: 100%;
   }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.ch-header p,
+.ch-done-note {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ch-done-actions {
+  gap: 12px;
+}
+
+/* ---------- Create a hiker polish ---------- */
+
+/* make the unselected Hiker / Guest option look clickable */
+.ch-switch button:not(.active):hover {
+  border-color: #8193ab;
+  background: #243042;
+}
+
+.ch-switch button:not(.active) strong {
+  color: #e6edf3;
 }

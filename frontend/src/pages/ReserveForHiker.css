@@ -5,7 +5,7 @@
   width: min(680px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0 72px;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .rh-header {
@@ -21,7 +21,7 @@
 .rh-header p,
 .rh-muted {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -49,10 +49,10 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #111821;
-  color: #6c7a89;
+  background: #161e29;
+  color: #cbd5e1;
   font-size: 13px;
   font-weight: 700;
 }
@@ -64,18 +64,18 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #1b2430;
+  background: #1c2635;
   font-size: 12px;
 }
 
 .rh-steps li.current {
   border-color: #e7b96a;
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 .rh-steps li.current .rh-step-dot {
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
 }
 
 .rh-steps li.done {
@@ -89,9 +89,9 @@
 /* card */
 .rh-card {
   padding: 22px;
-  border: 1px solid #202a35;
+  border: 1px solid #64748b;
   border-radius: 16px;
-  background: #111821;
+  background: #161e29;
 }
 
 .rh-card h2 {
@@ -104,7 +104,7 @@
 }
 
 .rh-card h2 small {
-  color: #6c7a89;
+  color: #cbd5e1;
   font-weight: 400;
 }
 
@@ -112,14 +112,14 @@
   margin-bottom: 18px;
   padding: 10px 12px;
   border-left: 3px solid #e7b96a;
-  background: #151d27;
+  background: #1c2635;
   border-radius: 0 10px 10px 0;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
 .rh-for strong {
-  color: #e9eef5;
+  color: #e6edf3;
 }
 
 /* find hiker */
@@ -134,7 +134,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 13px;
   font-weight: 600;
 }
@@ -148,10 +148,10 @@
 .rh-stepper input,
 .rh-req-text {
   box-sizing: border-box;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 10px;
-  background: #0d141c;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font: inherit;
   font-size: 15px;
 }
@@ -190,7 +190,7 @@
 
 .rh-found-label {
   color: #8fcf9f;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -205,7 +205,7 @@
 
 .rh-notfound p {
   margin: 4px 0 12px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -220,7 +220,7 @@
   align-items: center;
   gap: 12px;
   margin: 22px 0 4px;
-  color: #6c7a89;
+  color: #cbd5e1;
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -230,7 +230,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: #202a35;
+  background: #1c2635;
 }
 
 .rh-new {
@@ -266,17 +266,17 @@
   gap: 2px;
   min-width: 64px;
   padding: 10px 8px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #151d27;
-  color: #9ba9b8;
+  background: #1c2635;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .rh-date strong {
-  color: #e9eef5;
+  color: #e6edf3;
   font-size: 20px;
 }
 
@@ -298,17 +298,17 @@
   flex-direction: column;
   gap: 2px;
   padding: 10px 14px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 999px;
-  background: #151d27;
-  color: #9ba9b8;
+  background: #1c2635;
+  color: #cbd5e1;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
 .rh-slot strong {
-  color: #e9eef5;
+  color: #e6edf3;
   font-size: 14px;
 }
 
@@ -323,10 +323,10 @@
 .rh-stepper button {
   width: 42px;
   height: 42px;
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   border-radius: 12px;
-  background: #151d27;
-  color: #e9eef5;
+  background: #1c2635;
+  color: #e6edf3;
   font-size: 20px;
   cursor: pointer;
 }
@@ -344,6 +344,18 @@
   text-align: center;
 }
 
+/* party size: no browser arrows inside the box, the - and + buttons are enough */
+.rh-stepper input::-webkit-inner-spin-button,
+.rh-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.rh-stepper input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* requirements */
 .rh-req {
   display: flex;
@@ -357,7 +369,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #9ba9b8;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -381,7 +393,7 @@
 }
 
 .rh-req-remove {
-  color: #e48a8a;
+  color: #f2adad;
 }
 
 .rh-link {
@@ -399,11 +411,11 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid #202a35;
+  border-bottom: 1px solid #64748b;
 }
 
 .rh-list dt {
-  color: #8593a3;
+  color: #cbd5e1;
 }
 
 .rh-list dd {
@@ -451,9 +463,9 @@
 }
 
 .rh-btn--ghost {
-  border: 1px solid #334151;
+  border: 1px solid #64748b;
   background: transparent;
-  color: #c0c8d2;
+  color: #cbd5e1;
 }
 
 .rh-btn--ghost:hover:not(:disabled) {
@@ -464,7 +476,7 @@
 .rh-btn--primary {
   border: 1px solid #e7b96a;
   background: #e7b96a;
-  color: #17130c;
+  color: #0d1117;
 }
 
 .rh-btn--primary:hover:not(:disabled) {
@@ -496,7 +508,7 @@
 
 .rh-done p {
   margin: 0;
-  color: #8593a3;
+  color: #cbd5e1;
   font-size: 14px;
 }
 
@@ -542,4 +554,49 @@
   .rh-actions {
     flex-direction: column-reverse;
   }
+}
+
+/* ---------- Accessibility polish ---------- */
+
+.rh-header p,
+.rh-notfound p,
+.rh-done p {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.rh-actions,
+.rh-search-row {
+  gap: 12px;
+}
+
+/* ---------- Reserve for a hiker polish ---------- */
+
+/* visible "OR" divider */
+.rh-or::before,
+.rh-or::after {
+  background: #64748b;
+}
+
+/* selected date / time: solid gold like the Booking page */
+.rh-date.selected,
+.rh-slot.selected {
+  border-color: #e7b96a;
+  background: #e7b96a;
+  color: #0d1117;
+}
+
+.rh-date.selected strong,
+.rh-slot.selected strong {
+  color: #0d1117;
+}
+
+/* hover feedback on date chips and time pills */
+.rh-date:not(.selected):hover,
+.rh-slot:not(.selected):hover {
+  border-color: #8193ab;
+  background: #243042;
 }

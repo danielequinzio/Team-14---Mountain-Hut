@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
-import { bookForHiker, findHikerByEmail, getAvailability } from "../api";
+import { bookForHiker, deleteGuest, findHikerByEmail, getAvailability } from "../api";
 import "./ReserveForHiker.css";
 
 // MH-07: an employee enters a reservation for a hiker (phone, in person...).
@@ -55,6 +55,8 @@ export default function ReserveForHiker() {
 
   const [step, setStep] = useState(startHiker ? 1 : 0);
   const [hiker, setHiker] = useState(startHiker); // { id, email, label, isGuest }
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
 
   // step 1
   const [email, setEmail] = useState("");
@@ -147,7 +149,33 @@ export default function ReserveForHiker() {
     }
   }
 
-  function changeHiker() {
+  // A guest has no email, so once the staff stop using this profile nobody can
+  // find it again: it is removed first (the backend refuses it if it has bookings).
+  async function removeGuestIfShown() {
+    if (!hiker?.isGuest) return true;
+    setLeaving(true);
+    setLeaveError("");
+    try {
+      await deleteGuest(hiker.id);
+      return true;
+    } catch (err) {
+      setLeaveError(err.message || "Could not remove the guest.");
+      return false;
+    } finally {
+      setLeaving(false);
+    }
+  }
+
+  async function cancelAndLeave() {
+    if (leaving) return;
+    if (await removeGuestIfShown()) navigate("/staff/slots");
+  }
+
+  async function changeHiker() {
+    if (leaving) return;
+    if (!(await removeGuestIfShown())) return;
+    // clear the saved page state too, so a refresh cannot bring the removed guest back
+    navigate("/staff/reserve", { replace: true, state: null });
     setHiker(null);
     setEmail("");
     setNotFound(false);
@@ -380,8 +408,8 @@ export default function ReserveForHiker() {
                   <strong>{hiker.label}</strong>
                   <span className="rh-muted">Profile #{hiker.id}</span>
                 </div>
-                <button type="button" className="rh-link" onClick={changeHiker}>
-                  Change
+                <button type="button" className="rh-link" onClick={changeHiker} disabled={leaving}>
+                  {leaving ? "Removing…" : "Change"}
                 </button>
               </div>
             ) : (
@@ -445,10 +473,27 @@ export default function ReserveForHiker() {
               </>
             )}
 
+            {leaveError && (
+              <div className="rh-error" role="alert">
+                {leaveError}
+              </div>
+            )}
+
             <div className="rh-actions">
-              <Link to="/staff/slots" className="rh-btn rh-btn--ghost">
-                Cancel
-              </Link>
+              {hiker?.isGuest ? (
+                <button
+                  type="button"
+                  className="rh-btn rh-btn--ghost"
+                  onClick={cancelAndLeave}
+                  disabled={leaving}
+                >
+                  Cancel
+                </button>
+              ) : (
+                <Link to="/staff/slots" className="rh-btn rh-btn--ghost">
+                  Cancel
+                </Link>
+              )}
               {/* only when a hiker is already chosen (coming back from step 2) */}
               {hiker && (
                 <button
