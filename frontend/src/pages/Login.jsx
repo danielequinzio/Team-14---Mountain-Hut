@@ -254,3 +254,122 @@ function ChangePasswordStep({ temporaryPassword }) {
     </AuthLayout>
   );
 }
+
+const MIN_PASSWORD_LENGTH = 8; // same rule as the backend (ChangePasswordRequest)
+
+function validateNewPassword(current, newPassword, confirm) {
+  const errors = {};
+  if (!current) errors.current = "Enter the password you received by email.";
+  if (!newPassword) errors.newPassword = "Choose a new password.";
+  else if (newPassword.length < MIN_PASSWORD_LENGTH)
+    errors.newPassword = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  else if (newPassword === current)
+    errors.newPassword = "The new password must be different from the one you received.";
+  if (!errors.newPassword && confirm !== newPassword)
+    errors.confirm = "The two passwords do not match.";
+  return errors;
+}
+
+// Shown instead of the login form when the account was created by the staff and the
+// password arrived by email: the user types the new one twice. Once it's changed the
+// server sends a new session cookie and the user is let in (Login redirects as usual).
+function ChangePasswordStep({ temporaryPassword }) {
+  const { user, changePassword, logout } = useAuth();
+
+  // after a page reload the temporary password is no longer known: ask for it again
+  const askCurrent = !temporaryPassword;
+  const [current, setCurrent] = useState(temporaryPassword);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    document.title = "Choose a new password · Mountain Hut";
+  }, []);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (submitting) return;
+
+    setFormError("");
+    const errors = validateNewPassword(current, newPassword, confirm);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setSubmitting(true);
+    try {
+      await changePassword(current, newPassword);
+      // `user.must_change_password` is now false: Login redirects on the next render
+    } catch (error) {
+      const backend = error.fieldErrors ?? {};
+      setFieldErrors({ current: backend.current_password, newPassword: backend.new_password });
+      setFormError(error.message || "Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <AuthLayout
+      title="Choose a new password"
+      subtitle={`Welcome, ${user.username}. The password you received by email is temporary: choose your own to continue.`}
+      footer={
+        <>
+          Not you?{" "}
+          <button type="button" className="au-link" onClick={logout}>
+            Log out
+          </button>
+        </>
+      }
+    >
+      <form className="au-form" onSubmit={handleSubmit} noValidate>
+        {formError && (
+          <div className="au-alert" role="alert">
+            {formError}
+          </div>
+        )}
+
+        {askCurrent && (
+          <PasswordField
+            label="Password received by email"
+            name="current_password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(event) => setCurrent(event.target.value)}
+            error={fieldErrors.current}
+            autoFocus
+          />
+        )}
+
+        <PasswordField
+          label="New password"
+          name="new_password"
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+          error={fieldErrors.newPassword}
+          hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+          autoFocus={!askCurrent}
+        />
+
+        <PasswordField
+          label="Repeat the new password"
+          name="confirm_password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+          error={fieldErrors.confirm}
+        />
+
+        <button
+          type="submit"
+          className="au-btn au-btn--primary au-btn--block"
+          disabled={submitting}
+        >
+          {submitting ? "Saving…" : "Save and continue"}
+        </button>
+      </form>
+    </AuthLayout>
+  );
+}

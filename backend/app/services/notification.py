@@ -302,6 +302,28 @@ def compose_cancellation_email(cancellation: BookingConfirmation) -> EmailMessag
     return message
 
 
+def send_account_created(account: AccountCreated) -> None:
+# runs after the user is committed: a failure here must not undo it, so it is only logged
+    # never log the password: anyone reading the logs could log in as the hiker
+    if not SMTP_HOST:
+        logger.warning("SMTP_HOST not set: account email not sent")
+        return
+
+    try:
+        message = compose_account_email(account)
+        try:
+            message.add_alternative(render_account_html(account, login_url()), subtype="html")
+        except Exception:  # the design must never stop the plain-text email from being sent
+            logger.exception("HTML version of the account email not built: sending plain text only")
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USERNAME:  # a real provider; a local Mailpit needs neither TLS nor login
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+    except (smtplib.SMTPException, OSError, ValueError):  # ValueError: malformed address
+        logger.exception("Account email not sent")
+        
+        
 def send_booking_cancellation(cancellation: BookingConfirmation) -> None:
     # runs after the cancellation is committed: a failure here must not undo it, so it is only logged
     if not SMTP_HOST:

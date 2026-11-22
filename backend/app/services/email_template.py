@@ -178,7 +178,7 @@ def render_account_html(account: AccountCreated, login_url: str) -> str:
                  last=True),
         ]
     )
-
+    
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -242,8 +242,6 @@ Your account at {HUT_NAME} is ready. Log in and change your temporary password.
 </body>
 </html>
 """
-
-
 # ---------- MH-06: HTML of the change email ----------
 
 def render_change_html(change: BookingConfirmation) -> str:

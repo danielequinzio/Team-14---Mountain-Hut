@@ -118,3 +118,17 @@ To run the e2e tests make sure the `server is online` and run this command with 
 ```bash
 newman run TestFileE2E
 ```
+
+The collections need a freshly seeded db (they book the seeded slots and log in with the seeded staff accounts), for example:
+
+```bash
+DATABASE_URL=sqlite:////tmp/mh_e2e.db SEED_DATA=true fastapi dev app/main.py
+```
+
+`MH_E2E_staff_booking.postman_collection.json` covers an employee booking on behalf of a hiker:
+
+1. the hiker has an account: the employee finds it by email (`/profileCheck`) and books for them (`/booking/hiker/{id}`);
+2. the email is not registered: the employee creates the account (`/registerHiker`) and books;
+3. the email is not registered: the employee adds a temporary guest without email (`/registerGuest`) and books.
+
+It also checks the refusals along the way (no login, badly formed or duplicate email, double booking, a hiker calling the staff endpoints).

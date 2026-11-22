@@ -4,7 +4,7 @@ Runs the whole app with Docker Compose. There are three containers:
 
 | Service    | What it is                     | URL                        |
 |------------|--------------------------------|----------------------------|
-| `frontend` | React app (Vite dev server)    | http://localhost:5173      |
+| `frontend` | React app (built, served by nginx) | http://localhost:5173  |
 | `backend`  | FastAPI API                    | http://localhost:8000      |
 | `mailpit`  | Test mail server and web inbox | http://localhost:8025      |
 
@@ -76,5 +76,11 @@ The backend settings are environment variables in `docker-compose.yml`, the same
 mounts that file into the container as `/run/secrets/smtp_password`, and the backend's start
 command exports it as `SMTP_PASSWORD`.
 
-The frontend gets `VITE_API_BASE_URL=http://localhost:8000`. The browser makes these calls, so
-the URL points to the backend's port on your machine, not to the container name.
+The frontend image is built in two steps: Node runs `npm run build`, then only the resulting
+`dist/` files are copied into a small nginx image (Node is not in the final image). For hot reload
+while coding, run `npm run dev` in `frontend/` instead.
+
+`VITE_API_BASE_URL=http://localhost:8000` is a **build argument** (`build.args` in
+`docker-compose.yml`): Vite writes it into the JS at build time, so after changing it you must
+rebuild with `--build`. The browser makes these calls, so the URL points to the backend's port on
+your machine, not to the container name.
