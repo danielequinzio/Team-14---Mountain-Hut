@@ -622,6 +622,20 @@ export function registerGuest({ name, surname, mobileNumber }) {
   );
 }
 
+// DELETE /guests/{id}: staff remove a guest they just created (only a guest with
+// no bookings: the backend answers 404 for anyone else and 409 if it has bookings).
+export async function deleteGuest(guestId) {
+  const response = await fetch(`${API_BASE_URL}/guests/${encodeURIComponent(guestId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (response.ok) return; // 204, no body
+  const data = await response.json().catch(() => null);
+  const detail = data?.detail;
+  const message = Array.isArray(detail) ? detail.map((item) => item.msg).join(", ") : detail;
+  throw new Error(message || "Could not remove the guest.");
+}
+
 // GET /profileCheck?email=: staff look a hiker up by email. Returns the profile
 // ({ id, email, role, is_guest }) or null when nobody has that email (404).
 export async function findHikerByEmail(email) {

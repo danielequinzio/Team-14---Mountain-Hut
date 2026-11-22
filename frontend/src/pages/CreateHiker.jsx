@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
-import { registerGuest, registerHiker } from "../api";
+import { deleteGuest, registerGuest, registerHiker } from "../api";
 import "./CreateHiker.css";
 
 // MH-07: staff create a hiker profile. A hiker has an account (the temporary
@@ -21,12 +21,15 @@ const EMPTY_FORM = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function CreateHiker() {
+  const navigate = useNavigate();
   const [kind, setKind] = useState("hiker"); // "hiker" | "guest"
   const [form, setForm] = useState(EMPTY_FORM);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null); // { kind, name, response }
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
 
   const isHiker = kind === "hiker";
 
@@ -90,6 +93,21 @@ export default function CreateHiker() {
     setError("");
   }
 
+  // A guest has no email, so once the staff leave this page nobody can find them
+  // again: "Cancel" removes the guest and goes back to where the staff started.
+  async function cancelGuest() {
+    if (removing) return;
+    setRemoving(true);
+    setRemoveError("");
+    try {
+      await deleteGuest(created.response.id);
+      navigate("/staff/reserve");
+    } catch (err) {
+      setRemoveError(err.message || "Could not remove the guest.");
+      setRemoving(false);
+    }
+  }
+
   const fieldError = (field) => (touched && problems[field] ? problems[field] : "");
 
   if (created) {
@@ -118,16 +136,35 @@ export default function CreateHiker() {
             <p className="ch-done-note">
               {createdHiker
                 ? "A temporary password was sent to the hiker's email. They must choose a new password the first time they log in."
-                : "This guest has no account and cannot log in. Use this profile only to book a table."}
+                : "This guest has no account and cannot log in. Reserve a table now, or cancel to remove this guest."}
             </p>
 
+            {removeError && (
+              <div className="ch-error" role="alert">
+                {removeError}
+              </div>
+            )}
+
             <div className="ch-done-actions">
-              <button type="button" className="ch-btn ch-btn--ghost" onClick={createAnother}>
-                Create another
-              </button>
-              <Link to="/staff/slots" className="ch-btn ch-btn--ghost">
-                Back to slots
-              </Link>
+              {createdHiker ? (
+                <>
+                  <button type="button" className="ch-btn ch-btn--ghost" onClick={createAnother}>
+                    Create another
+                  </button>
+                  <Link to="/staff/slots" className="ch-btn ch-btn--ghost">
+                    Back to slots
+                  </Link>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="ch-btn ch-btn--ghost"
+                  onClick={cancelGuest}
+                  disabled={removing}
+                >
+                  {removing ? "Removing…" : "Cancel"}
+                </button>
+              )}
               <Link
                 to="/staff/reserve"
                 state={{
