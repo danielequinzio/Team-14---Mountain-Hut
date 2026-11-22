@@ -171,7 +171,7 @@ def test_get_configured_slot_raises_for_unknown_slot():
 def test_create_slot_saves_slot_with_creator():
     start = datetime(2030, 1, 1, 12, 0, tzinfo=HUT_TIMEZONE)
     end = datetime(2030, 1, 1, 13, 0, tzinfo=HUT_TIMEZONE)
-    session = FakeSession()
+    session = FakeSession(results=[[]])  # no existing slots
 
     result = create_slot(SlotCreate(start_time=start, end_time=end), session, USER)
 
@@ -181,6 +181,61 @@ def test_create_slot_saves_slot_with_creator():
     assert result.start_time == start
     assert result.end_time == end
     assert result.created_by == USER.id
+
+
+@pytest.mark.parametrize(
+    ("start_hour", "start_minute", "end_hour", "end_minute"),
+    [
+        (12, 0, 13, 0),    # same interval
+        (11, 30, 12, 30),  # ends inside the existing 12:00-13:00
+        (12, 30, 13, 30),  # starts inside it
+        (12, 15, 12, 45),  # inside it
+        (11, 0, 14, 0),    # contains it
+    ],
+    ids=["same", "end-inside", "start-inside", "inside", "contains"],
+)
+def test_create_slot_rejects_overlapping_slot(start_hour, start_minute, end_hour, end_minute):
+    start = datetime(2030, 1, 1, start_hour, start_minute, tzinfo=HUT_TIMEZONE)
+    end = datetime(2030, 1, 1, end_hour, end_minute, tzinfo=HUT_TIMEZONE)
+    session = FakeSession(results=[[make_slot(1)]])  # 12:00-13:00
+
+    with pytest.raises(HTTPException) as exc:
+        create_slot(SlotCreate(start_time=start, end_time=end), session, USER)
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "The slot overlaps an existing slot"
+    assert session.added == []
+    assert session.commits == 0
+
+
+@pytest.mark.parametrize(
+    ("start_hour", "end_hour"),
+    [(11, 12), (13, 14)],  # ends when the existing one starts / starts when it ends
+    ids=["just-before", "just-after"],
+)
+def test_create_slot_accepts_back_to_back_slots(start_hour, end_hour):
+    start = datetime(2030, 1, 1, start_hour, 0, tzinfo=HUT_TIMEZONE)
+    end = datetime(2030, 1, 1, end_hour, 0, tzinfo=HUT_TIMEZONE)
+    session = FakeSession(results=[[make_slot(1)]])  # 12:00-13:00
+
+    result = create_slot(SlotCreate(start_time=start, end_time=end), session, USER)
+
+    assert session.added == [result]
+
+
+def test_create_slot_compares_stored_naive_times_as_hut_time():
+    # sqlite gives back 12:00-13:00 without timezone: it is Rome time
+    stored = Slot(id=1, start_time=datetime(2030, 1, 1, 12, 0),
+                  end_time=datetime(2030, 1, 1, 13, 0), created_by=5)
+    # 11:30 UTC is 12:30 in Rome (winter): inside the stored slot
+    start = datetime(2030, 1, 1, 11, 30, tzinfo=ZoneInfo("UTC"))
+    end = datetime(2030, 1, 1, 12, 30, tzinfo=ZoneInfo("UTC"))
+    session = FakeSession(results=[[stored]])
+
+    with pytest.raises(HTTPException) as exc:
+        create_slot(SlotCreate(start_time=start, end_time=end), session, USER)
+
+    assert exc.value.status_code == 409
 
 
 def test_slot_create_rejects_end_before_start():

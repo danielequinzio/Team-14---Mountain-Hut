@@ -1,0 +1,22 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+
+# local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# virtualenv, caches, test output
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+htmlcov
+backend_test
+
+# editor / OS
+.idea
+.DS_Store

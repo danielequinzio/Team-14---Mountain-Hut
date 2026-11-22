@@ -16,7 +16,11 @@
     { "key": "groupSlotId", "value": "" },
     { "key": "groupSlotDate", "value": "" },
     { "key": "groupSlotTime", "value": "" },
-    { "key": "groupSize", "value": "" }
+    { "key": "groupSize", "value": "" },
+    { "key": "bookingId", "value": "" },
+    { "key": "groupBookingId", "value": "" },
+    { "key": "groupFreeBefore", "value": "" },
+    { "key": "otherEmail", "value": "" }
   ],
   "item": [
     {
@@ -288,6 +292,9 @@
                   "});",
                   "",
                   "const booking = pm.response.json();",
+                  "pm.collectionVariables.set(\"bookingId\", booking.id);",
+                  "",
+                  "pm.collectionVariables.set(\"bookingId\", booking.id);",
                   "",
                   "pm.test(\"Body is the booking the hiker asked for\", () => {",
                   "    pm.expect(booking.id).to.be.a(\"number\");",
@@ -309,7 +316,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2,\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - peanut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"1 person - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -319,7 +326,73 @@
           }
         },
         {
-          "name": "9. Booking the same slot again is refused",
+          "name": "9. Hiker sees their bookings",
+          "description": "Checks that GET /booking returns the authenticated hiker’s bookings, including the booking just created and its party requirements.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const bookings = pm.response.json();",
+                  "const bookingId = Number(pm.collectionVariables.get(\"bookingId\"));",
+                  "const booking = Array.isArray(bookings)",
+                  "    ? bookings.find((item) => item.id === bookingId)",
+                  "    : undefined;",
+                  "",
+                  "pm.test(\"Response is the current hiker’s booking list\", () => {",
+                  "    pm.expect(bookings).to.be.an(\"array\");",
+                  "    pm.expect(booking, `Booking ${bookingId} was not found in the hiker’s list`).to.exist;",
+                  "});",
+                  "",
+                  "if (booking) {",
+                  "    pm.test(\"Booking details are returned\", () => {",
+                  "        pm.expect(booking.party_size).to.eql(2);",
+                  "        pm.expect(booking.slot_time_start).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(booking.slot_time_end).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(booking.tables).to.be.an(\"array\").that.is.not.empty;",
+                  "        const seats = booking.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "        pm.expect(seats).to.eql(2);",
+                  "    });",
+                  "",
+                  "    pm.test(\"Party requirements are returned with their allergy flags\", () => {",
+                  "        pm.expect(booking.requirements).to.be.an(\"array\").with.lengthOf(2);",
+                  "        const allergy = booking.requirements.find(",
+                  "            (requirement) => requirement.description === \"1 person - peanut allergy\"",
+                  "        );",
+                  "        const dietary = booking.requirements.find(",
+                  "            (requirement) => requirement.description === \"1 person - vegetarian\"",
+                  "        );",
+                  "        pm.expect(allergy, \"Peanut allergy requirement missing\").to.exist;",
+                  "        pm.expect(allergy.allergies).to.eql(true);",
+                  "        pm.expect(dietary, \"Vegetarian requirement missing\").to.exist;",
+                  "        pm.expect(dietary.allergies).to.eql(false);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Booking the same slot again is refused",
           "event": [
             {
               "listen": "test",
@@ -342,7 +415,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2,\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - peanut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"1 person - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -352,7 +425,7 @@
           }
         },
         {
-          "name": "10. The slot has two free seats less",
+          "name": "11. The slot has two free seats less",
           "event": [
             {
               "listen": "test",
@@ -437,6 +510,7 @@
                   "",
                   "const booking = pm.response.json();",
                   "const groupSize = Number(pm.collectionVariables.get(\"groupSize\"));",
+                  "pm.collectionVariables.set(\"groupBookingId\", booking.id);",
                   "",
                   "pm.test(\"The group sits at more than one table\", () => {",
                   "    pm.expect(booking.tables.length).to.be.at.least(2);",
@@ -457,7 +531,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"date\": \"{{groupSlotDate}}\",\n  \"time\": \"{{groupSlotTime}}\",\n  \"party_size\": {{groupSize}}\n}"
+              "raw": "{\n  \"date\": \"{{groupSlotDate}}\",\n  \"time\": \"{{groupSlotTime}}\",\n  \"party_size\": {{groupSize}},\n  \"requirements\": [\n  {\n    \"allergies\": true,\n    \"description\": \"1 person - nut allergy\"\n  },\n  {\n    \"allergies\": false,\n    \"description\": \"Dietary requirement - vegetarian\"\n  }\n]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -557,6 +631,579 @@
         },
         {
           "name": "3. Warden logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Nobody else can cancel my booking",
+      "description": "Story: as a hiker, my booking is mine: a visitor who is not logged in or another hiker cannot cancel it, nor see it. Uses the booking made in folder 01.",
+      "item": [
+        {
+          "name": "1. Cancelling without logging in is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "2. Another hiker registers a new account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// unique email per run: a second run would otherwise answer 409",
+                  "pm.collectionVariables.set(\"otherEmail\", `other.hiker.${Date.now()}@mail.example`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (account created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anna\",\n  \"surname\": \"Rossi\",\n  \"email\": \"{{otherEmail}}\",\n  \"mobile_number\": \"+39 23231342\",\n  \"notes\": \"\",\n  \"emergency_contact\": \"\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "3. Another hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{otherEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "4. The other hiker does not see my bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The list of a hiker with no bookings is empty\", () => {",
+                  "    pm.expect(pm.response.json()).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"]
+            }
+          }
+        },
+        {
+          "name": "5. The other hiker cannot cancel my booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"The hiker is told the booking was not found\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.eql(\"Booking not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "6. The other hiker logs out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Hiker cancels a booking",
+      "description": "Story: as a hiker, I look at my bookings and cancel them: the booking disappears from my list and its seats are free for other hikers again. Uses the bookings made in folders 01 and 02.",
+      "item": [
+        {
+          "name": "1. Hiker logs in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Session cookie is set\", () => {",
+                  "    pm.expect(pm.cookies.get(\"session\")).to.be.a(\"string\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "2. Hiker sees the bookings they made",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const bookings = pm.response.json();",
+                  "const bookingId = Number(pm.collectionVariables.get(\"bookingId\"));",
+                  "const groupBookingId = Number(pm.collectionVariables.get(\"groupBookingId\"));",
+                  "",
+                  "pm.test(\"The list holds both bookings of the hiker\", () => {",
+                  "    const ids = bookings.map((booking) => booking.id);",
+                  "    pm.expect(ids).to.include(bookingId);",
+                  "    pm.expect(ids).to.include(groupBookingId);",
+                  "});",
+                  "",
+                  "pm.test(\"The booking to cancel is the one for two people\", () => {",
+                  "    const booking = bookings.find((candidate) => candidate.id === bookingId);",
+                  "    pm.expect(booking.party_size).to.eql(2);",
+                  "    const seats = booking.tables.reduce((sum, table) => sum + table.seats, 0);",
+                  "    pm.expect(seats).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"]
+            }
+          }
+        },
+        {
+          "name": "3. Cancelling a booking that does not exist is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"The hiker is told the booking was not found\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.eql(\"Booking not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/999999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "999999999"]
+            }
+          }
+        },
+        {
+          "name": "4. Hiker cancels the booking for two people",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"There is nothing left to say: the body is empty\", () => {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "5. The booking is gone from the list, the other one is not",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const ids = pm.response.json().map((booking) => booking.id);",
+                  "const bookingId = Number(pm.collectionVariables.get(\"bookingId\"));",
+                  "const groupBookingId = Number(pm.collectionVariables.get(\"groupBookingId\"));",
+                  "",
+                  "pm.test(\"The cancelled booking is no longer listed\", () => {",
+                  "    pm.expect(ids).to.not.include(bookingId);",
+                  "});",
+                  "",
+                  "pm.test(\"The other booking of the hiker is untouched\", () => {",
+                  "    pm.expect(ids).to.include(groupBookingId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"]
+            }
+          }
+        },
+        {
+          "name": "6. The two seats are free again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The slot has the seats it had before the booking\", () => {",
+                  "    const slotId = Number(pm.collectionVariables.get(\"slotId\"));",
+                  "    const before = Number(pm.collectionVariables.get(\"availableSeats\"));",
+                  "    const slot = pm.response.json().find((candidate) => candidate.id === slotId);",
+                  "    pm.expect(slot.available_seats).to.eql(before);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot"]
+            }
+          }
+        },
+        {
+          "name": "7. Cancelling the same booking again is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"The hiker is told the booking was not found\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.eql(\"Booking not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "8. The freed slot can be booked again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 (booking created)\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const booking = pm.response.json();",
+                  "",
+                  "pm.test(\"The hiker has a new booking for the same slot\", () => {",
+                  "    pm.expect(booking.id).to.be.a(\"number\");",
+                  "    pm.expect(booking.date).to.eql(pm.collectionVariables.get(\"slotDate\"));",
+                  "    pm.expect(booking.time).to.eql(pm.collectionVariables.get(\"slotTime\"));",
+                  "    pm.expect(booking.party_size).to.eql(2);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"bookingId\", booking.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{slotDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"party_size\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking"]
+            }
+          }
+        },
+        {
+          "name": "9. Hiker looks at the free seats of the group slot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const free = pm.response.json().tables.reduce((sum, table) => sum + table.seats_free, 0);",
+                  "pm.collectionVariables.set(\"groupFreeBefore\", free);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot/{{groupSlotId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot", "{{groupSlotId}}"]
+            }
+          }
+        },
+        {
+          "name": "10. Hiker cancels the group booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{groupBookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{groupBookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "11. The seats of every table of the group are free again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The group seats are free again, whatever tables they were on\", () => {",
+                  "    const free = pm.response.json().tables.reduce((sum, table) => sum + table.seats_free, 0);",
+                  "    const before = Number(pm.collectionVariables.get(\"groupFreeBefore\"));",
+                  "    const groupSize = Number(pm.collectionVariables.get(\"groupSize\"));",
+                  "    pm.expect(free).to.eql(before + groupSize);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/slot/{{groupSlotId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["slot", "{{groupSlotId}}"]
+            }
+          }
+        },
+        {
+          "name": "12. Hiker logs out",
           "event": [
             {
               "listen": "test",

@@ -58,69 +58,70 @@ function formatTime(dateTime) {
 }
 
 export default function Booking() {
-    const navigate = useNavigate();
-    const today = useMemo(() => {
+  const navigate = useNavigate();
+  const today = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
-
+  
   const [month, setMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
+      () => new Date(today.getFullYear(), today.getMonth(), 1)
   );
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState("");
+  const [requirements, setRequirements] = useState([]);
   const [partySizeInput, setPartySizeInput] = useState("1");
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
+  
   const calendarDays = useMemo(() => getCalendarDays(month), [month]);
-
+  
   const monthRange = useMemo(() => {
     const from = toDateKey(
-      new Date(month.getFullYear(), month.getMonth(), 1)
+        new Date(month.getFullYear(), month.getMonth(), 1)
     );
     const to = toDateKey(
-      new Date(month.getFullYear(), month.getMonth() + 1, 0)
+        new Date(month.getFullYear(), month.getMonth() + 1, 0)
     );
-    return { from, to };
+    return {from, to};
   }, [month]);
-
+  
   useEffect(() => {
     let cancelled = false;
-
+    
     async function loadMonth() {
       setLoading(true);
       setError("");
-
+      
       try {
         const dates = await getAvailability(monthRange.from, monthRange.to);
         if (cancelled) return;
-
+        
         let mapped;
-
+        
         if (Array.isArray(dates)) {
           mapped = Object.fromEntries(
-            dates.map((item) => [item.date, item.slots ?? []])
+              dates.map((item) => [item.date, item.slots ?? []])
           );
         } else if (dates && typeof dates === "object") {
           mapped = Object.fromEntries(
-            Object.entries(dates).map(([date, slots]) => [
-              date,
-              Array.isArray(slots) ? slots : [],
-            ])
+              Object.entries(dates).map(([date, slots]) => [
+                date,
+                Array.isArray(slots) ? slots : [],
+              ])
           );
         } else {
           throw new Error("Availability response has an unexpected format.");
         }
-
+        
         setAvailability(mapped);
-
+        
         if (
-          selectedDate &&
-          !Object.prototype.hasOwnProperty.call(mapped, selectedDate)
+            selectedDate &&
+            !Object.prototype.hasOwnProperty.call(mapped, selectedDate)
         ) {
           setSelectedDate(null);
           setSelectedSlotIndex("");
@@ -135,370 +136,578 @@ export default function Booking() {
         if (!cancelled) setLoading(false);
       }
     }
-
+    
     loadMonth();
-
+    
     return () => {
       cancelled = true;
     };
   }, [monthRange.from, monthRange.to]);
-
+  
   const selectedSlots = selectedDate
-    ? availability[selectedDate] ?? []
-    : [];
-
+      ? availability[selectedDate] ?? []
+      : [];
+  
   const selectedSlot =
-    selectedSlotIndex === "" ? null : selectedSlots[Number(selectedSlotIndex)];
-
+      selectedSlotIndex === "" ? null : selectedSlots[Number(selectedSlotIndex)];
+  
   function isPast(day) {
     return day < today;
   }
-
+  
   function isCurrentMonth(day) {
     return day.getMonth() === month.getMonth();
   }
-
+  
   function hasAvailability(day) {
     const key = toDateKey(day);
     return (
-      Object.prototype.hasOwnProperty.call(availability, key) &&
-      availability[key].length > 0
+        Object.prototype.hasOwnProperty.call(availability, key) &&
+        availability[key].length > 0
     );
   }
-
+  
   function selectDate(day) {
     const key = toDateKey(day);
-
+    
     if (isPast(day) || !isCurrentMonth(day) || !hasAvailability(day)) {
       return;
     }
-
+    
     setSelectedDate(key);
     setSelectedSlotIndex("");
     setPartySizeInput("1");
   }
-
+  
   function changeMonth(offset) {
     setMonth(
-      (current) =>
-        new Date(current.getFullYear(), current.getMonth() + offset, 1)
+        (current) =>
+            new Date(current.getFullYear(), current.getMonth() + offset, 1)
     );
     setSelectedDate(null);
     setSelectedSlotIndex("");
     setPartySizeInput("1");
   }
-
+  
   function selectSlot(event) {
     const value = event.target.value;
-
+    
     if (value === "") {
       setSelectedSlotIndex("");
       setPartySizeInput("1");
       return;
     }
-
+    
     const slot = selectedSlots[Number(value)];
     setSelectedSlotIndex(value);
     setPartySizeInput((current) => {
       const currentSize = Number(current);
       return String(
-        Math.min(
-          Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
-          slot.availableSeats
-        )
+          Math.min(
+              Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
+              slot.availableSeats
+          )
       );
     });
   }
-
+  
   function changePartySize(event) {
     // Keep the raw input so users can edit the value without it being
     // immediately clamped while they are typing.
     setPartySizeInput(event.target.value);
   }
-
+  
   const partySize = Number(partySizeInput);
   const isPartySizeValid =
-    selectedSlot !== null &&
-    partySizeInput.trim() !== "" &&
-    Number.isInteger(partySize) &&
-    partySize >= 1 &&
-    partySize <= selectedSlot.availableSeats;
+      selectedSlot !== null &&
+      partySizeInput.trim() !== "" &&
+      Number.isInteger(partySize) &&
+      partySize >= 1 &&
+      partySize <= selectedSlot.availableSeats;
 
+  const assignedRequirementPeople = requirements.reduce(
+      (total, requirement) => total + (Number(requirement.people) || 0),
+      0
+  );
+  const remainingRequirementPeople = Math.max(
+      partySize - assignedRequirementPeople,
+      0
+  );
+  
+  function addRequirement() {
+    if (remainingRequirementPeople <= 0) return;
+    
+    setRequirements((current) => [
+      ...current,
+      {people: 1, allergies: false, description: ""},
+    ]);
+  }
+  
+  function updateRequirement(index, changes) {
+    setRequirements((current) =>
+        current.map((requirement, requirementIndex) =>
+            requirementIndex === index
+                ? {...requirement, ...changes}
+                : requirement
+        )
+    );
+  }
+  
+  function removeRequirement(index) {
+    setRequirements((current) =>
+        current.filter((_, requirementIndex) => requirementIndex !== index)
+    );
+  }
+  
   async function confirmBooking() {
     if (!selectedDate || !selectedSlot || !isPartySizeValid || booking) return;
-    setBooking(true); setError("");
+
+    const totalRequirementPeople = requirements.reduce(
+        (total, requirement) => total + Number(requirement.people || 0),
+        0
+    );
+    
+    if (totalRequirementPeople > partySize) {
+      setError(
+          `The requirements cover ${totalRequirementPeople} people, but your party has only ${partySize}. Adjust the quantities before confirming.`
+      );
+      return;
+    }
+    
+    const invalidRequirement = requirements.some(
+        (requirement) =>
+            !Number.isInteger(Number(requirement.people)) ||
+            Number(requirement.people) < 1 ||
+            !requirement.description.trim()
+    );
+    if (invalidRequirement) {
+      setError("Each requirement needs a valid number of people and a description.");
+      return;
+    }
+    
+    const bookingRequirements = requirements.map((requirement) => {
+      const people = Number(requirement.people);
+      return {
+        allergies: requirement.allergies,
+        // Keep compatibility with the current backend model
+        // (allergies + description) while preserving the people count.
+        description: `${people} ${people === 1 ? "person" : "people"} — ${requirement.description.trim()}`,
+      };
+    });
+
+    setBooking(true);
+    setError("");
     try {
-      const result = await createBooking({ date: selectedDate, time: selectedSlot.time, partySize });
-      navigate("/reservation-detail", { state: {
-        booking: result, date: selectedDate, start: selectedSlot.start,
-        end: selectedSlot.end, partySize, availableSeats: selectedSlot.availableSeats,
-      }});
+      const result = await createBooking({
+        date: selectedDate,
+        time: selectedSlot.time,
+        partySize,
+        requirements: bookingRequirements,
+      });
+      navigate("/reservation-detail", {
+        state: {
+          booking: result, date: selectedDate, start: selectedSlot.start,
+          end: selectedSlot.end, partySize, availableSeats: selectedSlot.availableSeats,
+          requirements: bookingRequirements,
+        }
+      });
     } catch (err) {
       setError(err.message || "Could not create reservation.");
-    } finally { setBooking(false); }
+    } finally {
+      setBooking(false);
+    }
   }
 
   return (
-    <div className="app-shell">
-      <NavBar />
-
-      <main className="main-content">
-        <div className="intro">
-          <div>
-            <span className="eyebrow">TABLE RESERVATION</span>
-            <h1>Reserve your table</h1>
-            <p>
-              Choose a date, select an available time, and tell us how many
-              guests will be joining you.
-            </p>
-          </div>
-        </div>
-
-        <section className="booking-layout">
-          <div className="panel calendar-panel">
-            <div className="panel-heading">
-              <div>
-                <span className="step">01</span>
-                <h2>Choose a date</h2>
-              </div>
-              <span className="hint">Available dates are highlighted</span>
-            </div>
-
-            <div className="calendar">
-              <div className="calendar-header">
-                <button
-                  type="button"
-                  className="month-button"
-                  onClick={() => changeMonth(-1)}
-                  aria-label="Previous month"
-                >
-                  ‹
-                </button>
-
-                <div className="month-title">{monthLabel(month)}</div>
-
-                <button
-                  type="button"
-                  className="month-button"
-                  onClick={() => changeMonth(1)}
-                  aria-label="Next month"
-                >
-                  ›
-                </button>
-              </div>
-
-              <div className="weekdays">
-                {WEEKDAYS.map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-
-              <div className="calendar-grid">
-                {calendarDays.map((day) => {
-                  const key = toDateKey(day);
-                  const currentMonth = isCurrentMonth(day);
-                  const available =
-                    currentMonth && !isPast(day) && hasAvailability(day);
-                  const selected = selectedDate === key;
-
-                  return (
-                    <button
-                      type="button"
-                      key={key}
-                      className={[
-                        "day",
-                        !currentMonth ? "outside-month" : "",
-                        available ? "available" : "unavailable",
-                        selected ? "selected" : "",
-                      ].join(" ")}
-                      disabled={!available || loading}
-                      onClick={() => selectDate(day)}
-                    >
-                      <span>{day.getDate()}</span>
-                      {available && !selected && <i />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="calendar-legend">
-                <span><i className="legend-dot" /> Available</span>
-                <span><i className="legend-dot muted" /> Unavailable</span>
-              </div>
+      <div className="app-shell">
+        <NavBar/>
+        
+        <main className="main-content">
+          <div className="intro">
+            <div>
+              <span className="eyebrow">TABLE RESERVATION</span>
+              <h1>Reserve your table</h1>
+              <p>
+                Choose a date, select an available time, and tell us how many
+                guests will be joining you.
+              </p>
             </div>
           </div>
-
-          <div className="panel details-panel">
-            <div className="panel-heading">
-              <div>
-                <span className="step">02</span>
-                <h2>Choose a time</h2>
-              </div>
-            </div>
-
-            {selectedDate ? (
-              <>
-                <div className="selected-date">
-                  <span className="calendar-icon">▣</span>
-                  <div>
-                    <span>Selected date</span>
-                    <strong>{formatDate(selectedDate)}</strong>
-                  </div>
+          
+          <section className="booking-layout">
+            <div className="panel calendar-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="step">01</span>
+                  <h2>Choose a date</h2>
                 </div>
-
-                <div className="slot-list">
-                  {selectedSlots.map((slot, index) => {
-                    const selected = String(index) === selectedSlotIndex;
-
+                <span className="hint">Available dates are highlighted</span>
+              </div>
+              
+              <div className="calendar">
+                <div className="calendar-header">
+                  <button
+                      type="button"
+                      className="month-button"
+                      onClick={() => changeMonth(-1)}
+                      aria-label="Previous month"
+                  >
+                    ‹
+                  </button>
+                  
+                  <div className="month-title">{monthLabel(month)}</div>
+                  
+                  <button
+                      type="button"
+                      className="month-button"
+                      onClick={() => changeMonth(1)}
+                      aria-label="Next month"
+                  >
+                    ›
+                  </button>
+                </div>
+                
+                <div className="weekdays">
+                  {WEEKDAYS.map((day) => (
+                      <span key={day}>{day}</span>
+                  ))}
+                </div>
+                
+                <div className="calendar-grid">
+                  {calendarDays.map((day) => {
+                    const key = toDateKey(day);
+                    const currentMonth = isCurrentMonth(day);
+                    const available =
+                        currentMonth && !isPast(day) && hasAvailability(day);
+                    const selected = selectedDate === key;
+                    
                     return (
-                      <button
-                        type="button"
-                        key={`${slot.start}-${slot.end}-${index}`}
-                        className={`slot-card ${selected ? "selected" : ""}`}
-                        onClick={() => {
-                          setSelectedSlotIndex(String(index));
-                          setPartySizeInput((current) => {
-                            const currentSize = Number(current);
-                            return String(
-                              Math.min(
-                                Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
-                                slot.availableSeats
-                              )
-                            );
-                          });
-                        }}
-                      >
-                        <span className="slot-time">
-                          {formatSlot(slot)}
-                        </span>
-                        <span className="slot-seats">
-                          {slot.availableSeats}{" "}
-                          {slot.availableSeats === 1 ? "seat" : "seats"} left
-                        </span>
-                      </button>
+                        <button
+                            type="button"
+                            key={key}
+                            className={[
+                              "day",
+                              !currentMonth ? "outside-month" : "",
+                              available ? "available" : "unavailable",
+                              selected ? "selected" : "",
+                            ].join(" ")}
+                            disabled={!available || loading}
+                            onClick={() => selectDate(day)}
+                        >
+                          <span>{day.getDate()}</span>
+                          {available && !selected && <i/>}
+                        </button>
                     );
                   })}
                 </div>
-              </>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-icon">01</div>
-                <strong>Select an available date</strong>
-                <p>
-                  Your available time slots will appear here.
-                </p>
+                
+                <div className="calendar-legend">
+                  <span><i className="legend-dot"/> Available</span>
+                  <span><i className="legend-dot muted"/> Unavailable</span>
+                </div>
               </div>
-            )}
-
-            <div className="party-section">
-              <div className="panel-heading compact">
+            </div>
+            
+            <div className="panel details-panel">
+              <div className="panel-heading">
                 <div>
-                  <span className="step">03</span>
-                  <h2>Party size</h2>
+                  <span className="step">02</span>
+                  <h2>Choose a time</h2>
                 </div>
               </div>
-
-              <div className="party-control">
-                <button
-                  type="button"
-                  disabled={!selectedSlot || (isPartySizeValid && partySize <= 1)}
-                  onClick={() => setPartySizeInput(String(Math.max(1, partySize - 1)))}
-                  aria-label="Decrease party size"
-                >
-                  −
-                </button>
-
-                <div className="party-number">
-                  <input
-                    className="party-size-input"
-                    style={{
-                      width: "80px",
-                      background: "transparent",
-                      border: "none",
-                      color: "inherit",
-                      textAlign: "center",
-                      font: "inherit",
-                      fontWeight: 700,
-                      outline: "none",
-                    }}
-                    type="number"
-                    min="1"
-                    max={selectedSlot?.availableSeats ?? ""}
-                    step="1"
-                    value={partySizeInput}
-                    disabled={!selectedSlot}
-                    onChange={changePartySize}
-                    aria-label="Number of guests"
-                    aria-invalid={selectedSlot ? !isPartySizeValid : false}
-                  />
-                  <span>{partySize === 1 ? "guest" : "guests"}</span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    !selectedSlot ||
-                    (isPartySizeValid && partySize >= (selectedSlot?.availableSeats ?? 1))
-                  }
-                  onClick={() =>
-                    setPartySizeInput(
-                      String(Math.min(partySize + 1, selectedSlot?.availableSeats ?? partySize))
-                    )
-                  }
-                  aria-label="Increase party size"
-                >
-                  +
-                </button>
-              </div>
-
-              {selectedSlot && (
-                <>
-                  <p className="capacity">
-                    Maximum {selectedSlot.availableSeats}{" "}
-                    {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
-                    this time slot.
-                  </p>
-                  {!isPartySizeValid && (
-                    <p className="error" role="alert">
-                      Enter a whole number between 1 and {selectedSlot.availableSeats}.
+              
+              {selectedDate ? (
+                  <>
+                    <div className="selected-date">
+                      <span className="calendar-icon">▣</span>
+                      <div>
+                        <span>Selected date</span>
+                        <strong>{formatDate(selectedDate)}</strong>
+                      </div>
+                    </div>
+                    
+                    <div className="slot-list">
+                      {selectedSlots.map((slot, index) => {
+                        const selected = String(index) === selectedSlotIndex;
+                        
+                        return (
+                            <button
+                                type="button"
+                                key={`${slot.start}-${slot.end}-${index}`}
+                                className={`slot-card ${selected ? "selected" : ""}`}
+                                onClick={() => {
+                                  setSelectedSlotIndex(String(index));
+                                  setPartySizeInput((current) => {
+                                    const currentSize = Number(current);
+                                    return String(
+                                        Math.min(
+                                            Math.max(Number.isInteger(currentSize) ? currentSize : 1, 1),
+                                            slot.availableSeats
+                                        )
+                                    );
+                                  });
+                                }}
+                            >
+                      <span className="slot-time">
+                        {formatSlot(slot)}
+                      </span>
+                              <span className="slot-seats">
+                        {slot.availableSeats}{" "}
+                                {slot.availableSeats === 1 ? "seat" : "seats"} left
+                      </span>
+                            </button>
+                        );
+                      })}
+                    </div>
+                  </>
+              ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">01</div>
+                    <strong>Select an available date</strong>
+                    <p>
+                      Your available time slots will appear here.
                     </p>
-                  )}
-                </>
+                  </div>
+              )}
+              
+              <div className="party-section">
+                <div className="panel-heading compact">
+                  <div>
+                    <span className="step">03</span>
+                    <h2>Party size</h2>
+                  </div>
+                </div>
+                
+                <div className="party-control">
+                  <button
+                      type="button"
+                      disabled={!selectedSlot || (isPartySizeValid && partySize <= 1)}
+                      onClick={() => setPartySizeInput(String(Math.max(1, partySize - 1)))}
+                      aria-label="Decrease party size"
+                  >
+                    −
+                  </button>
+                  
+                  <div className="party-number">
+                    <input
+                        className="party-size-input"
+                        style={{
+                          width: "80px",
+                          background: "transparent",
+                          border: "none",
+                          color: "inherit",
+                          textAlign: "center",
+                          font: "inherit",
+                          fontWeight: 700,
+                          outline: "none",
+                        }}
+                        type="number"
+                        min="1"
+                        max={selectedSlot?.availableSeats ?? ""}
+                        step="1"
+                        value={partySizeInput}
+                        disabled={!selectedSlot}
+                        onChange={changePartySize}
+                        aria-label="Number of guests"
+                        aria-invalid={selectedSlot ? !isPartySizeValid : false}
+                    />
+                    <span>{partySize === 1 ? "guest" : "guests"}</span>
+                  </div>
+                  
+                  <button
+                      type="button"
+                      disabled={
+                          !selectedSlot ||
+                          (isPartySizeValid && partySize >= (selectedSlot?.availableSeats ?? 1))
+                      }
+                      onClick={() =>
+                          setPartySizeInput(
+                              String(Math.min(partySize + 1, selectedSlot?.availableSeats ?? partySize))
+                          )
+                      }
+                      aria-label="Increase party size"
+                  >
+                    +
+                  </button>
+                </div>
+                
+                {selectedSlot && (
+                    <>
+                      <p className="capacity">
+                        Maximum {selectedSlot.availableSeats}{" "}
+                        {selectedSlot.availableSeats === 1 ? "guest" : "guests"} for
+                        this time slot.
+                      </p>
+                      {!isPartySizeValid && (
+                          <p className="error" role="alert">
+                            Enter a whole number between 1 and {selectedSlot.availableSeats}.
+                          </p>
+                      )}
+                    </>
+                )}
+              </div>
+              
+              <section className="requirements-section" aria-labelledby="requirements-title">
+                <div className="requirements-heading">
+                  <div>
+                    <span className="step">04</span>
+                    <h2 id="requirements-title">Party requirements</h2>
+                  </div>
+                  <p>
+                    Let us know about dietary restrictions or allergies so the hut
+                    can prepare suitable meals safely.
+                  </p>
+                </div>
+                
+                <div className={`requirements-capacity ${
+                    assignedRequirementPeople > partySize ? "over-limit" : ""
+                }`}>
+                  {assignedRequirementPeople > partySize
+                      ? `${assignedRequirementPeople} people assigned to requirements, but the party size is ${partySize}. Reduce the quantities.`
+                      : `${remainingRequirementPeople} of ${partySize} ${
+                          partySize === 1 ? "person" : "people"
+                      } not yet assigned to a requirement.`}
+                </div>
+                
+                {requirements.length === 0 ? (
+                    <p className="requirements-empty">
+                      No special requirements added. You can continue without adding any.
+                    </p>
+                ) : (
+                    <div className="requirements-list">
+                      {requirements.map((requirement, index) => (
+                          <div className="requirement-card" key={index}>
+                            <div className="requirement-card-heading">
+                              <strong>Requirement {index + 1}</strong>
+                              <button
+                                  type="button"
+                                  className="remove-requirement-button"
+                                  onClick={() => removeRequirement(index)}
+                                  aria-label={`Remove requirement ${index + 1}`}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            
+                            <label className="requirement-people-label">
+                              Number of people
+                              <input
+                                  type="number"
+                                  min="1"
+                                  max={Math.max(
+                                      1,
+                                      partySize -
+                                      requirements.reduce(
+                                          (total, item, itemIndex) =>
+                                              total +
+                                              (itemIndex === index
+                                                  ? 0
+                                                  : Number(item.people) || 0),
+                                          0
+                                      )
+                                  )}
+                                  step="1"
+                                  value={requirement.people}
+                                  onChange={(event) => {
+                                    const otherPeople = requirements.reduce(
+                                        (total, item, itemIndex) =>
+                                            total +
+                                            (itemIndex === index
+                                                ? 0
+                                                : Number(item.people) || 0),
+                                        0
+                                    );
+                                    const maxForThisRequirement = Math.max(
+                                        partySize - otherPeople,
+                                        1
+                                    );
+                                    const rawValue = event.target.value;
+                                    const nextValue =
+                                        rawValue === ""
+                                            ? ""
+                                            : Math.min(
+                                                Math.max(Number(rawValue), 1),
+                                                maxForThisRequirement
+                                            );
+                                    updateRequirement(index, {people: nextValue});
+                                  }}
+                              />
+                            </label>
+                            
+                            <label className="allergy-checkbox">
+                              <input
+                                  type="checkbox"
+                                  checked={requirement.allergies}
+                                  onChange={(event) =>
+                                      updateRequirement(index, {
+                                        allergies: event.target.checked,
+                                      })
+                                  }
+                              />
+                              <span>This requirement concerns an allergy</span>
+                            </label>
+                            
+                            <label className="requirement-description-label">
+                              Description
+                              <textarea
+                                  value={requirement.description}
+                                  onChange={(event) =>
+                                      updateRequirement(index, {
+                                        description: event.target.value,
+                                      })
+                                  }
+                                  placeholder="E.g. peanut allergy, vegetarian, vegan"
+                                  rows={3}
+                                  maxLength={500}
+                              />
+                            </label>
+                          </div>
+                      ))}
+                    </div>
+                )}
+                
+                <button
+                    type="button"
+                    className="add-requirement-button"
+                    onClick={addRequirement}
+                    disabled={remainingRequirementPeople <= 0}
+                >
+                  + Add a requirement
+                </button>
+              </section>
+              
+              {error && <div className="error">{error}</div>}
+            </div>
+          </section>
+          
+          <div className="booking-footer">
+            <div className="summary">
+              {selectedDate && selectedSlot ? (
+                  <>
+                    <span>Your selection</span>
+                    <strong>
+                      {formatDate(selectedDate)} · {formatSlot(selectedSlot)}
+                    </strong>
+                  </>
+              ) : (
+                  <>
+                    <span>Your selection</span>
+                    <strong>Choose a date and time to continue</strong>
+                  </>
               )}
             </div>
-
-            {error && <div className="error">{error}</div>}
+            
+            <button
+                type="button"
+                className="confirm-button"
+                disabled={!selectedDate || !selectedSlot || !isPartySizeValid || booking}
+                onClick={confirmBooking}
+            >
+              {booking ? "Confirming..." : "Confirm reservation"}
+              {!booking && <span>→</span>}
+            </button>
           </div>
-        </section>
-
-        <div className="booking-footer">
-          <div className="summary">
-            {selectedDate && selectedSlot ? (
-              <>
-                <span>Your selection</span>
-                <strong>
-                  {formatDate(selectedDate)} · {formatSlot(selectedSlot)}
-                </strong>
-              </>
-            ) : (
-              <>
-                <span>Your selection</span>
-                <strong>Choose a date and time to continue</strong>
-              </>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="confirm-button"
-            disabled={!selectedDate || !selectedSlot || !isPartySizeValid || booking}
-            onClick={confirmBooking}
-          >
-            {booking ? "Confirming..." : "Confirm reservation"}
-            {!booking && <span>→</span>}
-          </button>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
   );
 }

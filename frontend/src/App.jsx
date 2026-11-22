@@ -5,6 +5,7 @@ import Availability from "./pages/Availability";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Booking from "./pages/Booking";
+import MyBookings from "./pages/MyBookings";
 import ReservationDetail from "./pages/ReservationDetail";
 import StaffSlots from "./pages/StaffSlots";
 import RequireRole from "./auth/RequireRole";
@@ -19,15 +20,23 @@ export default function App() {
       <Route path="/availability" element={<Availability />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      {/* availability is public: visitors and hikers may look, staff are sent to their own page */}
+      {/* booking needs a login: staff are sent to their own page, visitors to /login */}
       <Route
         path="/booking"
         element={
           <StaffRedirect to="/staff/slots">
-            <Booking />
+            <RequireRole roles={[ROLES.HIKER]}>
+              <Booking />
+            </RequireRole>
           </StaffRedirect>
         }
       />
+      <Route 
+        path="/my-bookings"
+        element={
+          <RequireRole roles={[ROLES.HIKER]}>
+            <MyBookings />
+          </RequireRole>} />
       <Route
         path="/reservation-detail"
         element={
