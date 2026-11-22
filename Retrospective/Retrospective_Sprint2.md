@@ -41,7 +41,6 @@ TOTAL TASKS: 60
 > place technical tasks corresponding to story `#0` and leave out story points (not applicable in this case)
 
 - Hours per task  <span style="color:red">per person</span>  (average, standard deviation)
-- 
 |        Member         |   Mean     |    StDev    |
 |-----------------------|------------|-------------|
 | Daniele Iacono        |  1h 10m    |    45m      |
