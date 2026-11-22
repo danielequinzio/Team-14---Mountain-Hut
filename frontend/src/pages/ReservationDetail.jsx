@@ -54,23 +54,13 @@ export default function ReservationSummaryPage() {
   return (
     <div className="app-shell">
       <NavBar />
-
       <main className="summary-page">
         <div className="summary-intro">
           <span className="eyebrow">Reservation confirmed</span>
-
           <h1>You're all set.</h1>
-
-          <p>Your table has been successfully reserved.</p>
         </div>
-
+        <div className="success-icon">✓</div>
         <section className="summary-card card">
-          <div className="success-icon">✓</div>
-
-          <div className="card-label">
-            Reservation successful
-          </div>
-
           <h2>Your reservation</h2>
 
           <div className="reservation-details">

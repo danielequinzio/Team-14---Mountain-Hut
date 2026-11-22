@@ -291,6 +291,10 @@ def compose_cancellation_email(cancellation: BookingConfirmation) -> EmailMessag
         f"Date: {cancellation.start:%d/%m/%Y}",
         f"Time slot: {cancellation.start:%H:%M} - {cancellation.end:%H:%M}",
         f"Party size: {cancellation.party_size}",
+    ]
+    if cancellation.requirements:
+        lines.append(f"Party requirements: {cancellation.requirements}")
+    lines += [
         "",
         "If you didn't cancel this booking, please contact the hut.",
     ]

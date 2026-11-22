@@ -305,15 +305,16 @@ def delete_booking(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 "Booking slot not found",
             )
-        cancellation = build_confirmation(db_user, slot, booking)
-
-        release_tables(session, booking)
-
         requirements = session.exec(
             select(BookingRequirement).where(
                 BookingRequirement.booking_id == booking.id
             )
         ).all()
+        
+        cancellation = build_confirmation(db_user, slot, booking, requirements)
+
+        release_tables(session, booking)
+
         for requirement in requirements:
             session.delete(requirement)
 

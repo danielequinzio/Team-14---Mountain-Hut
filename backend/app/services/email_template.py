@@ -397,6 +397,20 @@ def render_cancellation_html(cancellation: BookingConfirmation) -> str:
     date_text = format_long_date(cancellation.start)
     time_text = f"{cancellation.start:%H:%M} &ndash; {cancellation.end:%H:%M}"
 
+    requirements = ""
+    if cancellation.requirements and cancellation.requirements.strip():
+        requirements = (
+            f'<tr><td style="padding:0 32px 8px;">'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            f'style="background:{WARN_BG};border:1px solid {WARN_LINE};border-radius:10px;">'
+            f'<tr><td style="padding:14px 16px;font-family:{FONT};">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:#8a5a00;">Party requirements</div>'
+            f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">'
+            f"{_text(cancellation.requirements)}</div>"
+            f"</td></tr></table></td></tr>"
+        )
+
     rows = "".join([
         _row("Booking reference", f'<span style="font-family:Consolas,Menlo,monospace;'
              f'letter-spacing:0.04em;background:{PAPER};padding:4px 8px;border-radius:6px;">'
@@ -444,6 +458,7 @@ Your booking has been cancelled: {date_text}, {time_text}. Reference {reference}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
     style="border-top:1px solid {LINE};">{rows}</table>
 </td></tr>
+{requirements}
 <tr><td style="padding:18px 32px;border-top:1px solid {LINE};font-family:{FONT};
   font-size:12px;line-height:1.6;color:{MUTED};">
   This is an automatic notification from {HUT_NAME}. If you didn&rsquo;t cancel this booking, please contact the hut.
