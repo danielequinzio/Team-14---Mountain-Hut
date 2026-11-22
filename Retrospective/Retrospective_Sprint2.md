@@ -54,7 +54,7 @@ TOTAL TASKS: 60
 
 $$
 \frac{\sum_i estimation_{task_i}}{\sum_i spent_{task_i}} - 1
-= -0.0062 \rightarrow -6.2 %
+= -0.0062 \rightarrow -6.2 \%
 $$  
 
 
