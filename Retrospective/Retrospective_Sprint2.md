@@ -30,31 +30,31 @@ sections:
 
 | Story  | # Tasks | Points | Hours est. | Hours actual |
 |--------|---------|--------|------------|--------------|
-| _#0_   |   24    |    -   |    39h 15m |    38h 50m   |               
+| _#0_   |   21   |    -   |    39h 15m |    40h02m   |               
 | _#5_   |    9    |    5   |     9h     |     8h 45m   |              
 | _#6_   |    9    |    8   |    11h     |    10h 38m   |    
 | _#7_   |   13    |    5   |    14h |    14h 10m   |
-| _#8_   |    8    |    3   |     7h |     5h 12m   |
+| _#8_   |    8    |    3   |     7h |     7h 10m   |
 
-TOTAL TASKS: 63   
+TOTAL TASKS: 60   
 
 > place technical tasks corresponding to story `#0` and leave out story points (not applicable in this case)
 
 - Hours per task  <span style="color:red">per person</span>  (average, standard deviation)
-
+- 
 |        Member         |   Mean     |    StDev    |
 |-----------------------|------------|-------------|
-| Daniele Iacono        |  1h 19m    |    49m      | 
-| Daniele Quinzio       |  1h 06m    |    43m      |
-| Alessandro Marinari   |     50m    |    37m      |
-| Dogukan Postoglu      |  1h 17m    |    49m      |
-| Maximiliano Zurlo     |  1h 25m    |    55m      |  
+| Daniele Iacono        |  1h 10m    |    45m      |
+| Daniele Quinzio       |  1h 01m    |    42m      |
+| Alessandro Marinari   |     55m    |    39m      |
+| Dogukan Postoglu      |  1h 13m    |    45m      |
+| Maximiliano Zurlo     |     56m    |    40m      |
 
 - Total task estimation error ratio: sum of total hours estimation / sum of total hours spent -1
 
 $$
 \frac{\sum_i estimation_{task_i}}{\sum_i spent_{task_i}} - 1
-= -0.0029
+= -0.0062 \rightarrow -6.2 \%
 $$  
 
 
