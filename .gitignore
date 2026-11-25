@@ -241,3 +241,6 @@ backend/.env
 /docker_prod/secrets.txt
 /docker_prod/data/
 .DS_Store
+
+# Claude Code local files
+.claude/
