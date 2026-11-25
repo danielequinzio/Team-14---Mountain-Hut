@@ -12,7 +12,17 @@ from app.models.booking import (
 from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
 from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
-from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset, UserBookingCreation, Guest
+from app.models.user import (
+    CurrentUser,
+    Guest,
+    HikerSearchResult,
+    ResetData,
+    Roles,
+    User,
+    UserBookingCreation,
+    UserPublic,
+    pwd_reset,
+)
 
 __all__ = [
     "AvailabilityResponse",
@@ -46,4 +56,5 @@ __all__ = [
     "UserBookingCreation",
     "RegisterRequestEmployee",
     "Guest",
+    "HikerSearchResult",
 ]
