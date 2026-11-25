@@ -15,7 +15,7 @@ sections:
 
 - Number of stories committed vs done : 4 vs 4
 - Total points committed vs done : 21 vs 21
-- Nr of hours planned vs spent (as a team) : 80h 15m vs **xxh:xxm**
+- Nr of hours planned vs spent (as a team) : 80h 15m vs 80h45
 
 **Remember**  a story is done ONLY if it fits the Definition of Done:
  
@@ -54,7 +54,7 @@ TOTAL TASKS: 60
 
 $$
 \frac{\sum_i estimation_{task_i}}{\sum_i spent_{task_i}} - 1
-= -0.0062 \rightarrow -6.2 \%
+= -0.0062 \rightarrow -0.62 \%
 $$  
 
 
