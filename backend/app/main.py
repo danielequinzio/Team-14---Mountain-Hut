@@ -12,13 +12,14 @@ from app.models import (
     Booking,
     BookingRequirement,
     BookingTable,
+    Menu,
     Roles,
     Slot,
     SlotTable,
     Table,
     User,
 )
-from app.routers import auth, availability, slot, booking, tables, user
+from app.routers import auth, availability, menu, slot, booking, tables, user
 from app.config import CORS_ORIGINS, DATA_SEED
 from app.services.auth import hash_password
 
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     drop_username_unique_constraint()
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
     add_slot_table_occupied_seats()
+    add_slot_menu_id()
     add_user_profile_columns()
     make_user_email_nullable()  # after add_user_profile_columns: the copy needs every column
 
@@ -64,16 +66,24 @@ TABLES = [
     (10, 4, "Terrace"),
 ]
 
+MENUS = [
+    # predefined menus the warden can pick for a slot
+    "Polenta concia, braised beef with red wine, apple strudel",
+    "Barley soup, canederli with melted butter and sage, panna cotta with berries",
+    "Pizzoccheri, mixed grilled vegetables, buckwheat cake",  # vegetarian
+    "Tagliatelle with porcini mushrooms, venison stew with polenta, tiramisu",
+]
+
 SLOTS = [
-    # date, start, end; every slot offers all the tables
-    (date(2026, 11, 23), time(20, 0), time(21, 30)),
-    (date(2026, 11, 24), time(19, 30), time(21, 0)),
-    (date(2026, 11, 24), time(21, 0), time(22, 30)),
-    (date(2026, 11, 25), time(20, 0), time(21, 30)),
-    (date(2026, 11, 26), time(20, 30), time(22, 0)),
-    (date(2026, 11, 27), time(19, 0), time(20, 30)),
-    (date(2026, 11, 28), time(20, 0), time(21, 30)),
-    (date(2026, 11, 29), time(20, 0), time(21, 30)),
+    # date, start, end, menu index (None = no menu yet); every slot offers all the tables
+    (date(2026, 11, 23), time(20, 0), time(21, 30), 0),
+    (date(2026, 11, 24), time(19, 30), time(21, 0), 1),
+    (date(2026, 11, 24), time(21, 0), time(22, 30), 1),
+    (date(2026, 11, 25), time(20, 0), time(21, 30), 2),
+    (date(2026, 11, 26), time(20, 30), time(22, 0), 3),
+    (date(2026, 11, 27), time(19, 0), time(20, 30), 0),
+    (date(2026, 11, 28), time(20, 0), time(21, 30), 2),
+    (date(2026, 11, 29), time(20, 0), time(21, 30), None),
 ]
 
 BOOKINGS = [
@@ -228,6 +238,17 @@ def add_slot_table_occupied_seats(): # pragma: no cover
         )
 
 
+def add_slot_menu_id(): # pragma: no cover
+    # create_all does not add columns to an existing table: add slot.menu_id to older dbs
+    inspector = inspect(engine)
+    if not inspector.has_table("slot"):
+        return
+    if "menu_id" in {column["name"] for column in inspector.get_columns("slot")}:
+        return
+    with engine.begin() as connection:
+        connection.exec_driver_sql('ALTER TABLE "slot" ADD COLUMN menu_id INTEGER REFERENCES menu (id)')
+
+
 def seeding(session: Session): # pragma: no cover
     # only when SEED_DATA is on, and only the first time the db is created
     if not DATA_SEED:
@@ -243,15 +264,17 @@ def seeding(session: Session): # pragma: no cover
                                    password_hash=hash_password(password), role=role)
         tables = {number: Table(number=number, capacity=capacity, location=location)
                   for number, capacity, location in TABLES}
-        session.add_all([*users.values(), *tables.values()])
+        menus = [Menu(text_menu=text_menu, predefined=True) for text_menu in MENUS]
+        session.add_all([*users.values(), *tables.values(), *menus])
         session.flush()  # gives the rows their ids, needed by the foreign keys below
 
         # the db wants timezone-aware datetimes: slot times are in the hut's local time
         hut_tz = ZoneInfo("Europe/Rome")
         slots = [Slot(start_time=datetime.combine(slot_date, start, hut_tz),
                       end_time=datetime.combine(slot_date, end, hut_tz),
-                      created_by=users["luca.bonetti"].id)
-                 for slot_date, start, end in SLOTS]
+                      created_by=users["luca.bonetti"].id,
+                      menu_id=menus[menu].id if menu is not None else None)
+                 for slot_date, start, end, menu in SLOTS]
         session.add_all(slots)
         session.flush()
 
@@ -317,6 +340,7 @@ app.include_router(tables.router)
 app.include_router(auth.router)
 app.include_router(booking.router)
 app.include_router(availability.router)
+app.include_router(menu.router)
 
 app.include_router(user.router)
 

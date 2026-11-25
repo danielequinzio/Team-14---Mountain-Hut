@@ -14,6 +14,7 @@ class Slot(SQLModel, table=True):
     start_time: datetime
     end_time: datetime
     created_by: int = Field(foreign_key="user.id")  # the user who defined the slot
+    menu_id: int | None = Field(default=None, foreign_key="menu.id")  # the menu served in the slot, if set
 
 
 class SlotCreate(SQLModel):
