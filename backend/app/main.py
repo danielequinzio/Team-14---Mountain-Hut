@@ -12,6 +12,7 @@ from app.models import (
     Booking,
     BookingRequirement,
     BookingTable,
+    Point,
     Roles,
     Slot,
     SlotTable,
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     # add some sample data the first time the db is created
     with Session(engine) as session:
         seeding(session)
+        seed_points(session)
     yield
 
 
@@ -74,6 +76,20 @@ SLOTS = [
     (date(2026, 11, 27), time(19, 0), time(20, 30)),
     (date(2026, 11, 28), time(20, 0), time(21, 30)),
     (date(2026, 11, 29), time(20, 0), time(21, 30)),
+]
+
+POINTS = [
+    # predefined points around Sauze d'Oulx (TO), the only ones a suggested hike can use
+    "Sauze d'Oulx",
+    "Jouvenceaux",
+    "Clotes",
+    "Sportinia",
+    "Monte Genevris",
+    "Monte Triplex",
+    "Colle Basset",
+    "Monte Fraiteve",
+    "Lago Nero",
+    "Lago Laune",
 ]
 
 BOOKINGS = [
@@ -226,6 +242,14 @@ def add_slot_table_occupied_seats(): # pragma: no cover
             ), 0)
             """
         )
+
+
+def seed_points(session: Session): # pragma: no cover
+    # reference data, not sample data: added even without SEED_DATA, and also to a db created before points existed
+    if session.exec(select(Point)).first():
+        return
+    with transaction(session):
+        session.add_all([Point(name=name, predefined=True) for name in POINTS])
 
 
 def seeding(session: Session): # pragma: no cover
