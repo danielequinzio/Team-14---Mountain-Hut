@@ -62,3 +62,10 @@ class UserBookingCreation(SQLModel):
     is_guest: bool = False  # the frontend can tell a guest from a hiker with an account
 
 
+class HikerSearchResult(SQLModel):
+    id: int
+    name: str
+    surname: str
+    email: str | None
+    mobile_number: str
+

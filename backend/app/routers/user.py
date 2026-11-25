@@ -12,12 +12,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, PWD_RESET_EXPIRE_MINUTES, SESSION_COOKIE_SECURE
 from app.database import SessionDep
-from app.models import Booking, CurrentUser, LoginRequest, RegisterRequest, Roles, User, UserPublic, RegisterRequestEmployee
+from app.models import (
+    Booking,
+    CurrentUser,
+    HikerSearchResult,
+    LoginRequest,
+    RegisterRequest,
+    RegisterRequestEmployee,
+    Roles,
+    User,
+    UserPublic,
+)
 from app.services.auth import create_token, get_current_user, hash_password, verify_password
 from app.services.notification import build_account_created, send_account_created, send_pwd_reset
 
@@ -39,6 +50,50 @@ def check_hiker_existence(user: EmployeeOrWarden, session: SessionDep, email: st
         raise HTTPException(status.HTTP_404_NOT_FOUND, "hiker not found")
 
     return hiker
+
+
+@router.get("/hikers/search", response_model=list[HikerSearchResult], status_code=200)
+def search_hikers(
+    user: EmployeeOrWarden,
+    session: SessionDep,
+    q: str = Query(min_length=1, max_length=100),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    search_text = q.strip()
+    if not search_text:
+        return []
+
+    escaped_query = search_text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped_query}%"
+    matches = [
+        User.name.ilike(pattern, escape="\\"),
+        User.surname.ilike(pattern, escape="\\"),
+        (User.name + " " + User.surname).ilike(pattern, escape="\\"),
+        (User.surname + " " + User.name).ilike(pattern, escape="\\"),
+        User.email.ilike(pattern, escape="\\"),
+        User.mobile_number.ilike(pattern, escape="\\"),
+    ]
+
+    phone_characters = set("0123456789+ ()-./")
+    phone_query = "".join(character for character in search_text if character.isdigit())
+    if phone_query and all(character in phone_characters for character in search_text):
+        normalized_phone = User.mobile_number
+        for character in (" ", "-", "+", "(", ")", ".", "/"):
+            normalized_phone = func.replace(normalized_phone, character, "")
+        matches.append(normalized_phone.like(f"%{phone_query}%"))
+
+    statement = (
+        select(User)
+        .where(
+            User.role == Roles.HIKER,
+            User.is_guest.is_(False),
+            or_(*matches),
+        )
+        .order_by(User.surname, User.name, User.id)
+        .limit(limit)
+    )
+    return session.exec(statement).all()
+
 
 @router.post("/registerHiker", response_model=UserBookingCreation, status_code=201)
 def create_hiker_profile(user: EmployeeOrWarden,
