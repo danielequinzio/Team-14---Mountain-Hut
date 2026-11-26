@@ -1,15 +1,15 @@
 from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import select
 
-from app.database import SessionDep
+from app.database import SessionDep, booking_transaction
 from app.models import (
-    CopySlotRequest,
     CurrentUser,
+    CopySlotRequest,
+    CopyWeekScheduleRequest,
     Roles,
     Slot,
     SlotAvailability,
@@ -21,11 +21,16 @@ from app.models import (
     Table,
 )
 
+from app.services.slot import (
+    HUT_TIMEZONE,
+    copy_week_schedule as copy_week_schedule_service,
+    hut_time,
+    slot_start,
+)
 from app.services.user import EmployeeOrWarden
 
 router = APIRouter(prefix="/slot", tags=["slot"])
 management_router = APIRouter(prefix="/slots", tags=["slot management"])
-HUT_TIMEZONE = ZoneInfo("Europe/Rome")
 
 
 @router.get("", response_model=list[SlotAvailability], status_code=200)
@@ -47,25 +52,15 @@ def get_slots(session: SessionDep):
     return [
         SlotAvailability(
             id=slot.id,
-            date=_slot_start(slot).date(),
-            time=_slot_start(slot).time(),
+            date=slot_start(slot).date(),
+            time=slot_start(slot).time(),
             available_seats=available_seats,
         )
         for slot, available_seats in slots.values()
         if available_seats > 0
-        and now <= _slot_start(slot) - timedelta(hours=2)
+        and now <= slot_start(slot) - timedelta(hours=2)
     ]
 
-
-def _hut_time(value: datetime) -> datetime:
-    # sqlite gives the datetime back without its timezone: it is the hut's local time
-    if value.tzinfo is None:
-        return value.replace(tzinfo=HUT_TIMEZONE)
-    return value.astimezone(HUT_TIMEZONE)
-
-
-def _slot_start(slot: Slot) -> datetime:
-    return _hut_time(slot.start_time)
 
 @router.get("/{id}", response_model=SlotDetail, status_code=200)
 def get_slot_info(id: int, session: SessionDep):
@@ -114,9 +109,9 @@ def list_configured_slots(
     slots = session.exec(select(Slot).order_by(Slot.start_time)).all()
     return [
         slot for slot in slots
-        if (date is None or _slot_start(slot).date() == date)
-        and (from_date is None or _slot_start(slot).date() >= from_date)
-        and (to_date is None or _slot_start(slot).date() <= to_date)
+        if (date is None or slot_start(slot).date() == date)
+        and (from_date is None or slot_start(slot).date() >= from_date)
+        and (to_date is None or slot_start(slot).date() <= to_date)
     ]
 
 @management_router.get("/week", response_model=list[Slot], status_code=200)
@@ -132,8 +127,27 @@ def list_week_slots(
      slots = session.exec(select(Slot).order_by(Slot.start_time)).all()
      return [
           slot for slot in slots
-          if week_start <= _slot_start(slot).date() <= week_end
+          if week_start <= slot_start(slot).date() <= week_end
      ]
+
+
+@management_router.post(
+    "/week/copy",
+    response_model=list[Slot],
+    status_code=status.HTTP_201_CREATED,
+)
+def copy_week_schedule(
+    data: CopyWeekScheduleRequest,
+    session: SessionDep,
+    user: EmployeeOrWarden,
+):
+    with booking_transaction(session):
+        copies = copy_week_schedule_service(session, data, user.id)
+
+    for slot in copies:
+        session.refresh(slot)
+    return copies
+
 
 @management_router.get("/{id}", response_model=SlotDetail, status_code=200)
 def get_configured_slot(id: int, session: SessionDep, user: EmployeeOrWarden):
@@ -147,10 +161,10 @@ def create_slot(
     user: EmployeeOrWarden,
 ):
     # SlotCreate already rejects end_time <= start_time (422)
-    start, end = _hut_time(data.start_time), _hut_time(data.end_time)
+    start, end = hut_time(data.start_time), hut_time(data.end_time)
     # two slots overlap when each starts before the other ends: back-to-back slots are allowed
     overlaps = any(
-        _hut_time(existing.start_time) < end and start < _hut_time(existing.end_time)
+        hut_time(existing.start_time) < end and start < hut_time(existing.end_time)
         for existing in session.exec(select(Slot)).all()
     )
     if overlaps:

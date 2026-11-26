@@ -27,6 +27,12 @@ class SlotCreate(SQLModel):
         return value
 
 
+class CopyWeekScheduleRequest(SQLModel):
+    source_week: date
+    target_week: date
+    number_of_weeks: int = Field(gt=0)
+
+
 class SlotTable(SQLModel, table=True):
     # a table that is available in a slot: a slot offers one or more tables
     __tablename__ = "slot_table"

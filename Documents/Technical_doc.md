@@ -15,8 +15,8 @@
   - [Database](#database): [`user`](#user), [`table`](#table), [`slot`](#slot), [`slot_table`](#slot_table), [`booking`](#booking), [`booking_table`](#booking_table), [`booking_requirement`](#booking_requirement), [`pwd_reset`](#pwd_reset)
 - [Backend EndPoint](#backend-endpoint)
   - [Authentication](#authentication)
-  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`GET /availability`](#get-availability), [`POST /booking`](#post-booking), [`GET /booking`](#get-booking), [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`POST /auth/forgot-password`](#post-authforgot-password), [`POST /auth/reset-password`](#post-authreset-password), [`POST /auth/change-password`](#post-authchange-password), [`GET /profileCheck`](#get-profilecheck), [`POST /registerHiker`](#post-registerhiker), [`POST /registerGuest`](#post-registerguest), [`DELETE /guests/{guest_id}`](#delete-guestsguest_id), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy)
-  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingRequirementCreate`](#bookingrequirementcreate-object), [`BookingUpdate`](#bookingupdate-object), [`BookingResponse`](#bookingresponse-object), [`BookingDetails`](#bookingdetails-object), [`AvailabilityResponse`](#availabilityresponse-object), [`RegisterRequest`](#registerrequest-object), [`RegisterRequestEmployee`](#registerrequestemployee-object), [`Guest`](#guest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`UserBookingCreation`](#userbookingcreation-object), [`TokenResponse`](#tokenresponse-object), [`ResetPasswordRequest`](#resetpasswordrequest-object), [`ChangePasswordRequest`](#changepasswordrequest-object)
+  - [Routes](#routes): [`GET /slot`](#get-slot), [`GET /slot/{id}`](#get-slotid), [`GET /availability`](#get-availability), [`POST /booking`](#post-booking), [`GET /booking`](#get-booking), [`PATCH /booking/{booking_id}`](#patch-bookingbooking_id), [`DELETE /booking/{booking_id}`](#delete-bookingbooking_id), [`POST /booking/hiker/{hiker_id}`](#post-bookinghikerhiker_id), [`POST /register`](#post-register), [`POST /login`](#post-login), [`POST /token`](#post-token), [`POST /logout`](#post-logout), [`GET /users/me`](#get-usersme), [`POST /auth/forgot-password`](#post-authforgot-password), [`POST /auth/reset-password`](#post-authreset-password), [`POST /auth/change-password`](#post-authchange-password), [`GET /profileCheck`](#get-profilecheck), [`POST /registerHiker`](#post-registerhiker), [`POST /registerGuest`](#post-registerguest), [`DELETE /guests/{guest_id}`](#delete-guestsguest_id), [`GET /tables`](#get-tables), [`POST /tables`](#post-tables), [`GET /slots`](#get-slots), [`GET /slots/{id}`](#get-slotsid), [`POST /slots`](#post-slots), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy), [`POST /slots/week/copy`](#post-slotsweekcopy)
+  - [Objects](#objects): [`Table`](#table-object), [`TableCreate`](#tablecreate-object), [`Slot`](#slot-object), [`SlotCreate`](#slotcreate-object), [`SlotTablesAdd`](#slottablesadd-object), [`CopySlotRequest`](#copyslotrequest-object), [`CopyWeekScheduleRequest`](#copyweekschedulerequest-object), [`SlotAvailability`](#slotavailability-object), [`SlotDetail`](#slotdetail-object), [`SlotTableInfo`](#slottableinfo-object), [`BookingCreate`](#bookingcreate-object), [`BookingRequirementCreate`](#bookingrequirementcreate-object), [`BookingUpdate`](#bookingupdate-object), [`BookingResponse`](#bookingresponse-object), [`BookingDetails`](#bookingdetails-object), [`AvailabilityResponse`](#availabilityresponse-object), [`RegisterRequest`](#registerrequest-object), [`RegisterRequestEmployee`](#registerrequestemployee-object), [`Guest`](#guest-object), [`LoginRequest`](#loginrequest-object), [`UserPublic`](#userpublic-object), [`UserBookingCreation`](#userbookingcreation-object), [`TokenResponse`](#tokenresponse-object), [`ResetPasswordRequest`](#resetpasswordrequest-object), [`ChangePasswordRequest`](#changepasswordrequest-object)
   - [Errors](#errors)
 
 ## Overview
@@ -377,6 +377,7 @@ Not every branch has all the routes. The last column of the table says where eac
 | POST   | [`/slots`](#post-slots)                                   | Yes, `Employee` or `Warden` | [`SlotCreate`](#slotcreate-object) body                                 | `201` [`Slot`](#slot-object)                                            | [`401`, `403`, `422`](#post-slots-errors)                                     | dev    |
 | POST   | [`/slots/{id}/tables`](#post-slotsidtables)               | Yes, `Employee` or `Warden` | `id` in the path, [`SlotTablesAdd`](#slottablesadd-object) body         | `200` [`SlotDetail`](#slotdetail-object)                                | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidtables-errors)        | dev    |
 | POST   | [`/slots/{id}/copy`](#post-slotsidcopy)                   | Yes, `Employee` or `Warden` | `id` in the path, [`CopySlotRequest`](#copyslotrequest-object) body     | `200` [`SlotDetail`](#slotdetail-object)                                | [`400`, `401`, `403`, `404`, `409`, `422`](#post-slotsidcopy-errors)          | dev    |
+| POST   | [`/slots/week/copy`](#post-slotsweekcopy)                 | Yes, `Employee` or `Warden` | [`CopyWeekScheduleRequest`](#copyweekschedulerequest-object) body       | `201` list of [`Slot`](#slot-object)                                    | [`400`, `401`, `403`, `409`, `422`](#post-slotsweekcopy-errors)                | dev    |
 
 The `/slot` routes are public and are used by the hikers to choose a slot. The `/slots` routes are for the hut staff and show every slot, also the full, closed or past ones.
 
@@ -393,6 +394,7 @@ The `/slot` routes are public and are used by the hikers to choose a slot. The `
 2. Call [`GET /tables`](#get-tables) to get the `id` of the tables. Create any missing table with [`POST /tables`](#post-tables).
 3. Create the slot with [`POST /slots`](#post-slots). The new slot has no tables yet.
 4. Give the slot its tables, either by listing them with [`POST /slots/{id}/tables`](#post-slotsidtables) or by copying them from another slot with [`POST /slots/{id}/copy`](#post-slotsidcopy).
+5. To repeat a complete week, call [`POST /slots/week/copy`](#post-slotsweekcopy) with dates in the source and first destination weeks, plus the number of consecutive destination weeks to generate.
 
 A slot with no tables has no free seats, so it doesn't appear in [`GET /slot`](#get-slot) and hikers can't book it.
 
@@ -755,6 +757,22 @@ The request is refused when:
 
 If the source has no tables, nothing is copied and the answer is still a `200`.
 
+#### `POST /slots/week/copy`
+
+Copies every slot in the week containing `source_week` into `number_of_weeks` consecutive weeks starting with the week containing `target_week`. Either date can be any day of its week; weeks run Monday through Sunday. The target week must be in the future and after the source week. The route answers `201` with the newly created slots and their IDs.
+
+Each copied slot keeps the same weekday, local start/end time, and assigned tables. Its seats start free, and bookings are never copied. Existing slots in each destination week are fully replaced when none of them has a booking. If any destination week contains a booking, the request fails with `409` and leaves all destination weeks unchanged. An empty source week is refused with `400`.
+
+Example request:
+
+```json
+{
+  "source_week": "2030-01-07",
+  "target_week": "2030-02-04",
+  "number_of_weeks": 4
+}
+```
+
 ### Objects
 
 The objects used by the routes, defined in [`models/table.py`](../backend/app/models/table.py), [`models/slot.py`](../backend/app/models/slot.py), [`models/booking.py`](../backend/app/models/booking.py), [`models/booking_requirement.py`](../backend/app/models/booking_requirement.py), [`models/auth.py`](../backend/app/models/auth.py) and [`models/user.py`](../backend/app/models/user.py):
@@ -767,6 +785,7 @@ The objects used by the routes, defined in [`models/table.py`](../backend/app/mo
 | [`SlotCreate`](#slotcreate-object)             | Body of [`POST /slots`](#post-slots)         | -                                              |
 | [`SlotTablesAdd`](#slottablesadd-object)       | Body of [`POST /slots/{id}/tables`](#post-slotsidtables) | -                                  |
 | [`CopySlotRequest`](#copyslotrequest-object)   | Body of [`POST /slots/{id}/copy`](#post-slotsidcopy) | -                                      |
+| [`CopyWeekScheduleRequest`](#copyweekschedulerequest-object) | Body of [`POST /slots/week/copy`](#post-slotsweekcopy) | -                         |
 | [`SlotAvailability`](#slotavailability-object) | Returned by [`GET /slot`](#get-slot)         | [`slot`](#slot), [`slot_table`](#slot_table), [`table`](#table) |
 | [`SlotDetail`](#slotdetail-object)             | Returned by [`GET /slot/{id}`](#get-slotid), [`GET /slots/{id}`](#get-slotsid), [`POST /slots/{id}/tables`](#post-slotsidtables), [`POST /slots/{id}/copy`](#post-slotsidcopy) | [`slot`](#slot) |
 | [`SlotTableInfo`](#slottableinfo-object)       | Inside [`SlotDetail`](#slotdetail-object)    | [`slot_table`](#slot_table), [`table`](#table) |
@@ -889,6 +908,24 @@ The body of [`POST /slots/{id}/copy`](#post-slotsidcopy).
 ```json
 {
   "target_slot_id": 5
+}
+```
+
+#### `CopyWeekScheduleRequest` object
+
+The body of [`POST /slots/week/copy`](#post-slotsweekcopy).
+
+| Field              | Type | Description                                                    |
+|--------------------|------|----------------------------------------------------------------|
+| `source_week`       | date | Any date in the week to copy (weeks run Monday through Sunday) |
+| `target_week`       | date | Any date in the first destination week; must be future and after `source_week` |
+| `number_of_weeks`   | int  | Number of consecutive destination weeks to replace; greater than `0` |
+
+```json
+{
+  "source_week": "2030-01-07",
+  "target_week": "2030-02-04",
+  "number_of_weeks": 4
 }
 ```
 
@@ -1516,6 +1553,20 @@ An unknown email is not an error: the answer is the same `201`.
 | `404` | `Source or target slot not found`                | No slot with the `id` of the path or with `target_slot_id` |
 | `400` | `Source and target slots must differ`            | `target_slot_id` is the `id` of the path                   |
 | `409` | `A table is already assigned to the target slot` | A table of the source is already in the target             |
+
+#### `POST /slots/week/copy` errors
+
+| Code  | Message                                                       | When                                                         |
+|-------|---------------------------------------------------------------|--------------------------------------------------------------|
+| `401` | `Not authenticated`                                           | No cookie or token in the request                            |
+| `401` | `Invalid or expired token`                                    | The cookie or token is not valid                             |
+| `403` | `Not enough permissions`                                      | The user is not an `Employee` or a `Warden`                  |
+| `422` | Automatic                                                     | A request field is missing or invalid, or `number_of_weeks` is not positive |
+| `400` | `The source week has no slots`                                | No slots start in the selected source week                   |
+| `400` | `The target week must be in the future`                       | The selected destination week has already started            |
+| `400` | `The target week must be after the source week`               | The destination week is not after the source week            |
+| `409` | `A target week contains bookings and cannot be replaced`      | At least one destination week has a booking; no changes are made |
+| `409` | `The copied schedule overlaps an existing slot`               | A copied slot overlaps a slot outside the destination weeks  |
 
 [Back to top](#mountain-hut)
 

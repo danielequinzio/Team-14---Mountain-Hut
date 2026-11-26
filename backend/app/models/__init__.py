@@ -10,7 +10,15 @@ from app.models.booking import (
     TableSeats,
 )
 from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
-from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
+from app.models.slot import (
+    CopyWeekScheduleRequest,
+    Slot,
+    SlotAvailability,
+    SlotCreate,
+    SlotDetail,
+    SlotTable,
+    SlotTableInfo,
+)
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
 from app.models.user import (
     CurrentUser,
@@ -33,6 +41,7 @@ __all__ = [
     "ChangePasswordRequest",
     "BookingRequirement",
     "BookingRequirementCreate",
+    "CopyWeekScheduleRequest",
     "CurrentUser",
     "LoginRequest",
     "RegisterRequest",
