@@ -653,6 +653,10 @@ export async function findHikerByEmail(email) {
   return data;
 }
 
+export async function searchHikers(text) {
+  return request(`/hikers/search?q=${encodeURIComponent(text)}&limit=10`);
+}
+
 // POST /booking/hiker/{id}: staff book a table on behalf of a hiker or guest.
 export function bookForHiker(hikerId, { date, time, partySize, requirements = [] }) {
   return staffRequest(

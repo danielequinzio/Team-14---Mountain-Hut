@@ -1,15 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
-import { bookForHiker, deleteGuest, findHikerByEmail, getAvailability } from "../api";
+import { bookForHiker, deleteGuest, getAvailability, searchHikers } from "../api";
 import "./ReserveForHiker.css";
 
 // MH-07: an employee enters a reservation for a hiker (phone, in person...).
-// Step 1: who (find by email, or arrive from "Create hiker" with the profile).
+// Step 1: who (search by name, email or phone as you type, or arrive from
+// "Create hiker" with the profile).
 // Step 2: when, how many, requirements. Step 3: review and confirm.
 
 const STEPS = ["Hiker", "Reservation", "Confirm"];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_QUERY_LENGTH = 2; // characters typed before the search starts
+const SEARCH_DELAY_MS = 250; // wait for a pause in typing before calling the backend
+
+function hikerName(hiker) {
+  return [hiker.name, hiker.surname].filter(Boolean).join(" ");
+}
+
+// "Anna Rossi (anna@example.com)", or just the email / name if the other is missing
+function hikerLabel(hiker) {
+  const name = hikerName(hiker);
+  if (name && hiker.email) return `${name} (${hiker.email})`;
+  return name || hiker.email || `Hiker #${hiker.id}`;
+}
 
 function parseKey(dateKey) {
   return new Date(`${dateKey}T00:00:00`);
@@ -59,10 +72,12 @@ export default function ReserveForHiker() {
   const [leaveError, setLeaveError] = useState("");
 
   // step 1
-  const [email, setEmail] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [notFound, setNotFound] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [listOpen, setListOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // step 2
   const today = useMemo(() => {
@@ -83,6 +98,46 @@ export default function ReserveForHiker() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [result, setResult] = useState(null);
+
+  const trimmedQuery = query.trim();
+  const queryIsLongEnough = trimmedQuery.length >= MIN_QUERY_LENGTH;
+
+  // Autocomplete: search while the staff member types, after a short pause.
+  // `cancelled` drops the answer of an outdated search, so a slow earlier request
+  // can never overwrite the results of what is typed now.
+  useEffect(() => {
+    if (step !== 0 || hiker) return undefined;
+    if (!queryIsLongEnough) {
+      setResults([]);
+      setSearching(false);
+      setSearchError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const found = await searchHikers(trimmedQuery);
+        if (cancelled) return;
+        // the backend already leaves guests out of /hikers/search
+        setResults(found ?? []);
+        setActiveIndex(-1);
+        setSearchError("");
+      } catch (err) {
+        if (cancelled) return;
+        setResults([]);
+        setSearchError(err.message || "Could not look the hiker up.");
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, SEARCH_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmedQuery, queryIsLongEnough, step, hiker]);
 
   useEffect(() => {
     if (step !== 1 || Object.keys(availability).length > 0) return undefined;
@@ -122,30 +177,31 @@ export default function ReserveForHiker() {
     partySize >= 1 &&
     (maxSeats === null || partySize <= maxSeats);
 
-  async function findHiker(event) {
-    event.preventDefault();
-    const value = email.trim();
-    setNotFound(false);
-    setSearchError("");
+  function chooseHiker(found) {
+    setHiker({ id: found.id, email: found.email, label: hikerLabel(found), isGuest: Boolean(found.is_guest) });
+    setListOpen(false);
+    setStep(1); // chosen: straight to the reservation details
+  }
 
-    if (!EMAIL_PATTERN.test(value)) {
-      setSearchError("Enter a valid email address.");
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const found = await findHikerByEmail(value);
-      if (!found) {
-        setNotFound(true);
-        return;
-      }
-      setHiker({ id: found.id, email: found.email, label: found.email, isGuest: found.is_guest });
-      setStep(1); // found: straight to the reservation details
-    } catch (err) {
-      setSearchError(err.message || "Could not look the hiker up.");
-    } finally {
-      setSearching(false);
+  function handleSearchKeyDown(event) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (results.length === 0) return;
+      setListOpen(true);
+      setActiveIndex((current) => (current + 1) % results.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (results.length === 0) return;
+      setListOpen(true);
+      setActiveIndex((current) => (current <= 0 ? results.length - 1 : current - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      // with a single match there is nothing to choose: Enter takes it
+      const picked = results[activeIndex] ?? (results.length === 1 ? results[0] : null);
+      if (picked && listOpen) chooseHiker(picked);
+    } else if (event.key === "Escape") {
+      setListOpen(false);
+      setActiveIndex(-1);
     }
   }
 
@@ -177,9 +233,10 @@ export default function ReserveForHiker() {
     // clear the saved page state too, so a refresh cannot bring the removed guest back
     navigate("/staff/reserve", { replace: true, state: null });
     setHiker(null);
-    setEmail("");
-    setNotFound(false);
+    setQuery("");
+    setResults([]);
     setSearchError("");
+    setActiveIndex(-1);
     setStep(0);
   }
 
@@ -243,9 +300,10 @@ export default function ReserveForHiker() {
   function startOver() {
     setResult(null);
     setHiker(null);
-    setEmail("");
-    setNotFound(false);
+    setQuery("");
+    setResults([]);
     setSearchError("");
+    setActiveIndex(-1);
     setSelectedDate(null);
     setSelectedSlotIndex("");
     setPartySizeInput("2");
@@ -415,26 +473,75 @@ export default function ReserveForHiker() {
             ) : (
               <>
               <p className="rh-choice-title">Existing hiker</p>
-              <form className="rh-search" onSubmit={findHiker} noValidate>
-                <label className="rh-field">
-                  <span>Find them by the email they registered with</span>
+              <div className="rh-search">
+                <div className="rh-field">
+                  <span id="rh-hiker-search-label">Search by name, email or phone number</span>
                   <div className="rh-search-row">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(event) => {
-                        setEmail(event.target.value);
-                        setNotFound(false);
-                        setSearchError("");
-                      }}
-                      placeholder="hiker@example.com"
-                      autoComplete="off"
-                    />
-                    <button type="submit" className="rh-btn rh-btn--primary" disabled={searching}>
-                      {searching ? "Searching..." : "Find hiker"}
-                    </button>
+                <div className="rh-suggest">
+                  <input
+                    id="rh-hiker-search"
+                    aria-labelledby="rh-hiker-search-label"
+                    type="text"
+                    role="combobox"
+                    aria-expanded={listOpen && queryIsLongEnough}
+                    aria-controls="rh-hiker-results"
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      activeIndex >= 0 ? `rh-hiker-option-${activeIndex}` : undefined
+                    }
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setListOpen(true);
+                      setActiveIndex(-1);
+                    }}
+                    onFocus={() => setListOpen(true)}
+                    onBlur={() => setListOpen(false)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Start typing, e.g. Rossi, anna@… or 347…"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+
+                  {listOpen && queryIsLongEnough && results.length > 0 && (
+                    <ul className="rh-suggest-list" id="rh-hiker-results" role="listbox">
+                      {results.map((candidate, index) => (
+                        <li
+                          key={candidate.id}
+                          id={`rh-hiker-option-${index}`}
+                          role="option"
+                          aria-selected={index === activeIndex}
+                          className={`rh-suggest-item ${index === activeIndex ? "active" : ""}`}
+                          // mousedown, not click: the input would lose focus and close the list first
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            chooseHiker(candidate);
+                          }}
+                          onMouseEnter={() => setActiveIndex(index)}
+                        >
+                          <strong>{hikerName(candidate) || candidate.email}</strong>
+                          <span className="rh-muted">
+                            {[hikerName(candidate) ? candidate.email : null, candidate.mobile_number]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                   </div>
-                </label>
+                </div>
+
+                <p className="rh-muted rh-suggest-status" role="status" aria-live="polite">
+                  {!queryIsLongEnough
+                    ? `Type at least ${MIN_QUERY_LENGTH} characters.`
+                    : searching
+                      ? "Searching…"
+                      : results.length > 0
+                        ? `${results.length} ${results.length === 1 ? "hiker" : "hikers"} found. Pick one to continue.`
+                        : ""}
+                </p>
 
                 {searchError && (
                   <div className="rh-error" role="alert">
@@ -442,16 +549,16 @@ export default function ReserveForHiker() {
                   </div>
                 )}
 
-                {notFound && (
+                {queryIsLongEnough && !searching && !searchError && results.length === 0 && (
                   <div className="rh-notfound" role="status">
-                    <strong>No hiker has this email.</strong>
+                    <strong>No hiker matches “{trimmedQuery}”.</strong>
                     <p>
-                      Create a profile first: a full hiker with an account, or a quick guest with
-                      just a name.
+                      Check the spelling, or create a profile first: a full hiker with an account,
+                      or a quick guest with just a name.
                     </p>
                   </div>
                 )}
-              </form>
+              </div>
 
               <div className="rh-or">or</div>
 
