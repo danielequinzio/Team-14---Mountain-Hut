@@ -119,6 +119,21 @@ def list_configured_slots(
         and (to_date is None or _slot_start(slot).date() <= to_date)
     ]
 
+@management_router.get("/week", response_model=list[Slot], status_code=200)
+def list_week_slots(
+     session: SessionDep,
+     user: EmployeeOrWarden,
+     date: date = Query(),
+):
+     # the week goes from the monday to the sunday of the given date
+     week_start = date - timedelta(days=date.weekday())
+     week_end = week_start + timedelta(days=6)
+
+     slots = session.exec(select(Slot).order_by(Slot.start_time)).all()
+     return [
+          slot for slot in slots
+          if week_start <= _slot_start(slot).date() <= week_end
+     ]
 
 @management_router.get("/{id}", response_model=SlotDetail, status_code=200)
 def get_configured_slot(id: int, session: SessionDep, user: EmployeeOrWarden):

@@ -16,6 +16,7 @@ from app.routers.slot import (
     create_slot,
     get_configured_slot,
     list_configured_slots, copy_slot_tables,
+    list_week_slots,
 )
 
 
@@ -64,6 +65,10 @@ def make_slot(slot_id, day=1, hour=12):
 def list_slots(session, date=None, from_date=None, to_date=None):
     # the query params must be passed explicitly: their defaults are Query objects, not None
     return list_configured_slots(session, USER, date=date, from_date=from_date, to_date=to_date)
+
+def week_slots(session, date):
+    # the query param must be passed explicitly: its default is a Query object
+    return list_week_slots(session, USER, date=date)
 
 
 # ---------- GET /slots ----------
@@ -164,6 +169,49 @@ def test_get_configured_slot_raises_for_unknown_slot():
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Slot not found"
+
+
+# ---------- GET /slots/week ----------
+
+def test_list_week_slots_returns_monday_to_sunday_only():
+    # Jan 7 2030 is a monday: the week is Jan 7 - Jan 13
+    slots = [make_slot(day, day=day) for day in (6, 7, 10, 13, 14)]
+    session = FakeSession(results=[slots])
+
+    result = week_slots(session, date(2030, 1, 10))
+
+    assert [s.id for s in result] == [7, 10, 13]
+
+
+@pytest.mark.parametrize("day", [7, 10, 13], ids=["monday", "wednesday", "sunday"])
+def test_list_week_slots_any_day_gives_the_same_week(day):
+    slots = [make_slot(d, day=d) for d in (6, 7, 13, 14)]
+    session = FakeSession(results=[slots])
+
+    assert [s.id for s in week_slots(session, date(2030, 1, day))] == [7, 13]
+
+
+def test_list_week_slots_week_across_two_years():
+    # Jan 1 2030 is a tuesday: the week is Dec 31 2029 - Jan 6 2030
+    def slot_on(slot_id, year, month, day):
+        start = datetime(year, month, day, 12, 0, tzinfo=HUT_TIMEZONE)
+        return Slot(id=slot_id, start_time=start, end_time=start.replace(hour=13), created_by=5)
+
+    slots = [
+        slot_on(1, 2029, 12, 30),
+        slot_on(2, 2029, 12, 31),
+        slot_on(3, 2030, 1, 6),
+        slot_on(4, 2030, 1, 7),
+    ]
+    session = FakeSession(results=[slots])
+
+    assert [s.id for s in week_slots(session, date(2030, 1, 1))] == [2, 3]
+
+
+def test_list_week_slots_returns_empty_when_week_has_no_slots():
+    session = FakeSession(results=[[make_slot(1, day=1)]])
+
+    assert week_slots(session, date(2030, 1, 10)) == []
 
 
 # ---------- POST /slots ----------
