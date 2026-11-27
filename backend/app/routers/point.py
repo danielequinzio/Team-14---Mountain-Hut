@@ -48,3 +48,15 @@ def create_custom_point(
             "A point of interest with this name already exists: choose it instead",
         )
     return _save_point(session, data.name, predefined=False)
+
+
+@router.get("", response_model=list[PointPublic], status_code=status.HTTP_200_OK)
+def get_points(
+    session: SessionDep,
+    user: Annotated[CurrentUser, Depends(require_role(Roles.HIKER, Roles.EMPLOYEE, Roles.WARDEN))],
+):
+    # any logged-in user: only the points of interest, by name
+    points = session.exec(
+        select(Point).where(Point.predefined == True).order_by(func.lower(Point.name))  # noqa: E712
+    ).all()
+    return [PointPublic.model_validate(point) for point in points]

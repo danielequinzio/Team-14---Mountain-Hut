@@ -12,6 +12,8 @@ from app.models import (
     Booking,
     BookingRequirement,
     BookingTable,
+    Hike,
+    HikePoint,
     Point,
     Roles,
     Slot,
@@ -28,6 +30,7 @@ from app.services.auth import hash_password
 async def lifespan(app: FastAPI):
     drop_unused_salt_column()
     drop_username_unique_constraint()
+    migrate_hike_table()
     SQLModel.metadata.create_all(engine)  # creates db + table on startup
     add_slot_table_occupied_seats()
     add_user_profile_columns()
@@ -37,6 +40,7 @@ async def lifespan(app: FastAPI):
     with Session(engine) as session:
         seeding(session)
         seed_points(session)
+        seed_hikes(session)  # after seed_points: the hikes go through the predefined points
     yield
 
 
@@ -92,6 +96,16 @@ POINTS = [
     "Lago Laune",
 ]
 
+HIKES = [
+    # name, destination, average duration in minutes, points in the order they are passed
+    ("Sportinia loop", "Sportinia", 180, ["Sauze d'Oulx", "Clotes", "Sportinia"]),
+    ("Lago Nero", "Lago Nero", 300, ["Sauze d'Oulx", "Sportinia", "Lago Nero"]),
+    ("Monte Genevris", "Monte Genevris", 360, ["Sauze d'Oulx", "Sportinia", "Monte Genevris"]),
+    ("Colle Basset and Monte Fraiteve", "Monte Fraiteve", 420,
+     ["Sauze d'Oulx", "Sportinia", "Colle Basset", "Monte Fraiteve"]),
+    ("Lago Laune", "Lago Laune", 360, ["Jouvenceaux", "Sauze d'Oulx", "Monte Triplex", "Lago Laune"]),
+]
+
 BOOKINGS = [
     # username, slot index, party size, [(table number, seats booked)], requirements
     ("anna.rossi", 0, 4, [(1, 4)], [(True, "1 peanut allergy"), (False, "1 vegan")]),
@@ -103,6 +117,48 @@ BOOKINGS = [
     ("paolo.bianchi", 6, 2, [(6, 2)], []),
     ("anna.rossi", 7, 4, [(8, 4)], [(False, "2 vegetarians")]),
 ]
+
+
+def migrate_hike_table(): # pragma: no cover
+    # older dbs have start_time/expected_arrival NOT NULL and no duration_minutes; sqlite can't alter
+    # a column, so the table is rebuilt keeping the hikers' hikes. The old suggested hikes (seeded with
+    # fixed times) are dropped with their points: seed_hikes adds them again with a duration
+    inspector = inspect(engine)
+    if not inspector.has_table("hike"):
+        return
+    if "duration_minutes" in {column["name"] for column in inspector.get_columns("hike")}:
+        return
+
+    columns = "id, hiker_id, name, destination_name, start_time, expected_arrival, arrived, suggested"
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        if inspector.has_table("hike_point"):
+            connection.exec_driver_sql(
+                "DELETE FROM hike_point WHERE hike_id IN (SELECT id FROM hike WHERE suggested = 1)"
+            )
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE hike_new (
+                id INTEGER NOT NULL PRIMARY KEY,
+                hiker_id INTEGER REFERENCES user (id),
+                name VARCHAR NOT NULL,
+                destination_name VARCHAR NOT NULL,
+                start_time DATETIME,
+                expected_arrival DATETIME,
+                duration_minutes INTEGER,
+                arrived BOOLEAN NOT NULL,
+                suggested BOOLEAN NOT NULL,
+                CONSTRAINT ck_hike_arrival_after_start CHECK (expected_arrival > start_time),
+                CONSTRAINT ck_hike_duration_positive CHECK (duration_minutes > 0)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            f"INSERT INTO hike_new ({columns}) SELECT {columns} FROM hike WHERE suggested = 0"
+        )
+        connection.exec_driver_sql("DROP TABLE hike")
+        connection.exec_driver_sql("ALTER TABLE hike_new RENAME TO hike")
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 def drop_unused_salt_column(): # pragma: no cover
@@ -250,6 +306,22 @@ def seed_points(session: Session): # pragma: no cover
         return
     with transaction(session):
         session.add_all([Point(name=name, predefined=True) for name in POINTS])
+
+
+def seed_hikes(session: Session): # pragma: no cover
+    # popular suggested hikes: reference data like the points, added even without SEED_DATA, only once.
+    # only suggested hikes count: hikes made through the api are never suggested
+    if session.exec(select(Hike).where(Hike.suggested == True)).first():  # noqa: E712
+        return
+    points = {point.name: point for point in session.exec(select(Point).where(Point.predefined == True))}  # noqa: E712
+    with transaction(session):
+        for name, destination, duration_minutes, stops in HIKES:
+            # no start/arrival: a suggested hike only says how long it takes on average
+            hike = Hike(name=name, destination_name=destination, duration_minutes=duration_minutes,
+                        suggested=True)
+            session.add(hike)
+            session.flush()  # gives the hike its id, needed by hike_point
+            session.add_all([HikePoint(hike_id=hike.id, point_id=points[stop].id) for stop in stops])
 
 
 def seeding(session: Session): # pragma: no cover
