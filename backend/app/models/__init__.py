@@ -10,7 +10,7 @@ from app.models.booking import (
     TableSeats,
 )
 from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
-from app.models.hike import Hike, HikePoint, Point
+from app.models.hike import Hike, HikeCreate, HikePoint, HikePublic, Point, PointCreate, PointPublic
 from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
 from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset, UserBookingCreation, Guest
@@ -26,8 +26,12 @@ __all__ = [
     "BookingRequirementCreate",
     "CurrentUser",
     "Hike",
+    "HikeCreate",
     "HikePoint",
+    "HikePublic",
     "Point",
+    "PointCreate",
+    "PointPublic",
     "LoginRequest",
     "RegisterRequest",
     "ResetData",

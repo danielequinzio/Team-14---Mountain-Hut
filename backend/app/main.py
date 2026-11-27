@@ -19,7 +19,7 @@ from app.models import (
     Table,
     User,
 )
-from app.routers import auth, availability, slot, booking, tables, user
+from app.routers import auth, availability, slot, booking, hike, tables, user, point
 from app.config import CORS_ORIGINS, DATA_SEED
 from app.services.auth import hash_password
 
@@ -341,7 +341,8 @@ app.include_router(tables.router)
 app.include_router(auth.router)
 app.include_router(booking.router)
 app.include_router(availability.router)
-
+app.include_router(hike.router)
+app.include_router(point.router)
 app.include_router(user.router)
 
 
