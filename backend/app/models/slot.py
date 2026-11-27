@@ -63,4 +63,5 @@ class SlotDetail(SQLModel):
     start_time: datetime
     end_time: datetime
     created_by: int
+    menu_id: int | None = None    
     tables: list[SlotTableInfo]

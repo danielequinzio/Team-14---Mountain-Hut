@@ -94,7 +94,8 @@ def get_slot_info(id: int, session: SessionDep):
             tables=tables,
             start_time=slot.start_time,
             end_time=slot.end_time,
-            created_by = slot.created_by
+            created_by = slot.created_by,
+            menu_id=slot.menu_id
         )
 
 

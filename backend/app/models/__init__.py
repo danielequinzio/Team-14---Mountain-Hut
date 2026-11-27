@@ -10,7 +10,7 @@ from app.models.booking import (
     TableSeats,
 )
 from app.models.booking_requirement import BookingRequirement, BookingRequirementCreate
-from app.models.menu import Menu, PublicMenu
+from app.models.menu import Menu, MenuCreate, PublicMenu
 from app.models.slot import Slot, SlotAvailability, SlotCreate, SlotDetail, SlotTable, SlotTableInfo
 from app.models.table import CopySlotRequest, SlotTablesAdd, Table, TableCreate
 from app.models.user import CurrentUser, ResetData, Roles, User, UserPublic, pwd_reset, UserBookingCreation, Guest
@@ -27,6 +27,7 @@ __all__ = [
     "CurrentUser",
     "LoginRequest",
     "Menu",
+    "MenuCreate",
     "PublicMenu",
     "RegisterRequest",
     "ResetData",

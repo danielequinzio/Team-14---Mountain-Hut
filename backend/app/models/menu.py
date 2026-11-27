@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
+from pydantic import field_validator
 
 
 class Menu(SQLModel, table=True):
@@ -13,3 +14,16 @@ class Menu(SQLModel, table=True):
 class PublicMenu(SQLModel):
     id: int
     text_menu: str
+
+
+class MenuCreate(SQLModel):
+    slot_id: int                              # the slot that will serve this menu
+    text_menu: str = Field(max_length=2000)   # markdown: bold, italic, lists, sub-lists
+    predefined: bool = False                  # checkbox "add to predefined menus"
+
+    @field_validator("text_menu")
+    def not_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("text_menu must not be empty")
+        return value
